@@ -1,0 +1,55 @@
+cabal-version:      3.0
+name:               ensemble
+version:            0.1.0.0
+license:            MIT
+license-file:       LICENSE
+author:             Joe Betz
+maintainer:         joebetz91@gmail.com
+category:           Sound
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  Ensemble
+                    , Ensemble.Engine
+                    , Ensemble.Soundfont
+    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Gen
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Midi
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Settings
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Synth
+    build-depends:    base
+                    , bindings-DSL
+                    , clap
+                    , containers
+                    , portaudio
+                    , stm
+    hs-source-dirs:   src
+    default-language: GHC2021
+    include-dirs:     fluidsynth/include
+    extra-libraries:  fluidsynth 
+                    , portaudio
+    extra-lib-dirs:   C:\Users\joebe\Projects\ensemble\lib
+
+executable ensemble
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base
+                    , ensemble
+    hs-source-dirs:   app
+    default-language: GHC2021
+    ghc-options:      -threaded
+
+test-suite ensemble-test
+    import:           warnings
+    default-language: GHC2021
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+
+    build-depends:    base
+                    , ensemble

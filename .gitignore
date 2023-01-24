@@ -1,0 +1,5 @@
+dist-newstyle
+lib
+soundfonts
+*.dll
+ghcid.txt

@@ -10,7 +10,7 @@
 >
 > - Ensemble by Jean-Jacques Goldman
 
-Audio plugins and realtime constraints present an immense wall to audio production in high-level languages. This project aims to surmount them.
+Obtuse audio plugin framework and specious realtime constraints present an immense wall to music production in high-level languages. This project aims to surmount them.
 
 # Implementation status
 

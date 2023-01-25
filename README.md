@@ -1,14 +1,14 @@
 # ensemble
 
-> Je ne me souviens que d'un mur immense<br>
+> <i>Je ne me souviens que d'un mur immense<br>
 > Mais nous étions ensemble<br>
 > Ensemble, nous l'avons franchi<br>
 >
 > I only remember an immense wall<br>
 > But we were  together<br>
-> Together we surmounted it<br>
+> Together we surmounted it<br></i>
 >
-> - Ensemble by Jean-Jacques Goldman
+> Ensemble by Jean-Jacques Goldman
 
 Obtuse audio plugin framework and specious realtime constraints present an immense wall to music production in high-level languages. This project aims to surmount them.
 
@@ -19,10 +19,10 @@ Short term goals are to support MIDI sequencing of Soundfonts and CLAP instrumen
 ## Modules
 
 - [ ] sequencer
-- [ ] Soundfont player
-- [ ] CLAP plugin host
+- [ ] Soundfont player (via [fluidsynth](https://www.fluidsynth.org/))
+- [ ] CLAP plugin host (via [clap-hs](https://github.com/JBetz/clap-hs))
 - [ ] VST plugin host
-- [ ] audio I/O
+- [ ] audio I/O (via [portaudio](http://www.portaudio.com/))
 - [ ] MIDI device routing
 
 ## Platforms

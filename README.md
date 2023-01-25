@@ -1,12 +1,12 @@
 # ensemble
 
-> Je ne me souviens que d'un mur immense
-> Mais nous étions ensemble
-> Ensemble, nous l'avons franchi
+> Je ne me souviens que d'un mur immense<br>
+> Mais nous étions ensemble<br>
+> Ensemble, nous l'avons franchi<br>
 >
-> I only remember an immense wall
-> But we were  together
-> Together we surmounted it
+> I only remember an immense wall<br>
+> But we were  together<br>
+> Together we surmounted it<br>
 >
 > - Ensemble by Jean-Jacques Goldman
 

@@ -1,6 +1,16 @@
 # ensemble
 
-A modular audio engine for building DAWs.
+> Je ne me souviens que d'un mur immense
+> Mais nous étions ensemble
+> Ensemble, nous l'avons franchi
+>
+> I only remember an immense wall
+> But we were  together
+> Together we surmounted it
+>
+> - Ensemble by Jean-Jacques Goldman
+
+Audio plugins and realtime constraints present an immense wall to audio production in high-level languages. This project aims to surmount them.
 
 # Implementation status
 

@@ -2,7 +2,6 @@
 
 module Ensemble.Engine where
 
-import Clap.Interface.AudioBuffer
 import Clap.Interface.Events
 import Clap.Interface.Host
 import Clap.Host (PluginHost (..), ClapId)
@@ -68,9 +67,13 @@ createEngine hostConfig = do
         , engine_eventBuffer = eventBuffer
         }
 
-pushEvent :: Destination -> Engine -> Event -> IO ()
-pushEvent destination engine event =
+pushEvent :: Engine -> Destination -> Event -> IO ()
+pushEvent engine destination event =
     modifyIORef' (engine_eventBuffer engine) (<> [(destination, event)])
+
+pushEvents :: Engine -> [(Destination, Event)] -> IO ()
+pushEvents engine events =
+    modifyIORef' (engine_eventBuffer engine) (<> events)
 
 start :: Engine -> IO (Maybe Error)
 start engine = do
@@ -93,50 +96,54 @@ start engine = do
                     writeIORef (engine_audioStream engine) (Just stream)
                     setState engine StateRunning
                     let pluginHost = engine_pluginHost engine
-                    CLAP.setPorts pluginHost (Data32 $ engine_inputs engine) (Data32 $ engine_outputs engine)
                     CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
                     startStream stream
             
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
-    let soundfontPlayer = engine_soundfontPlayer engine 
-    let clapHost = engine_pluginHost engine
-    
-    -- Receive inputs
-    unless (inputPtr == nullPtr) $ do 
-        input <- peekArray (fromIntegral $ numberOfInputSamples * 2) inputPtr
-        let (leftInput, rightInput) = partition (\(i, _) -> even (i * 2)) (zip [0 :: Int ..] input)
-        [!leftInputBuffer, !rightInputBuffer] <- peekArray 2 $ engine_inputs engine
-        pokeArray leftInputBuffer (snd <$> leftInput)
-        pokeArray rightInputBuffer (snd <$> rightInput)    
-        
-    -- Generate outputs
-    steadyTime <- readIORef (engine_steadyTime engine)
-    CLAP.processBegin clapHost (fromIntegral numberOfInputSamples) steadyTime
-    eventBuffer <- readIORef (engine_eventBuffer engine)
-    for_ eventBuffer $ \(destination, event) ->
-        case destination of
-            SoundfontPlayer soundfontId -> SF.processEvent soundfontPlayer soundfontId event
-            ClapPlugin pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
-    writeIORef (engine_eventBuffer engine) []
-    SF.process soundfontPlayer
-    CLAP.process clapHost
-    
-    -- Send outputs
-    unless (outputPtr == nullPtr) $ do 
-        [leftOutputBuffer, rightOutputBuffer] <- peekArray 2 $ engine_outputs engine
-        leftOutputs <- peekArray (fromIntegral numberOfInputSamples) leftOutputBuffer
-        rightOutputs <- peekArray (fromIntegral numberOfInputSamples) rightOutputBuffer
-        let !output = interleave leftOutputs rightOutputs
-        pokeArray outputPtr output
-
-    -- Return status
+    receiveInputs engine numberOfInputSamples inputPtr   
+    generateOutputs engine numberOfInputSamples
+    sendOutputs engine numberOfInputSamples outputPtr
     modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
     state <- readIORef (engine_state engine)
     pure $ case state of
         StateRunning -> PortAudio.Continue
         StateStopping -> PortAudio.Complete
         StateStopped -> PortAudio.Abort
+
+receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
+receiveInputs engine numberOfInputSamples inputPtr = 
+    unless (inputPtr == nullPtr) $ do 
+        input <- peekArray (fromIntegral $ numberOfInputSamples * 2) inputPtr
+        let (leftInput, rightInput) = partition (\(i, _) -> even (i * 2)) (zip [0 :: Int ..] input)
+        [!leftInputBuffer, !rightInputBuffer] <- peekArray 2 $ engine_inputs engine
+        pokeArray leftInputBuffer (snd <$> leftInput)
+        pokeArray rightInputBuffer (snd <$> rightInput) 
+
+generateOutputs :: Engine -> CULong -> IO ()
+generateOutputs engine numberOfInputSamples = do
+    let soundfontPlayer = engine_soundfontPlayer engine 
+    let clapHost = engine_pluginHost engine
+    steadyTime <- readIORef (engine_steadyTime engine)
+    eventBuffer <- readIORef (engine_eventBuffer engine)
+    CLAP.processBeginAll clapHost (fromIntegral numberOfInputSamples) steadyTime
+    for_ eventBuffer $ \(destination, event) ->
+        case destination of
+            SoundfontPlayer soundfontId -> SF.processEvent soundfontPlayer soundfontId event
+            ClapPlugin pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
+    writeIORef (engine_eventBuffer engine) []
+    (_sfDry, _sfWet) <- SF.process soundfontPlayer
+    CLAP.processAll clapHost
+    pure ()
+
+sendOutputs :: Engine -> CULong -> Ptr CFloat -> IO () 
+sendOutputs engine numberOfInputSamples outputPtr =
+    unless (outputPtr == nullPtr) $ do 
+        [leftOutputBuffer, rightOutputBuffer] <- peekArray 2 $ engine_outputs engine
+        leftOutputs <- peekArray (fromIntegral numberOfInputSamples) leftOutputBuffer
+        rightOutputs <- peekArray (fromIntegral numberOfInputSamples) rightOutputBuffer
+        let !output = interleave leftOutputs rightOutputs
+        pokeArray outputPtr output
 
 stop :: Engine -> IO (Maybe Error)
 stop engine = do

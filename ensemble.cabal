@@ -16,6 +16,7 @@ library
     import:           warnings
     exposed-modules:  Ensemble
                     , Ensemble.Engine
+                    , Ensemble.Sequencer
                     , Ensemble.Soundfont
     other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
                     , Ensemble.Soundfont.FluidSynth.Foreign.Gen

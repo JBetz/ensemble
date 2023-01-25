@@ -26,7 +26,8 @@ data SoundfontPlayer = SoundfontPlayer
     }
 
 data Soundfont = Soundfont
-    { soundfont_filePath :: FilePath 
+    { soundfont_id :: SoundfontId
+    , soundfont_filePath :: FilePath 
     , soundfont_handle :: FluidSoundfont
     } deriving (Show)
 
@@ -64,10 +65,11 @@ loadSoundfont player filePath resetPresets = do
         soundfontId <- c'fluid_synth_sfload synth cFilePath (fromBool resetPresets)
         handle <- c'fluid_synth_get_sfont_by_id synth soundfontId
         let soundfont = Soundfont 
-                { soundfont_filePath = filePath
+                { soundfont_id = SoundfontId (fromIntegral soundfontId)
+                , soundfont_filePath = filePath
                 , soundfont_handle = handle
                 }
-        modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (SoundfontId $ fromIntegral soundfontId)soundfont 
+        modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
         pure soundfont
 
 processEvent :: SoundfontPlayer -> SoundfontId -> Event -> IO ()
@@ -86,16 +88,16 @@ processEvent player _soundfontId = \case
     MidiSysex _ -> pure ()
     Midi2 _ -> pure ()
 
-process :: SoundfontPlayer -> IO ()
+process :: SoundfontPlayer -> IO ([Float], [Float])
 process player = do
     let synth = soundfontPlayer_synth player
         frameCount = undefined
-        effectChannelCount = undefined
+        effectChannelCount = 2
         effectBuffers = undefined
-        dryChannelCount = undefined
+        dryChannelCount = 2
         dryBuffers = undefined
     _ <- c'fluid_synth_process synth frameCount effectChannelCount effectBuffers dryChannelCount dryBuffers
-    pure ()
+    pure (effectBuffers, dryBuffers)
 
 noteOn :: SoundfontPlayer -> Int16 -> Int16 -> Double -> IO ()
 noteOn player channel key velocity = do

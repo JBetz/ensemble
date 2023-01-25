@@ -15,7 +15,9 @@ common warnings
 library
     import:           warnings
     exposed-modules:  Ensemble
+                    , Ensemble.API
                     , Ensemble.Engine
+                    , Ensemble.Handler
                     , Ensemble.Sequencer
                     , Ensemble.Soundfont
     other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
@@ -24,7 +26,9 @@ library
                     , Ensemble.Soundfont.FluidSynth.Foreign.Settings
                     , Ensemble.Soundfont.FluidSynth.Foreign.Synth
     build-depends:    base
+                    , aeson
                     , bindings-DSL
+                    , bytestring
                     , clap
                     , containers
                     , portaudio

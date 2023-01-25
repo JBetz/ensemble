@@ -1,10 +1,19 @@
 module Main where
 
+import Control.Monad
 import Ensemble
 
 main :: IO ()
 main = do
   sequencer <- createSequencer
-  let player = (engine_soundfontPlayer . sequencer_engine) sequencer
-  void $ loadSoundfont player "soundfonts\\SGM-v2.01-NicePianosGuitarsBass-V1.2.sf2" True
-
+  forever $ do
+    maybeCommand <- getCommand
+    case maybeCommand of
+        Right command -> do
+            putStr ">>\t"
+            print command
+            result <- handle sequencer command
+            putStr "<<\t"
+            print result
+        Left errorMessage -> 
+            putStrLn $ "Invalid command: " <> errorMessage

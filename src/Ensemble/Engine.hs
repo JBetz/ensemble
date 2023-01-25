@@ -13,7 +13,7 @@ import Data.Int
 import Data.List
 import Data.Word
 import Ensemble.Soundfont (SoundfontId (..))
-import Ensemble.Soundfont qualified as SF
+import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array

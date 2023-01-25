@@ -26,6 +26,7 @@ createSequencer = do
     eventQueue <- newIORef mempty
     clients <- newIORef mempty
     engine <- createEngine defaultHostConfig
+    _ <- start engine
     pure $ Sequencer
         { sequencer_currentTick = currentTick
         , sequencer_scale = scale

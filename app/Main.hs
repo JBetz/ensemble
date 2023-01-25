@@ -5,6 +5,7 @@ import Ensemble
 
 main :: IO ()
 main = do
+  putStrLn "Starting ensemble ..."
   sequencer <- createSequencer
   forever $ do
     maybeCommand <- getCommand

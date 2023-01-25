@@ -13,7 +13,6 @@ import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.String
 import Foreign.Marshal.Utils
 import Foreign.Ptr
-import GHC.Float
 import GHC.Stack
 
 newtype SoundfontId = SoundfontId { unSoundfontId :: Int }
@@ -102,7 +101,7 @@ process player = do
 noteOn :: SoundfontPlayer -> Int16 -> Int16 -> Double -> IO ()
 noteOn player channel key velocity = do
     let synth = soundfontPlayer_synth player
-    void $ c'fluid_synth_noteon synth (fromIntegral channel) (fromIntegral key) (truncateDouble velocity)
+    void $ c'fluid_synth_noteon synth (fromIntegral channel) (fromIntegral key) (truncate velocity)
 
 noteOff :: SoundfontPlayer -> Int16 -> Int16 -> IO ()
 noteOff player channel key = do

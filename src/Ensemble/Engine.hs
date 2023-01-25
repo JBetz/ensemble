@@ -22,8 +22,8 @@ import Sound.PortAudio as PortAudio
 import Sound.PortAudio.Base
 
 data Destination
-    = SoundfontPlayer SoundfontId
-    | ClapPlugin ClapId EventConfig
+    = ToSoundfont SoundfontId
+    | ToClap ClapId EventConfig
     deriving (Show)
 
 data Engine = Engine
@@ -129,8 +129,8 @@ generateOutputs engine numberOfInputSamples = do
     CLAP.processBeginAll clapHost (fromIntegral numberOfInputSamples) steadyTime
     for_ eventBuffer $ \(destination, event) ->
         case destination of
-            SoundfontPlayer soundfontId -> SF.processEvent soundfontPlayer soundfontId event
-            ClapPlugin pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
+            ToSoundfont soundfontId -> SF.processEvent soundfontPlayer soundfontId event
+            ToClap pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
     (_sfDry, _sfWet) <- SF.process soundfontPlayer
     CLAP.processAll clapHost

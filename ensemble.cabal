@@ -9,11 +9,12 @@ category:           Sound
 build-type:         Simple
 extra-doc-files:    CHANGELOG.md
 
-common warnings
+common base
     ghc-options: -Wall
+    default-language: Haskell2010
 
 library
-    import:           warnings
+    import:           base
     exposed-modules:  Ensemble
                     , Ensemble.API
                     , Ensemble.Engine
@@ -34,27 +35,22 @@ library
                     , portaudio
                     , stm
     hs-source-dirs:   src
-    default-language: GHC2021
     include-dirs:     fluidsynth/include
-    extra-libraries:  fluidsynth 
-                    , portaudio
-    extra-lib-dirs:   C:\Users\joebe\Projects\ensemble\lib
+    extra-libraries:  portaudio
+                    , fluidsynth
 
 executable ensemble
-    import:           warnings
+    import:           base
     main-is:          Main.hs
     build-depends:    base
                     , ensemble
     hs-source-dirs:   app
-    default-language: GHC2021
     ghc-options:      -threaded
 
 test-suite ensemble-test
-    import:           warnings
-    default-language: GHC2021
+    import:           base
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
-
     build-depends:    base
                     , ensemble

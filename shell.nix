@@ -3,5 +3,6 @@
     cabal = "latest";
     hlint = "latest";
     haskell-language-server = "latest";
+    ghcid = "latest";
   };
 }

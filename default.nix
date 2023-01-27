@@ -19,6 +19,12 @@ let
     # These arguments passed to nixpkgs, include some patches and also
     # the haskell.nix functionality itself as an overlay.
     haskellNix.nixpkgsArgs;
+
+  customPortaudio = pkgs.portaudio.overrideAttrs (new: old: { 
+    buildInputs = []; 
+    installPhase = "make install";
+  });
+
 in pkgs.haskell-nix.project {
   # 'cleanGit' cleans a source directory based on the files known by git
   src = pkgs.haskell-nix.haskellLib.cleanGit {
@@ -27,4 +33,8 @@ in pkgs.haskell-nix.project {
   };
   # Specify the GHC version to use.
   compiler-nix-name = "ghc925"; # Not required for `stack.yaml` based projects.
+  modules = [{
+    # Replace `extra-libraries` dependencies
+    packages.ensemble.components.library.libs = pkgs.lib.mkForce [ customPortaudio pkgs.fluidsynth ];
+  }];
 }

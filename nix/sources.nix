@@ -168,6 +168,39 @@ let
 
       # The "pkgs" (evaluated nixpkgs) to use for e.g. non-builtin fetchers
       inherit pkgs;
+
+      packageOverrides = pkgs: rec {
+        portaudio  = pkgs.portaudio.overrideDerivation (old: {
+          pname = "portaudio";
+          version = "190700_20210406";
+
+          src = builtins.fetchurl {
+            url = "http://files.portaudio.com/archives/pa_stable_v${old.version}.tgz";
+            sha256 = "1vrdrd42jsnffh6rq8ap2c6fr4g9fcld89z649fs06bwqx1bzvs7";
+          };
+
+          strictDeps = true;
+          nativeBuildInputs = [ pkgs.pkg-config pkgs.which ];
+          buildInputs = [];
+
+          configureFlags = [ "--with-winapi=wmme" "--without-alsa" "--without-oss" ];
+
+          enableParallelBuilding = false;
+
+          postPatch = ''
+            # workaround for the configure script which expects an absolute path
+            export AR=$(which $AR)
+          '';
+
+          # passthru = {
+          #   api_version = 19;
+          # };
+
+          installPhase = ''
+            make install
+          '';
+        });
+      };
     };
 
 in

@@ -15,16 +15,10 @@ let
     # haskell.nix provides access to the nixpkgs pins which are used by our CI,
     # hence you will be more likely to get cache hits when using these.
     # But you can also just use your own, e.g. '<nixpkgs>'.
-    haskellNix.sources.nixpkgs-unstable
+    sources.nixpkgs
     # These arguments passed to nixpkgs, include some patches and also
     # the haskell.nix functionality itself as an overlay.
     haskellNix.nixpkgsArgs;
-
-  customPortaudio = pkgs.portaudio.overrideAttrs (new: old: { 
-    buildInputs = []; 
-    configureFlags = old.configureFlags ++ [ "--with-winapi=wmme,wasapi" ];
-    installPhase = "make install";
-  });
 
 in pkgs.haskell-nix.project {
   # 'cleanGit' cleans a source directory based on the files known by git
@@ -36,6 +30,6 @@ in pkgs.haskell-nix.project {
   compiler-nix-name = "ghc925"; # Not required for `stack.yaml` based projects.
   modules = [{
     # Replace `extra-libraries` dependencies
-    packages.ensemble.components.library.libs = pkgs.lib.mkForce [ customPortaudio pkgs.fluidsynth ];
+    packages.ensemble.components.library.libs = pkgs.lib.mkForce [ pkgs.portaudio pkgs.fluidsynth ];
   }];
 }

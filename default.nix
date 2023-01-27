@@ -22,6 +22,7 @@ let
 
   customPortaudio = pkgs.portaudio.overrideAttrs (new: old: { 
     buildInputs = []; 
+    configureFlags = old.configureFlags ++ [ "--with-winapi=wmme,wasapi" ];
     installPhase = "make install";
   });
 

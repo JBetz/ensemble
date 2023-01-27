@@ -5,3 +5,4 @@ source-repository-package
   type: git
   location: https://github.com/JBetz/clap-hs.git
   tag: a3c57a59ccd3b1b096a5ecaf8396bbb7140d6d81
+  --sha256: sha256-PSx6gbQdgTQeAf1Ogb7KsYLnOu/gJGVFF2IbQxYPLw0=

@@ -1,14 +1,14 @@
 {
     "haskellNix": {
-        "branch": "hkm/nixpkgs-update",
+        "branch": "master",
         "description": "Alternative Haskell Infrastructure for Nixpkgs",
         "homepage": "https://input-output-hk.github.io/haskell.nix",
         "owner": "input-output-hk",
         "repo": "haskell.nix",
-        "rev": "95c5f066748716bef9ba3baa9977026825b6df20",
-        "sha256": "0axmyxy816zl5inkdvlw48i167rs3c4z47jwp7dhsxn94mhfd6ab",
+        "rev": "119e6e2de682d7a10be43bd32b96ddf348ce07b4",
+        "sha256": "1hlw843p4ajbky9wvc3wfrav2xv8db14fmz3ddqz33a9qw9r49wa",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/haskell.nix/archive/95c5f066748716bef9ba3baa9977026825b6df20.tar.gz",
+        "url": "https://github.com/input-output-hk/haskell.nix/archive/119e6e2de682d7a10be43bd32b96ddf348ce07b4.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "niv": {
@@ -24,15 +24,15 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "fix-portaudio-cross-compile",
+        "branch": "test3",
         "description": "Nix Packages collection",
         "homepage": "",
         "owner": "JBetz",
         "repo": "nixpkgs",
-        "rev": "adefc7c3901f945ee8dd2bac27d7adfbe3fb779a",
-        "sha256": "sha256:0s1c02l0cc86qvxksxm4gwm0qj44cxsk10sbj780grrgd958lzjm",
+        "rev": "fbe97489c3318fbe95cf86a8d3233336d93be7b5",
+        "sha256": "0wpl8rhkx0zv8vkrrfnasj1fm48rx175872m4yrk6jgya2hl5wsg",
         "type": "tarball",
-        "url": "https://github.com/JBetz/nixpkgs/archive/adefc7c3901f945ee8dd2bac27d7adfbe3fb779a.tar.gz",
+        "url": "https://github.com/JBetz/nixpkgs/archive/fbe97489c3318fbe95cf86a8d3233336d93be7b5.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

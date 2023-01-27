@@ -20,12 +20,12 @@ library
                     , Ensemble.Engine
                     , Ensemble.Handler
                     , Ensemble.Sequencer
-                    , Ensemble.Soundfont
-    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Gen
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Midi
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Settings
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Synth
+    --                 , Ensemble.Soundfont
+    -- other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
+    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Gen
+    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Midi
+    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Settings
+    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Synth
     build-depends:    base
                     , aeson
                     , bytestring
@@ -34,9 +34,9 @@ library
                     , portaudio
                     , stm
     hs-source-dirs:   src
-    include-dirs:     fluidsynth/include
+    -- include-dirs:     fluidsynth/include
     extra-libraries:  portaudio
-                    , fluidsynth
+                    -- , fluidsynth
 
 executable ensemble
     import:           base

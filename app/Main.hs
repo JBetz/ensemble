@@ -2,9 +2,11 @@ module Main where
 
 import Control.Monad
 import Ensemble
+import System.IO
 
 main :: IO ()
 main = do
+  hSetBuffering stdout NoBuffering
   putStrLn "Starting ensemble ..."
   sequencer <- createSequencer
   forever $ do

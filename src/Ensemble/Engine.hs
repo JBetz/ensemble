@@ -7,7 +7,6 @@ import Clap.Interface.Host
 import Clap.Host (PluginHost (..), ClapId)
 import qualified Clap.Host as CLAP
 import Control.Monad
-import Control.Monad.Extra
 import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
@@ -104,12 +103,9 @@ start engine = do
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
     receiveInputs engine numberOfInputSamples inputPtr   
-    generateOutputs engine numberOfInputSamples
+    audioOutput <- generateOutputs engine numberOfInputSamples
     unless (outputPtr == nullPtr) $ do 
-        [leftOutputBuffer, rightOutputBuffer] <- peekArray 2 $ engine_outputs engine
-        leftOutputs <- peekArray (fromIntegral numberOfInputSamples) leftOutputBuffer
-        rightOutputs <- peekArray (fromIntegral numberOfInputSamples) rightOutputBuffer
-        let !output = interleave leftOutputs rightOutputs
+        let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
         pokeArray outputPtr output
     modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
     state <- readIORef (engine_state engine)

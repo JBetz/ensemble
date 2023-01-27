@@ -28,7 +28,6 @@ library
                     , Ensemble.Soundfont.FluidSynth.Foreign.Synth
     build-depends:    base
                     , aeson
-                    , bindings-DSL
                     , bytestring
                     , clap
                     , containers

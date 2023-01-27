@@ -28,8 +28,4 @@ in pkgs.haskell-nix.project {
   };
   # Specify the GHC version to use.
   compiler-nix-name = "ghc925"; # Not required for `stack.yaml` based projects.
-  modules = [{
-    # Replace `extra-libraries` dependencies
-    packages.ensemble.components.library.libs = pkgs.lib.mkForce [ pkgs.portaudio pkgs.fluidsynth ];
-  }];
 }

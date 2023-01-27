@@ -1,6 +1,7 @@
 name: Build Windows executable
 
-on:
+on: 
+  workflow_dispatch:
   push:
     branches: [ "release" ]
   pull_request:

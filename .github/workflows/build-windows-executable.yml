@@ -23,6 +23,8 @@ jobs:
         name: jbetz
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix-build -A projectCross.mingwW64.hsPkgs.ensemble.components.exes.ensemble
+    - run: pwd
+    - run: ls
     - uses: actions/upload-artifact@v3
       with:
         name: ensemble

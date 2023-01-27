@@ -7,6 +7,7 @@ import Clap.Interface.Host
 import Clap.Host (PluginHost (..), ClapId)
 import qualified Clap.Host as CLAP
 import Control.Monad
+import Control.Monad.Extra
 import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
@@ -17,6 +18,7 @@ import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
+import Foreign.ForeignPtr
 import Foreign.Ptr
 import Sound.PortAudio as PortAudio
 import Sound.PortAudio.Base
@@ -103,7 +105,12 @@ audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> C
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
     receiveInputs engine numberOfInputSamples inputPtr   
     generateOutputs engine numberOfInputSamples
-    sendOutputs engine numberOfInputSamples outputPtr
+    unless (outputPtr == nullPtr) $ do 
+        [leftOutputBuffer, rightOutputBuffer] <- peekArray 2 $ engine_outputs engine
+        leftOutputs <- peekArray (fromIntegral numberOfInputSamples) leftOutputBuffer
+        rightOutputs <- peekArray (fromIntegral numberOfInputSamples) rightOutputBuffer
+        let !output = interleave leftOutputs rightOutputs
+        pokeArray outputPtr output
     modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
     state <- readIORef (engine_state engine)
     pure $ case state of
@@ -120,30 +127,45 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
-generateOutputs :: Engine -> CULong -> IO ()
-generateOutputs engine numberOfInputSamples = do
+generateOutputs :: Engine -> CULong -> IO AudioOutput
+generateOutputs engine frameCount = do
     let soundfontPlayer = engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- readIORef (engine_steadyTime engine)
     eventBuffer <- readIORef (engine_eventBuffer engine)
-    CLAP.processBeginAll clapHost (fromIntegral numberOfInputSamples) steadyTime
+    CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \(destination, event) ->
         case destination of
             ToSoundfont soundfontId -> SF.processEvent soundfontPlayer soundfontId event
             ToClap pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
-    (_sfDry, _sfWet) <- SF.process soundfontPlayer
-    CLAP.processAll clapHost
-    pure ()
+    soundfontOutput <- SF.process soundfontPlayer (fromIntegral frameCount)
+    pluginOutputs <- CLAP.processAll clapHost
+    pure $ mixAudioOutputs soundfontOutput pluginOutputs
 
-sendOutputs :: Engine -> CULong -> Ptr CFloat -> IO () 
-sendOutputs engine numberOfInputSamples outputPtr =
-    unless (outputPtr == nullPtr) $ do 
-        [leftOutputBuffer, rightOutputBuffer] <- peekArray 2 $ engine_outputs engine
-        leftOutputs <- peekArray (fromIntegral numberOfInputSamples) leftOutputBuffer
-        rightOutputs <- peekArray (fromIntegral numberOfInputSamples) rightOutputBuffer
-        let !output = interleave leftOutputs rightOutputs
-        pokeArray outputPtr output
+data AudioOutput = AudioOutput
+    { audioOutput_left :: [CFloat] 
+    , audioOutput_right :: [CFloat] 
+    }
+
+mixAudioOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
+mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
+    let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
+    in AudioOutput    
+        { audioOutput_left = foldl (zipWith (+)) mixedSoundfontLeft (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
+        , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
+        }
+
+
+sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe Error) 
+sendOutputs engine frameCount audioOutput  = do
+    maybeStream <- readIORef $ engine_audioStream engine
+    case maybeStream of
+        Just stream -> 
+            withArray (interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)) $ \outputPtr -> do
+                outputForeignPtr <- newForeignPtr_ outputPtr
+                writeStream stream frameCount outputForeignPtr
+        Nothing -> pure $ Just NotInitialized
 
 stop :: Engine -> IO (Maybe Error)
 stop engine = do

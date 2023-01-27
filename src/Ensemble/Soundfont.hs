@@ -11,6 +11,8 @@ import qualified Data.Map as Map
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
 import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.String
+import Foreign.C.Types
+import Foreign.Marshal.Array
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import GHC.Stack
@@ -87,16 +89,38 @@ processEvent player _soundfontId = \case
     MidiSysex _ -> pure ()
     Midi2 _ -> pure ()
 
-process :: SoundfontPlayer -> IO ([Float], [Float])
-process player = do
+data SoundfontOutput = SoundfontOutput
+    { soundfontOutput_wetChannelLeft :: [CFloat]
+    , soundfontOutput_wetChannelRight :: [CFloat]
+    , soundfontOutput_dryChannelLeft :: [CFloat]
+    , soundfontOutput_dryChannelRight :: [CFloat]
+    }
+
+process :: SoundfontPlayer -> Int -> IO SoundfontOutput
+process player frameCount = do
     let synth = soundfontPlayer_synth player
-        frameCount = undefined
-        effectChannelCount = 2
-        effectBuffers = undefined
-        dryChannelCount = 2
-        dryBuffers = undefined
-    _ <- c'fluid_synth_process synth frameCount effectChannelCount effectBuffers dryChannelCount dryBuffers
-    pure (effectBuffers, dryBuffers)
+    let wetChannelCount = 2
+    wetLeft <- newArray $ replicate frameCount 0
+    wetRight <- newArray $ replicate frameCount 0
+    wetBuffers <- newArray [wetLeft, wetRight]
+    let dryChannelCount = 2
+    dryLeft <- newArray $ replicate frameCount 0
+    dryRight <- newArray $ replicate frameCount 0
+    dryBuffers <- newArray [dryLeft, dryRight]
+    _ <- c'fluid_synth_process 
+        synth (fromIntegral frameCount) 
+        (fromIntegral wetChannelCount) wetBuffers 
+        (fromIntegral dryChannelCount) dryBuffers
+    wetChannels <- peekArray wetChannelCount wetBuffers
+    [wetChannelLeft, wetChannelRight] <- traverse (peekArray frameCount) wetChannels
+    dryChannels <- peekArray dryChannelCount dryBuffers
+    [dryChannelLeft, dryChannelRight] <- traverse (peekArray frameCount) dryChannels
+    pure $ SoundfontOutput
+        { soundfontOutput_wetChannelLeft = wetChannelLeft
+        , soundfontOutput_wetChannelRight = wetChannelRight
+        , soundfontOutput_dryChannelLeft = dryChannelLeft
+        , soundfontOutput_dryChannelRight = dryChannelRight
+        }
 
 noteOn :: SoundfontPlayer -> Int16 -> Int16 -> Double -> IO ()
 noteOn player channel key velocity = do

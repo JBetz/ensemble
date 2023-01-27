@@ -7,6 +7,7 @@ import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Sound.PortAudio
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
@@ -57,13 +58,14 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-process :: Sequencer -> Tick -> IO ()
+process :: Sequencer -> Tick -> IO (Maybe Error)
 process sequencer tick = do
     let engine = sequencer_engine sequencer
     writeIORef (sequencer_currentTick sequencer) tick
     events <- readIORef (sequencer_eventQueue sequencer)
     let (activeEvents, remainingEvents) = partition (\(time, _, _) -> time <= tick) events 
     pushEvents engine $ (\(_, destination, event) -> (destination, event)) <$> activeEvents
-    generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
-    -- sendOutputs engine (fromIntegral $ engine_numberOfFrames engine)
+    outputs <- generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
+    result <- sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
     writeIORef (sequencer_eventQueue sequencer) remainingEvents
+    pure result

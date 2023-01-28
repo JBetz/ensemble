@@ -20,12 +20,12 @@ library
                     , Ensemble.Engine
                     , Ensemble.Handler
                     , Ensemble.Sequencer
-    --                 , Ensemble.Soundfont
-    -- other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
-    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Gen
-    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Midi
-    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Settings
-    --                 , Ensemble.Soundfont.FluidSynth.Foreign.Synth
+                    , Ensemble.Soundfont
+    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Gen
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Midi
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Settings
+                    , Ensemble.Soundfont.FluidSynth.Foreign.Synth
     build-depends:    base
                     , aeson
                     , bytestring
@@ -34,10 +34,27 @@ library
                     , portaudio
                     , stm
     hs-source-dirs:   src
-    -- include-dirs:     fluidsynth/include
+    include-dirs:     cbits
+    install-includes: fluidsynth.h
+                    , fluidsynth/audio.h
+                    , fluidsynth/event.h
+                    , fluidsynth/gen.h
+                    , fluidsynth/ladspa.h
+                    , fluidsynth/log.h
+                    , fluidsynth/midi.h
+                    , fluidsynth/misc.h
+                    , fluidsynth/mod.h
+                    , fluidsynth/seq.h
+                    , fluidsynth/seqbind.h
+                    , fluidsynth/settings.h
+                    , fluidsynth/sfont.h
+                    , fluidsynth/shell.h
+                    , fluidsynth/synth.h
+                    , fluidsynth/types.h
+                    , fluidsynth/version.h
+                    , fluidsynth/voice.h
     extra-libraries:  portaudio
-                    -- , fluidsynth
-
+    
 executable ensemble
     import:           base
     main-is:          Main.hs

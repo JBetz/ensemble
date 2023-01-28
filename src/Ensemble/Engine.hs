@@ -30,7 +30,7 @@ data Destination
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    , engine_soundfontPlayer :: SF.SoundfontPlayer
+    , engine_soundfontPlayer :: IORef (Maybe SF.SoundfontPlayer)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
     , engine_numberOfFrames :: Word32
@@ -49,7 +49,7 @@ createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
-    soundfontPlayer <- SF.createSoundfontPlayer
+    soundfontPlayer <- newIORef Nothing
     steadyTime <- newIORef 0
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
@@ -125,17 +125,22 @@ receiveInputs engine numberOfInputSamples inputPtr =
 
 generateOutputs :: Engine -> CULong -> IO AudioOutput
 generateOutputs engine frameCount = do
-    let soundfontPlayer = engine_soundfontPlayer engine 
+    maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- readIORef (engine_steadyTime engine)
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \(destination, event) ->
         case destination of
-            ToSoundfont soundfontId -> SF.processEvent soundfontPlayer soundfontId event
+            ToSoundfont soundfontId -> 
+                case maybeSoundfontPlayer of
+                    Just soundfontPlayer -> SF.processEvent soundfontPlayer soundfontId event
+                    Nothing -> pure ()
             ToClap pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
-    soundfontOutput <- SF.process soundfontPlayer (fromIntegral frameCount)
+    soundfontOutput <- case maybeSoundfontPlayer of
+        Just soundfontPlayer -> SF.process soundfontPlayer (fromIntegral frameCount)
+        Nothing -> pure mempty
     pluginOutputs <- CLAP.processAll clapHost
     pure $ mixAudioOutputs soundfontOutput pluginOutputs
 
@@ -168,7 +173,10 @@ stop engine = do
     maybeStream <- readIORef (engine_audioStream engine)
     case maybeStream of
         Just stream -> do
-            SF.deleteSoundfontPlayer (engine_soundfontPlayer engine)
+            maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine
+            case maybeSoundfontPlayer of
+                Just soundfontPlayer -> SF.deleteSoundfontPlayer soundfontPlayer
+                Nothing -> pure ()
             CLAP.deactivateAll (engine_pluginHost engine)
             _ <- stopStream stream
             _ <- closeStream stream

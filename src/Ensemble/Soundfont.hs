@@ -96,6 +96,17 @@ data SoundfontOutput = SoundfontOutput
     , soundfontOutput_dryChannelRight :: [CFloat]
     }
 
+instance Semigroup SoundfontOutput where 
+    a <> b = SoundfontOutput
+        { soundfontOutput_wetChannelLeft = zipWith (+) (soundfontOutput_wetChannelLeft a) (soundfontOutput_wetChannelLeft b)
+        , soundfontOutput_wetChannelRight = zipWith (+) (soundfontOutput_wetChannelRight a) (soundfontOutput_wetChannelRight b)
+        , soundfontOutput_dryChannelLeft = zipWith (+) (soundfontOutput_dryChannelLeft a) (soundfontOutput_dryChannelLeft b)
+        , soundfontOutput_dryChannelRight = zipWith (+) (soundfontOutput_dryChannelRight a) (soundfontOutput_dryChannelRight b)
+        }
+
+instance Monoid SoundfontOutput where
+    mempty = SoundfontOutput [] [] [] [] 
+
 process :: SoundfontPlayer -> Int -> IO SoundfontOutput
 process player frameCount = do
     let synth = soundfontPlayer_synth player

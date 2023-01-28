@@ -20,6 +20,7 @@ library
                     , Ensemble.Engine
                     , Ensemble.Handler
                     , Ensemble.Sequencer
+                    , Ensemble.Server
                     , Ensemble.Soundfont
     other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
                     , Ensemble.Soundfont.FluidSynth.Foreign.Gen

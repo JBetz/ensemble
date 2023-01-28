@@ -12,8 +12,8 @@ import Data.IORef
 import Data.Int
 import Data.List
 import Data.Word
--- import Ensemble.Soundfont (SoundfontId (..))
--- import qualified Ensemble.Soundfont as SF
+import Ensemble.Soundfont (SoundfontId (..))
+import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -23,14 +23,14 @@ import Sound.PortAudio as PortAudio
 import Sound.PortAudio.Base
 
 data Destination
-    -- = ToSoundfont SoundfontId
-    = ToClap ClapId EventConfig
+    = ToSoundfont SoundfontId
+    | ToClap ClapId EventConfig
     deriving (Show)
 
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    -- , engine_soundfontPlayer :: SF.SoundfontPlayer
+    , engine_soundfontPlayer :: SF.SoundfontPlayer
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
     , engine_numberOfFrames :: Word32
@@ -49,7 +49,7 @@ createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
-    -- soundfontPlayer <- SF.createSoundfontPlayer
+    soundfontPlayer <- SF.createSoundfontPlayer
     steadyTime <- newIORef 0
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
@@ -58,7 +58,7 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
-        -- , engine_soundfontPlayer = soundfontPlayer
+        , engine_soundfontPlayer = soundfontPlayer
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
         , engine_numberOfFrames = 1024
@@ -125,30 +125,32 @@ receiveInputs engine numberOfInputSamples inputPtr =
 
 generateOutputs :: Engine -> CULong -> IO AudioOutput
 generateOutputs engine frameCount = do
-    -- let soundfontPlayer = engine_soundfontPlayer engine 
+    let soundfontPlayer = engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- readIORef (engine_steadyTime engine)
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \(destination, event) ->
         case destination of
-            -- ToSoundfont soundfontId -> SF.processEvent soundfontPlayer soundfontId event
+            ToSoundfont soundfontId -> SF.processEvent soundfontPlayer soundfontId event
             ToClap pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
-    -- soundfontOutput <- SF.process soundfontPlayer (fromIntegral frameCount)
+    soundfontOutput <- SF.process soundfontPlayer (fromIntegral frameCount)
     pluginOutputs <- CLAP.processAll clapHost
-    pure $ mixAudioOutputs pluginOutputs
+    pure $ mixAudioOutputs soundfontOutput pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
     , audioOutput_right :: [CFloat] 
     }
 
-mixAudioOutputs :: [CLAP.PluginOutput] -> AudioOutput
-mixAudioOutputs pluginOutputs = AudioOutput    
-    { audioOutput_left = foldl1 (zipWith (+)) (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
-    , audioOutput_right = foldl1 (zipWith (+)) (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
-    }
+mixAudioOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
+mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
+    let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
+    in AudioOutput    
+        { audioOutput_left = foldl (zipWith (+)) mixedSoundfontLeft (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
+        , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
+        }
 
 
 sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe Error) 
@@ -166,7 +168,7 @@ stop engine = do
     maybeStream <- readIORef (engine_audioStream engine)
     case maybeStream of
         Just stream -> do
-            -- SF.deleteSoundfontPlayer (engine_soundfontPlayer engine)
+            SF.deleteSoundfontPlayer (engine_soundfontPlayer engine)
             CLAP.deactivateAll (engine_pluginHost engine)
             _ <- stopStream stream
             _ <- closeStream stream

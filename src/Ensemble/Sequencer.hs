@@ -2,7 +2,6 @@ module Ensemble.Sequencer where
 
 import Ensemble.Engine
 import Clap.Interface.Events
-import Clap.Interface.Host
 import Data.IORef
 import Data.List
 import Data.Map (Map)
@@ -14,7 +13,6 @@ data Sequencer = Sequencer
     , sequencer_scale :: IORef Double
     , sequencer_eventQueue :: IORef [(Tick, Destination, Event)]
     , sequencer_clients :: IORef (Map String EventCallback)
-    , sequencer_engine :: Engine
     }
 
 newtype Tick = Tick { unTick :: Int }
@@ -26,14 +24,11 @@ createSequencer = do
     scale <- newIORef 1000
     eventQueue <- newIORef mempty
     clients <- newIORef mempty
-    engine <- createEngine defaultHostConfig
-    _ <- start engine
     pure $ Sequencer
         { sequencer_currentTick = currentTick
         , sequencer_scale = scale
         , sequencer_eventQueue = eventQueue
         , sequencer_clients = clients
-        , sequencer_engine = engine
         }
 
 play :: Sequencer -> Tick -> IO ()
@@ -58,9 +53,8 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-process :: Sequencer -> Tick -> IO (Maybe Error)
-process sequencer tick = do
-    let engine = sequencer_engine sequencer
+process :: Sequencer -> Engine -> Tick -> IO (Maybe Error)
+process sequencer engine tick = do
     writeIORef (sequencer_currentTick sequencer) tick
     events <- readIORef (sequencer_eventQueue sequencer)
     let (activeEvents, remainingEvents) = partition (\(time, _, _) -> time <= tick) events 

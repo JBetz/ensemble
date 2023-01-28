@@ -10,16 +10,17 @@ import qualified Data.ByteString as BS
 import Ensemble.API
 import Ensemble.Engine
 import Ensemble.Sequencer
+import Ensemble.Server
 
-handle :: Sequencer -> InMessage -> IO OutMessage
-handle sequencer (InMessage clientId inContent extra) = do 
+handle :: Server -> InMessage -> IO OutMessage
+handle (Server sequencer engine) (InMessage clientId inContent extra) = do 
     outContent <- case inContent of
         In_ClapPluginPaths ->
             Out_ClapPluginPaths <$> pluginLibraryPaths
         In_ScanForClapPlugins filePaths -> 
             Out_ScanForClapPlugins <$> scanForPluginsIn filePaths
         In_LoadClapPlugin filePath index -> do
-            loadPlugin (sequencer_engine sequencer) $ ClapId (filePath, index)
+            loadPlugin engine $ ClapId (filePath, index)
             pure Out_LoadClapPlugin
     pure $ OutMessage clientId outContent extra
 

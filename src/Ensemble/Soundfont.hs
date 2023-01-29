@@ -1,12 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Soundfont where
 
-import Clap.Interface.Events
+import Control.Exception
 import Data.Aeson
 import Data.IORef
+import Data.Int
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Ensemble.Soundfont.FluidSynth.Library as FS
@@ -34,20 +36,42 @@ data Soundfont = Soundfont
     , soundfont_handle :: FluidSoundfont
     } deriving (Show)
 
+data SoundfontException
+    = SoundfontPlayerNotInitialized
+    deriving (Show)
+
+data Event 
+    = NoteOn NoteOnEvent
+    | NoteOff NoteOffEvent
+    deriving (Show, Generic, ToJSON, FromJSON)
+
+data NoteOnEvent = NoteOnEvent
+    { noteOnEvent_channel :: Int16
+    , noteOnEvent_key :: Int16
+    , noteOnEvent_velocity :: Double 
+    } deriving (Show, Generic, ToJSON, FromJSON)
+
+data NoteOffEvent = NoteOffEvent
+    { noteOffEvent_channel :: Int16
+    , noteOffEvent_key :: Int16
+    } deriving (Show, Generic, ToJSON, FromJSON)
+
+instance Exception SoundfontException
+
 type FluidSettings = Ptr C'fluid_settings_t
 type FluidSynth = Ptr C'fluid_synth_t
 type FluidSoundfont = Ptr C'fluid_sfont_t
 
-withSoundfontPlayer :: HasCallStack => (SoundfontPlayer -> IO a) -> IO a
-withSoundfontPlayer f = do
-    player <- createSoundfontPlayer
+withSoundfontPlayer :: HasCallStack => FilePath -> (SoundfontPlayer -> IO a) -> IO a
+withSoundfontPlayer filePath f = do
+    player <- createSoundfontPlayer filePath
     result <- f player
     deleteSoundfontPlayer player
     pure result
 
-createSoundfontPlayer :: IO SoundfontPlayer
-createSoundfontPlayer = do
-    library <- openFluidSynthLibrary "fluidsynth.dll"
+createSoundfontPlayer :: FilePath -> IO SoundfontPlayer
+createSoundfontPlayer filePath = do
+    library <- openFluidSynthLibrary filePath
     settings <-newFluidSettings library
     synth <- newFluidSynth library settings 
     soundfonts <- newIORef mempty
@@ -80,19 +104,8 @@ loadSoundfont player filePath resetPresets = do
 
 processEvent :: SoundfontPlayer -> SoundfontId -> Event -> IO ()
 processEvent player _soundfontId = \case
-    NoteOn event -> noteOn library synth (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
-    NoteOff event -> noteOff library synth (noteEvent_channel event) (noteEvent_key event)
-    NoteChoke event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
-    NoteEnd event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
-    NoteExpression _ -> pure ()
-    ParamValue _ -> pure ()
-    ParamMod _ -> pure ()
-    ParamGestureBegin _ -> pure ()
-    ParamGestureEnd _ -> pure ()
-    Transport _ -> pure ()
-    Midi _ -> pure ()
-    MidiSysex _ -> pure ()
-    Midi2 _ -> pure ()
+    NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
+    NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)
     where
         library = soundfontPlayer_fluidSynthLibrary player
         synth = soundfontPlayer_synth player

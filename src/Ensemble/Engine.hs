@@ -1,11 +1,12 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Engine where
 
-import Clap.Interface.Events
-import Clap.Interface.Host
+import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), ClapId)
 import qualified Clap.Host as CLAP
+import Control.Exception
 import Control.Monad
 import Data.Foldable (for_)
 import Data.IORef
@@ -13,6 +14,7 @@ import Data.Int
 import Data.List
 import Data.Word
 import Ensemble.Soundfont (SoundfontId (..))
+import Ensemble.Event
 import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
@@ -21,11 +23,6 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 import Sound.PortAudio as PortAudio
 import Sound.PortAudio.Base
-
-data Destination
-    = ToSoundfont SoundfontId
-    | ToClap ClapId EventConfig
-    deriving (Show)
 
 data Engine = Engine
     { engine_state :: IORef EngineState
@@ -37,7 +34,7 @@ data Engine = Engine
     , engine_inputs :: Ptr (Ptr CFloat)
     , engine_outputs :: Ptr (Ptr CFloat)
     , engine_audioStream :: IORef (Maybe (Stream CFloat CFloat))
-    , engine_eventBuffer :: IORef [(Destination, Event)]
+    , engine_eventBuffer :: IORef [Event]
     }
 
 data EngineState
@@ -68,11 +65,11 @@ createEngine hostConfig = do
         , engine_eventBuffer = eventBuffer
         }
 
-pushEvent :: Engine -> Destination -> Event -> IO ()
-pushEvent engine destination event =
-    modifyIORef' (engine_eventBuffer engine) (<> [(destination, event)])
+pushEvent :: Engine -> Event -> IO ()
+pushEvent engine event =
+    modifyIORef' (engine_eventBuffer engine) (<> [event])
 
-pushEvents :: Engine -> [(Destination, Event)] -> IO ()
+pushEvents :: Engine -> [Event] -> IO ()
 pushEvents engine events =
     modifyIORef' (engine_eventBuffer engine) (<> events)
 
@@ -130,13 +127,12 @@ generateOutputs engine frameCount = do
     steadyTime <- readIORef (engine_steadyTime engine)
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
-    for_ eventBuffer $ \(destination, event) ->
-        case destination of
-            ToSoundfont soundfontId -> 
+    for_ eventBuffer $ \case 
+            Soundfont soundfontId event -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> SF.processEvent soundfontPlayer soundfontId event
                     Nothing -> pure ()
-            ToClap pluginId eventConfig -> CLAP.processEvent clapHost pluginId eventConfig event
+            Clap pluginId eventConfig event -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> SF.process soundfontPlayer (fromIntegral frameCount)
@@ -198,10 +194,12 @@ getSoundfontPlayer engine = do
     maybePlayer <- readIORef $ engine_soundfontPlayer engine
     case maybePlayer of 
         Just player -> pure player
-        Nothing -> do
-            player <- SF.createSoundfontPlayer
-            writeIORef (engine_soundfontPlayer engine) (Just player)
-            pure player
+        Nothing -> throw SF.SoundfontPlayerNotInitialized
+                        
+initializeSoundfontPlayer :: Engine -> FilePath -> IO ()
+initializeSoundfontPlayer engine path = do
+    player <- SF.createSoundfontPlayer path
+    writeIORef (engine_soundfontPlayer engine) (Just player)    
 
 
 loadPlugin :: Engine -> ClapId -> IO ()

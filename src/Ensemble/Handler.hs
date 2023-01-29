@@ -12,7 +12,7 @@ import Ensemble.Engine
 import Ensemble.Server
 
 handle :: Server -> InMessage -> IO OutMessage
-handle (Server sequencer engine) (InMessage inContent extra) = do 
+handle (Server _sequencer engine) (InMessage inContent extra) = do 
     outContent <- case inContent of
         In_ClapPluginPaths ->
             Out_ClapPluginPaths <$> pluginLibraryPaths
@@ -21,6 +21,9 @@ handle (Server sequencer engine) (InMessage inContent extra) = do
         In_LoadClapPlugin filePath index -> do
             loadPlugin engine $ ClapId (filePath, index)
             pure Out_LoadClapPlugin
+        In_InitializeSoundfontPlayer filePath -> do
+            initializeSoundfontPlayer engine filePath
+            pure Out_InitializeSoundfontPlayer
         In_LoadSoundfont filePath -> do
             soundfontId <- loadSoundfont engine filePath
             pure $ Out_LoadSoundfont soundfontId

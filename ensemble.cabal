@@ -18,6 +18,7 @@ library
     exposed-modules:  Ensemble,
                       Ensemble.API,
                       Ensemble.Engine,
+                      Ensemble.Event,
                       Ensemble.Handler,
                       Ensemble.Sequencer,
                       Ensemble.Server,

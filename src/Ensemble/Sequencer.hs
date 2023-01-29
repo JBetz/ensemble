@@ -1,7 +1,7 @@
 module Ensemble.Sequencer where
 
 import Ensemble.Engine
-import Clap.Interface.Events
+import Ensemble.Event
 import Data.IORef
 import Data.List
 import Data.Map (Map)
@@ -11,7 +11,7 @@ import Sound.PortAudio
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
     , sequencer_scale :: IORef Double
-    , sequencer_eventQueue :: IORef [(Tick, Destination, Event)]
+    , sequencer_eventQueue :: IORef [(Tick, Event)]
     , sequencer_clients :: IORef (Map String EventCallback)
     }
 
@@ -35,9 +35,9 @@ play :: Sequencer -> Tick -> IO ()
 play sequencer startTick = do
     writeIORef (sequencer_currentTick sequencer) startTick
 
-sendAt :: Sequencer -> Tick -> Destination -> Event -> IO ()
-sendAt sequencer time destination event =
-    modifyIORef' (sequencer_eventQueue sequencer) $ (<>) [(time, destination, event)]
+sendAt :: Sequencer -> Tick -> Event -> IO ()
+sendAt sequencer time event =
+    modifyIORef' (sequencer_eventQueue sequencer) $ (<>) [(time, event)]
 
 setTimeScale :: Sequencer -> Double -> IO ()
 setTimeScale sequencer scale =
@@ -57,8 +57,8 @@ process :: Sequencer -> Engine -> Tick -> IO (Maybe Error)
 process sequencer engine tick = do
     writeIORef (sequencer_currentTick sequencer) tick
     events <- readIORef (sequencer_eventQueue sequencer)
-    let (activeEvents, remainingEvents) = partition (\(time, _, _) -> time <= tick) events 
-    pushEvents engine $ (\(_, destination, event) -> (destination, event)) <$> activeEvents
+    let (activeEvents, remainingEvents) = partition (\(time, _) -> time <= tick) events 
+    pushEvents engine $ snd <$> activeEvents
     outputs <- generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
     result <- sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
     writeIORef (sequencer_eventQueue sequencer) remainingEvents

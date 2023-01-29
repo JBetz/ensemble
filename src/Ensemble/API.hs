@@ -17,6 +17,7 @@ data InMessageContent
     = In_ClapPluginPaths
     | In_ScanForClapPlugins [FilePath]
     | In_LoadClapPlugin FilePath Int
+    | In_InitializeSoundfontPlayer FilePath
     | In_LoadSoundfont FilePath
     deriving (Show, Generic, ToJSON, FromJSON)
 
@@ -29,5 +30,6 @@ data OutMessageContent
     = Out_ClapPluginPaths [FilePath]
     | Out_ScanForClapPlugins [PluginDescriptor]
     | Out_LoadClapPlugin
+    | Out_InitializeSoundfontPlayer
     | Out_LoadSoundfont SoundfontId
     deriving (Show, Generic, ToJSON, FromJSON)

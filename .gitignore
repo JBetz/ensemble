@@ -1,5 +1,4 @@
 dist-newstyle
-lib
-soundfonts
-*.dll
+result
 ghcid.txt
+soundfonts

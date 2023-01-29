@@ -186,6 +186,24 @@ stop engine = do
             pure result
         Nothing -> pure Nothing 
 
+loadSoundfont :: Engine -> FilePath -> IO SoundfontId
+loadSoundfont engine filePath = do
+    player <- getSoundfontPlayer engine 
+    soundfont <- SF.loadSoundfont player filePath True
+    pure $ SF.soundfont_id soundfont
+
+
+getSoundfontPlayer :: Engine -> IO SF.SoundfontPlayer
+getSoundfontPlayer engine = do
+    maybePlayer <- readIORef $ engine_soundfontPlayer engine
+    case maybePlayer of 
+        Just player -> pure player
+        Nothing -> do
+            player <- SF.createSoundfontPlayer
+            writeIORef (engine_soundfontPlayer engine) (Just player)
+            pure player
+
+
 loadPlugin :: Engine -> ClapId -> IO ()
 loadPlugin engine =
     CLAP.load (engine_pluginHost engine)

@@ -1,27 +1,29 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Soundfont where
 
 import Clap.Interface.Events
-import Control.Monad
+import Data.Aeson
 import Data.IORef
-import Data.Int
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Ensemble.Soundfont.FluidSynth.Library as FS
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
 import Ensemble.Soundfont.FluidSynth.Foreign.Synth
-import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Marshal.Array
-import Foreign.Marshal.Utils
 import Foreign.Ptr
+import GHC.Generics
 import GHC.Stack
 
 newtype SoundfontId = SoundfontId { unSoundfontId :: Int }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
 
 data SoundfontPlayer = SoundfontPlayer
-    { soundfontPlayer_settings :: FluidSettings
+    { soundfontPlayer_fluidSynthLibrary :: FluidSynthLibrary
+    , soundfontPlayer_settings :: FluidSettings
     , soundfontPlayer_synth :: FluidSynth
     , soundfontPlayer_soundfonts :: IORef (Map SoundfontId Soundfont)
     }
@@ -45,40 +47,43 @@ withSoundfontPlayer f = do
 
 createSoundfontPlayer :: IO SoundfontPlayer
 createSoundfontPlayer = do
-    fluidSettings <- c'new_fluid_settings
-    fluidSynth <- c'new_fluid_synth fluidSettings 
+    library <- openFluidSynthLibrary "fluidsynth.dll"
+    settings <-newFluidSettings library
+    synth <- newFluidSynth library settings 
     soundfonts <- newIORef mempty
     pure $ SoundfontPlayer
-        { soundfontPlayer_settings = fluidSettings
-        , soundfontPlayer_synth = fluidSynth
+        { soundfontPlayer_fluidSynthLibrary = library
+        , soundfontPlayer_settings = settings
+        , soundfontPlayer_synth = synth
         , soundfontPlayer_soundfonts = soundfonts
         }
 
 deleteSoundfontPlayer :: SoundfontPlayer -> IO ()
 deleteSoundfontPlayer player = do
-    c'delete_fluid_synth (soundfontPlayer_synth player)
-    c'delete_fluid_settings (soundfontPlayer_settings player)
+    let library = soundfontPlayer_fluidSynthLibrary player
+    deleteFluidSynth library (soundfontPlayer_synth player)
+    deleteFluidSettings library (soundfontPlayer_settings player)
 
 loadSoundfont :: SoundfontPlayer -> FilePath -> Bool -> IO Soundfont
 loadSoundfont player filePath resetPresets = do
+    let library = soundfontPlayer_fluidSynthLibrary player
     let synth = soundfontPlayer_synth player
-    withCString filePath $ \cFilePath -> do
-        soundfontId <- c'fluid_synth_sfload synth cFilePath (fromBool resetPresets)
-        handle <- c'fluid_synth_get_sfont_by_id synth soundfontId
-        let soundfont = Soundfont 
-                { soundfont_id = SoundfontId (fromIntegral soundfontId)
-                , soundfont_filePath = filePath
-                , soundfont_handle = handle
-                }
-        modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
-        pure soundfont
+    soundfontId <- sfLoad library synth filePath resetPresets
+    handle <- getSfontById library synth soundfontId
+    let soundfont = Soundfont 
+            { soundfont_id = SoundfontId soundfontId
+            , soundfont_filePath = filePath
+            , soundfont_handle = handle
+            }
+    modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
+    pure soundfont
 
 processEvent :: SoundfontPlayer -> SoundfontId -> Event -> IO ()
 processEvent player _soundfontId = \case
-    NoteOn event -> noteOn player (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
-    NoteOff event -> noteOff player (noteEvent_channel event) (noteEvent_key event)
-    NoteChoke event -> noteOff player (noteKillEvent_channel event) (noteKillEvent_key event)
-    NoteEnd event -> noteOff player (noteKillEvent_channel event) (noteKillEvent_key event)
+    NoteOn event -> noteOn library synth (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
+    NoteOff event -> noteOff library synth (noteEvent_channel event) (noteEvent_key event)
+    NoteChoke event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
+    NoteEnd event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
     NoteExpression _ -> pure ()
     ParamValue _ -> pure ()
     ParamMod _ -> pure ()
@@ -88,6 +93,9 @@ processEvent player _soundfontId = \case
     Midi _ -> pure ()
     MidiSysex _ -> pure ()
     Midi2 _ -> pure ()
+    where
+        library = soundfontPlayer_fluidSynthLibrary player
+        synth = soundfontPlayer_synth player
 
 data SoundfontOutput = SoundfontOutput
     { soundfontOutput_wetChannelLeft :: [CFloat]
@@ -118,8 +126,9 @@ process player frameCount = do
     dryLeft <- newArray $ replicate frameCount 0
     dryRight <- newArray $ replicate frameCount 0
     dryBuffers <- newArray [dryLeft, dryRight]
-    _ <- c'fluid_synth_process 
-        synth (fromIntegral frameCount) 
+    _ <- FS.process 
+        (soundfontPlayer_fluidSynthLibrary player) synth 
+        (fromIntegral frameCount) 
         (fromIntegral wetChannelCount) wetBuffers 
         (fromIntegral dryChannelCount) dryBuffers
     wetChannels <- peekArray wetChannelCount wetBuffers
@@ -132,13 +141,3 @@ process player frameCount = do
         , soundfontOutput_dryChannelLeft = dryChannelLeft
         , soundfontOutput_dryChannelRight = dryChannelRight
         }
-
-noteOn :: SoundfontPlayer -> Int16 -> Int16 -> Double -> IO ()
-noteOn player channel key velocity = do
-    let synth = soundfontPlayer_synth player
-    void $ c'fluid_synth_noteon synth (fromIntegral channel) (fromIntegral key) (truncate velocity)
-
-noteOff :: SoundfontPlayer -> Int16 -> Int16 -> IO ()
-noteOff player channel key = do
-    let synth = soundfontPlayer_synth player
-    void $ c'fluid_synth_noteoff synth (fromIntegral channel) (fromIntegral key)

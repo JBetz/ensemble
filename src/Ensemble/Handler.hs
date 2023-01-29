@@ -9,11 +9,10 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import Ensemble.API
 import Ensemble.Engine
-import Ensemble.Sequencer
 import Ensemble.Server
 
 handle :: Server -> InMessage -> IO OutMessage
-handle (Server sequencer engine) (InMessage clientId inContent extra) = do 
+handle (Server sequencer engine) (InMessage inContent extra) = do 
     outContent <- case inContent of
         In_ClapPluginPaths ->
             Out_ClapPluginPaths <$> pluginLibraryPaths
@@ -22,7 +21,10 @@ handle (Server sequencer engine) (InMessage clientId inContent extra) = do
         In_LoadClapPlugin filePath index -> do
             loadPlugin engine $ ClapId (filePath, index)
             pure Out_LoadClapPlugin
-    pure $ OutMessage clientId outContent extra
+        In_LoadSoundfont filePath -> do
+            soundfontId <- loadSoundfont engine filePath
+            pure $ Out_LoadSoundfont soundfontId
+    pure $ OutMessage outContent extra
 
 getCommand :: IO (Either String InMessage)
 getCommand = do

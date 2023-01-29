@@ -15,33 +15,39 @@ common base
 
 library
     import:           base
-    exposed-modules:  Ensemble
-                    , Ensemble.API
-                    , Ensemble.Engine
-                    , Ensemble.Handler
-                    , Ensemble.Sequencer
-                    , Ensemble.Server
-                    , Ensemble.Soundfont
-    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Audio
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Gen
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Midi
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Settings
-                    , Ensemble.Soundfont.FluidSynth.Foreign.Synth
-    build-depends:    base
-                    , aeson
-                    , bytestring
-                    , clap
-                    , containers
-                    , portaudio
-                    , stm
+    exposed-modules:  Ensemble,
+                      Ensemble.API,
+                      Ensemble.Engine,
+                      Ensemble.Handler,
+                      Ensemble.Sequencer,
+                      Ensemble.Server,
+                      Ensemble.Soundfont
+    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Settings,
+                      Ensemble.Soundfont.FluidSynth.Foreign.Synth,
+                      Ensemble.Soundfont.FluidSynth.Library,
+    build-depends:    base,
+                      aeson,
+                      bytestring,
+                      clap,
+                      containers,
+                      portaudio,
+                      stm
     hs-source-dirs:   src
     extra-libraries:  portaudio
+    ghc-options:      -fexternal-dynamic-refs
+    if os(windows)
+        other-modules: Ensemble.Soundfont.FluidSynth.Library.Windows
+        build-depends: Win32
+        cpp-options:   -DWINDOWS
+    else
+        other-modules: Ensemble.Soundfont.FluidSynth.Library.POSIX
+        build-depends: unix
     
 executable ensemble
     import:           base
     main-is:          Main.hs
-    build-depends:    base
-                    , ensemble
+    build-depends:    base,
+                      ensemble
     hs-source-dirs:   app
     ghc-options:      -threaded
 
@@ -50,5 +56,5 @@ test-suite ensemble-test
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
-    build-depends:    base
-                    , ensemble
+    build-depends:    base,
+                      ensemble

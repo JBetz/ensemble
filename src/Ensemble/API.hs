@@ -22,9 +22,9 @@ data InMessageContent
     deriving (Show)
 
 data OutMessageContent 
-    = Out_ClapPluginPaths [FilePath]
-    | Out_ScanForClapPlugins [PluginDescriptor]
-    | Out_LoadClapPlugin
-    | Out_InitializeSoundfontPlayer
-    | Out_LoadSoundfont SoundfontId
+    = Out_ClapPluginPathsResponse [FilePath]
+    | Out_ScanForClapPluginsResponse [PluginDescriptor]
+    | Out_LoadClapPluginResponse
+    | Out_InitializeSoundfontPlayerResponse
+    | Out_LoadSoundfontResponse SoundfontId
     deriving (Show)

@@ -16,18 +16,18 @@ handle :: Server -> InMessage -> IO OutMessage
 handle (Server _sequencer engine) (InMessage inContent extra) = do 
     outContent <- case inContent of
         In_ClapPluginPaths ->
-            Out_ClapPluginPaths <$> pluginLibraryPaths
+            Out_ClapPluginPathsResponse <$> pluginLibraryPaths
         In_ScanForClapPlugins filePaths -> 
-            Out_ScanForClapPlugins <$> scanForPluginsIn filePaths
+            Out_ScanForClapPluginsResponse <$> scanForPluginsIn filePaths
         In_LoadClapPlugin filePath index -> do
             loadPlugin engine $ ClapId (filePath, index)
-            pure Out_LoadClapPlugin
+            pure Out_LoadClapPluginResponse
         In_InitializeSoundfontPlayer filePath -> do
             initializeSoundfontPlayer engine filePath
-            pure Out_InitializeSoundfontPlayer
+            pure Out_InitializeSoundfontPlayerResponse
         In_LoadSoundfont filePath -> do
             soundfontId <- loadSoundfont engine filePath
-            pure $ Out_LoadSoundfont soundfontId
+            pure $ Out_LoadSoundfontResponse soundfontId
     pure $ OutMessage outContent extra
 
 getCommand :: IO (Either String InMessage)

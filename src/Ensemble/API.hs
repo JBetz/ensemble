@@ -1,17 +1,17 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Ensemble.API where
 
 import Clap.Interface.Plugin
-import Data.Aeson
 import Ensemble.Soundfont
-import GHC.Generics
 
 data InMessage = InMessage
     { inMessage_content :: InMessageContent 
     , inMessage_extra :: String
-    } deriving (Show, Generic, ToJSON, FromJSON)
+    } deriving (Show)
+
+data OutMessage = OutMessage
+     { outMessage_content :: OutMessageContent
+     , outMessage_extra :: String
+     } deriving (Show)
 
 data InMessageContent
     = In_ClapPluginPaths
@@ -19,12 +19,7 @@ data InMessageContent
     | In_LoadClapPlugin FilePath Int
     | In_InitializeSoundfontPlayer FilePath
     | In_LoadSoundfont FilePath
-    deriving (Show, Generic, ToJSON, FromJSON)
-
-data OutMessage = OutMessage
-     { outMessage_content :: OutMessageContent
-     , outMessage_extra :: String
-     } deriving (Show, Generic, ToJSON, FromJSON)
+    deriving (Show)
 
 data OutMessageContent 
     = Out_ClapPluginPaths [FilePath]
@@ -32,4 +27,4 @@ data OutMessageContent
     | Out_LoadClapPlugin
     | Out_InitializeSoundfontPlayer
     | Out_LoadSoundfont SoundfontId
-    deriving (Show, Generic, ToJSON, FromJSON)
+    deriving (Show)

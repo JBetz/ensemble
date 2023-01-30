@@ -9,6 +9,7 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import Ensemble.API
 import Ensemble.Engine
+import Ensemble.Schema ()
 import Ensemble.Server
 
 handle :: Server -> InMessage -> IO OutMessage

@@ -1,12 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Soundfont where
 
 import Control.Exception
-import Data.Aeson
 import Data.IORef
 import Data.Int
 import Data.Map (Map)
@@ -17,11 +15,10 @@ import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.Types
 import Foreign.Marshal.Array
 import Foreign.Ptr
-import GHC.Generics
 import GHC.Stack
 
 newtype SoundfontId = SoundfontId { unSoundfontId :: Int }
-    deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
+    deriving (Eq, Ord, Show)
 
 data SoundfontPlayer = SoundfontPlayer
     { soundfontPlayer_fluidSynthLibrary :: FluidSynthLibrary
@@ -43,18 +40,18 @@ data SoundfontException
 data Event 
     = NoteOn NoteOnEvent
     | NoteOff NoteOffEvent
-    deriving (Show, Generic, ToJSON, FromJSON)
+    deriving (Show)
 
 data NoteOnEvent = NoteOnEvent
     { noteOnEvent_channel :: Int16
     , noteOnEvent_key :: Int16
     , noteOnEvent_velocity :: Double 
-    } deriving (Show, Generic, ToJSON, FromJSON)
+    } deriving (Show)
 
 data NoteOffEvent = NoteOffEvent
     { noteOffEvent_channel :: Int16
     , noteOffEvent_key :: Int16
-    } deriving (Show, Generic, ToJSON, FromJSON)
+    } deriving (Show)
 
 instance Exception SoundfontException
 

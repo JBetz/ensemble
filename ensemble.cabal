@@ -20,6 +20,8 @@ library
                       Ensemble.Engine,
                       Ensemble.Event,
                       Ensemble.Handler,
+                      Ensemble.Schema,
+                      Ensemble.Schema.TH,
                       Ensemble.Sequencer,
                       Ensemble.Server,
                       Ensemble.Soundfont
@@ -28,11 +30,14 @@ library
                       Ensemble.Soundfont.FluidSynth.Library,
     build-depends:    base,
                       aeson,
+                      aeson-pretty,
                       bytestring,
                       clap,
                       containers,
+                      jsonschema-gen,
                       portaudio,
-                      stm
+                      stm,
+                      template-haskell
     hs-source-dirs:   src
     extra-libraries:  portaudio
     ghc-options:      -fexternal-dynamic-refs

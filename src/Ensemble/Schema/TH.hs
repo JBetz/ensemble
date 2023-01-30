@@ -19,7 +19,9 @@ encodingOptions =
             _ -> field
     in A.defaultOptions 
         { A.fieldLabelModifier = modifier
-        , A.sumEncoding = A.ObjectWithSingleField 
+        , A.constructorTagModifier = modifier
+        , A.sumEncoding = A.ObjectWithSingleField
+        , A.unwrapUnaryRecords = True
         }
 
 split :: Char -> String -> [String]

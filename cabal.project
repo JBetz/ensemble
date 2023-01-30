@@ -10,5 +10,5 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/JBetz/jsonschema-gen
-  tag: 78bb7262c8ede84d6cbe8834bf4a4eaae4af6b32
-  --sha256: sha256-RPzJ9qlrIn3teOA44dZ19QDFpnpWTZfgee+sT7ufxXE=
+  tag: 4bd94edd54309cba17066140fc5310cbaef41b77
+  --sha256: sha256-TaHjbpo+gJMuK+tzjd4S29a4xrqJ27UT2vPErxN1ygQ=

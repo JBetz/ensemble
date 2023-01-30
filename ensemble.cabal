@@ -53,9 +53,19 @@ executable ensemble
     import:           base
     main-is:          Main.hs
     build-depends:    base,
+                      aeson,
+                      bytestring,
                       ensemble
     hs-source-dirs:   app
     ghc-options:      -threaded
+
+executable generate-schema
+    import:           base
+    main-is:          GenerateSchema.hs
+    build-depends:    base,
+                      ensemble
+    hs-source-dirs:   app
+
 
 test-suite ensemble-test
     import:           base

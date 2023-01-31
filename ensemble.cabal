@@ -21,6 +21,7 @@ library
                       Ensemble.Event,
                       Ensemble.Handler,
                       Ensemble.Schema,
+                      Ensemble.Schema.TaggedJSON,
                       Ensemble.Schema.TH,
                       Ensemble.Sequencer,
                       Ensemble.Server,

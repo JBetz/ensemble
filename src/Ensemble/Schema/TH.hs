@@ -12,6 +12,7 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.TH as A
 import GHC.Generics
 import Language.Haskell.TH
+import Ensemble.Schema.TaggedJSON
 
 encodingOptions :: A.Options
 encodingOptions = 
@@ -38,13 +39,24 @@ split c s = case rest of
                 _:rest' -> chunk : split c rest'
   where (chunk, rest) = break (==c) s
 
+deriveToTaggedJSON :: Name -> DecQ
+deriveToTaggedJSON name = do
+    let classType = ConT ''ToTaggedJSON
+    let forType = ConT name
+    let functionName = 'toTaggedJSON
+    objectVariable <- newName "object"
+    let body = NormalB $ AppE (AppE (VarE 'defaultToTaggedJSON) (LitE $ StringL $ nameBase name)) (VarE objectVariable)
+    pure $ InstanceD Nothing [] (AppT classType forType)
+        [FunD functionName 
+            [Clause [VarP objectVariable] body []]]
 
 deriveJSON :: Name -> DecsQ
 deriveJSON name = do
     let generic = StandaloneDerivD Nothing [] (ConT ''Generic `AppT` ConT name)
     fromJson <- A.deriveToJSON encodingOptions name
     toJson <- A.deriveFromJSON encodingOptions name
-    pure $ generic:(fromJson <> toJson)
+    toTaggedJson <- deriveToTaggedJSON name
+    pure $ [generic] <> fromJson <> toJson <> [toTaggedJson]
 
 deriveJSONs :: [Name] -> DecsQ
 deriveJSONs names = do

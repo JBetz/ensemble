@@ -40,7 +40,6 @@ library
                       text
     hs-source-dirs:   src
     extra-libraries:  portaudio
-    ghc-options:      -fexternal-dynamic-refs
     if os(windows)
         other-modules: Ensemble.Soundfont.FluidSynth.Library.Windows
         build-depends: Win32

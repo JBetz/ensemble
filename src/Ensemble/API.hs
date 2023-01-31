@@ -1,30 +1,42 @@
+{-# LANGUAGE DataKinds #-}
+
 module Ensemble.API where
 
-import Clap.Interface.Plugin
-import Ensemble.Soundfont
+import Clap.Host (ClapId (..))
+import qualified Clap.Library as CLAP
+import Control.Monad.Freer
+import Control.Monad.Freer.Error
+import Control.Monad.Freer.Reader
+import qualified Ensemble.Engine as Engine
+import Ensemble.Schema
+import Ensemble.Server
+import Ensemble.Soundfont (SoundfontId)
 
-data InMessage = InMessage
-    { inMessage_content :: InMessageContent 
-    , inMessage_extra :: String
-    } deriving (Show)
+type Ensemble = Eff '[Reader Server, Error String, IO]
 
-data OutMessage = OutMessage
-     { outMessage_content :: OutMessageContent
-     , outMessage_extra :: String
-     } deriving (Show)
+-- CLAP
+getClapPluginLocations :: Ensemble PluginLocations
+getClapPluginLocations = 
+    sendM $ PluginLocations <$> CLAP.pluginLibraryPaths 
 
-data InMessageContent
-    = In_ClapPluginPaths
-    | In_ScanForClapPlugins [FilePath]
-    | In_LoadClapPlugin FilePath Int
-    | In_InitializeSoundfontPlayer FilePath
-    | In_LoadSoundfont FilePath
-    deriving (Show)
+scanForClapPlugins :: [FilePath] -> Ensemble PluginDescriptors
+scanForClapPlugins filePaths = 
+    sendM $ PluginDescriptors <$> CLAP.scanForPluginsIn filePaths
 
-data OutMessageContent 
-    = Out_ClapPluginPathsResponse [FilePath]
-    | Out_ScanForClapPluginsResponse [PluginDescriptor]
-    | Out_LoadClapPluginResponse
-    | Out_InitializeSoundfontPlayerResponse
-    | Out_LoadSoundfontResponse SoundfontId
-    deriving (Show)
+loadClapPlugin :: FilePath -> Int -> Ensemble Ok
+loadClapPlugin filePath index = do
+    engine <- asks server_engine
+    sendM $ Engine.loadPlugin engine $ ClapId (filePath, index)
+    pure Ok
+
+-- Soundfont
+initializeSoundfontPlayer :: FilePath -> Ensemble Ok
+initializeSoundfontPlayer filePath = do
+   engine <- asks server_engine
+   sendM $ Engine.initializeSoundfontPlayer engine filePath
+   pure Ok
+
+loadSoundfont :: FilePath -> Ensemble SoundfontId
+loadSoundfont filePath = do
+    engine <- asks server_engine
+    sendM $ Engine.loadSoundfont engine filePath

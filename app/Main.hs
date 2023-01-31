@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad
 import Data.Aeson
-import qualified Data.ByteString.Lazy as LBS
+import Data.String.Class (fromLazyByteString)
 import Ensemble.Handler
 import Ensemble.Server
 import System.IO
@@ -12,10 +12,9 @@ main = do
   hSetBuffering stdout NoBuffering
   server <- createServer
   forever $ do
-    maybeCommand <- getCommand
-    case maybeCommand of
-        Right command -> do
-            result <- handle server command
-            LBS.putStr $ encode result
+    result <- receiveMessage server
+    case result of
+        Right outMessage -> do
+            putStrLn $ fromLazyByteString (encode outMessage)
         Left errorMessage -> 
-            putStrLn $ "Invalid command: " <> errorMessage
+            hPutStrLn stderr errorMessage

@@ -1,7 +1,10 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Ensemble.Sequencer where
 
 import Ensemble.Engine
 import Ensemble.Event
+import Data.Foldable (for_)
 import Data.IORef
 import Data.List
 import Data.Map (Map)
@@ -16,7 +19,7 @@ data Sequencer = Sequencer
     }
 
 newtype Tick = Tick { unTick :: Int }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Enum)
 
 createSequencer :: IO Sequencer
 createSequencer = do
@@ -31,9 +34,16 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-play :: Sequencer -> Tick -> IO ()
-play sequencer startTick = do
+play :: Sequencer -> Engine -> Tick -> IO ()
+play sequencer engine startTick = do
     writeIORef (sequencer_currentTick sequencer) startTick
+    endTick <- getEndTick sequencer
+    for_ [startTick .. endTick] $ process sequencer engine
+
+getEndTick :: Sequencer -> IO Tick
+getEndTick sequencer = do
+    eventQueue <- readIORef $ sequencer_eventQueue sequencer
+    pure $ maximum $ fst <$> eventQueue
 
 sendAt :: Sequencer -> Tick -> Event -> IO ()
 sendAt sequencer time event =

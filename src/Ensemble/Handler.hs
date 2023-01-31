@@ -1,36 +1,81 @@
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Ensemble.Handler where
 
-import Clap.Host
-import Clap.Library
-import Data.Aeson
+import Control.Monad.Freer
+import Control.Monad.Freer.Error
+import Control.Monad.Freer.Reader
+import qualified Data.Aeson as A
+import Data.Aeson.KeyMap (KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString as BS
-import Ensemble.API
-import Ensemble.Engine
+import Data.Text (unpack)
 import Ensemble.Schema ()
+import qualified Ensemble.API as API
 import Ensemble.Server
 
-handle :: Server -> InMessage -> IO OutMessage
-handle (Server _sequencer engine) (InMessage inContent extra) = do 
-    outContent <- case inContent of
-        In_ClapPluginPaths ->
-            Out_ClapPluginPathsResponse <$> pluginLibraryPaths
-        In_ScanForClapPlugins filePaths -> 
-            Out_ScanForClapPluginsResponse <$> scanForPluginsIn filePaths
-        In_LoadClapPlugin filePath index -> do
-            loadPlugin engine $ ClapId (filePath, index)
-            pure Out_LoadClapPluginResponse
-        In_InitializeSoundfontPlayer filePath -> do
-            initializeSoundfontPlayer engine filePath
-            pure Out_InitializeSoundfontPlayerResponse
-        In_LoadSoundfont filePath -> do
-            soundfontId <- loadSoundfont engine filePath
-            pure $ Out_LoadSoundfontResponse soundfontId
-    pure $ OutMessage outContent extra
+receiveMessage :: Server -> IO (Either String A.Value)
+receiveMessage server = do
+    jsonMessage <- A.eitherDecodeStrict <$> BS.getLine
+    case jsonMessage of
+        Right (A.Object object) -> do
+            result <- handler server object
+            case result of
+                Right (A.Object outMessage) ->
+                    pure $ Right $ A.Object $ case KeyMap.lookup "@extra" object of
+                        Just extraValue -> KeyMap.insert "@extra" extraValue outMessage
+                        Nothing -> outMessage
+                Right _ -> 
+                    pure $ Left "Invalid JSON output, needs to be object"
+                Left errorMessage ->
+                    pure $ Left errorMessage
+        Right _ -> pure $ Left "Invalid JSON input, needs to be object"
+        Left parseError -> pure $ Left $ "Parse error: " <> parseError
 
-getCommand :: IO (Either String InMessage)
-getCommand = do
-    rawCommand <- BS.getLine
-    pure $ eitherDecodeStrict rawCommand
+handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
+handler server object = runM $ runError $ runReader server $
+    case KeyMap.lookup "@type" object of
+        Just (A.String messageType) ->
+            case messageType of
+                -- CLAP 
+                "getClapPluginLocations" -> do 
+                    result <- API.getClapPluginLocations
+                    pure $ A.toJSON result
+                "scanForClapPlugins" -> do 
+                    filePaths <- lookupField "filePaths"
+                    result <- API.scanForClapPlugins filePaths
+                    pure $ A.toJSON result
+                "loadClapPlugin" -> do
+                    filePath <- lookupField "filePath"
+                    index <- lookupField "index"
+                    result <- API.loadClapPlugin filePath index
+                    pure $ A.toJSON result
+
+                -- Soundfont
+                "initializeSoundfontPlayer" -> do
+                    filePath <- lookupField "filePath"
+                    result <- API.initializeSoundfontPlayer filePath
+                    pure $ A.toJSON result
+
+                "loadSoundfont" -> do
+                    filePath <- lookupField "filePath"
+                    result <- API.loadSoundfont filePath
+                    pure $ A.toJSON result
+                other ->
+                    throwError @String $ "Invalid message type: " <> unpack other
+        Just _ -> 
+            throwError @String "Invalid '@type' field"
+        Nothing -> 
+            throwError @String "Message is missing '@type' field"
+
+    where
+        lookupField key = 
+            case KeyMap.lookup key object of
+                Just value -> 
+                    case A.fromJSON value of
+                        A.Success a -> pure a
+                        A.Error parseError -> throwError $ "Parse error on '" <> show key <> "': "  <> parseError
+                Nothing -> 
+                    throwError $ "Missing argument: " <> show key

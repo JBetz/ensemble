@@ -1,4 +1,4 @@
 import Ensemble.Schema
 
 main :: IO ()
-main = generateSchemas
+main = generateSchema

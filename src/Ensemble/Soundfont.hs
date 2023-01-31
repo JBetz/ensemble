@@ -17,7 +17,7 @@ import Foreign.Marshal.Array
 import Foreign.Ptr
 import GHC.Stack
 
-newtype SoundfontId = SoundfontId { unSoundfontId :: Int }
+newtype SoundfontId = SoundfontId { id :: Int }
     deriving (Eq, Ord, Show)
 
 data SoundfontPlayer = SoundfontPlayer

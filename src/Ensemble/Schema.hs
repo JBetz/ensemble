@@ -8,22 +8,23 @@ module Ensemble.Schema where
 
 import Clap.Interface.Plugin
 import Clap.Interface.Version (ClapVersion (..))
-import Data.JSON.Schema.Generator
-import Data.JSON.Schema.Generator.Types (scInteger)
-import Data.Word
-import Ensemble.API
 import Ensemble.Soundfont
 import Ensemble.Schema.TH
 
-instance JSONSchemaPrim Word32 where
-    toSchemaPrim _ _ = scInteger
+data Ok = Ok
 
-deriveSchemas 
+newtype PluginLocations = PluginLocations { filePaths :: [FilePath] }
+
+newtype PluginDescriptors = PluginDescriptors { pluginDescriptors :: [PluginDescriptor] }
+
+deriveJSONs 
     [ ''ClapVersion
     , ''PluginDescriptor
     , ''SoundfontId
-    , ''InMessageContent
-    , ''OutMessageContent
-    , ''InMessage
-    , ''OutMessage
+    , ''Ok
+    , ''PluginLocations
+    , ''PluginDescriptors
     ]
+
+generateSchema :: IO ()
+generateSchema = pure ()

@@ -1,7 +1,6 @@
 module Ensemble.Soundfont.FluidSynth.Library.Windows where
 
 import Foreign.Ptr
-import System.Environment
 import System.Win32.DLL as DLL
 import System.Win32.Types
 

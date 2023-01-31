@@ -20,4 +20,4 @@ closeFluidSynthLibrary (FluidSynthLibrary hmodule) =
 lookupProcedure :: FluidSynthLibrary -> String -> IO (FunPtr a)
 lookupProcedure (FluidSynthLibrary hmodule) name = do
     addr <- DLL.getProcAddress hmodule name
-    pure $ castPtr addr
+    pure $ castPtrToFunPtr addr

@@ -26,22 +26,18 @@ encodingOptions =
         , A.unwrapUnaryRecords = False
         }
 
-split :: Char -> String -> [String]
-split c s = case rest of
-                []     -> [chunk]
-                _:rest' -> chunk : split c rest'
-  where (chunk, rest) = break (==c) s
-
 break                   :: (a -> Bool) -> [a] -> ([a],[a])
 break _ xs@[]           =  (xs, xs)
 break p xs@(x:xs')
            | p x        =  ([],xs)
            | otherwise  =  let (ys,zs) = break p xs' in (x:ys,zs)
 
-deriveJSONs :: [Name] -> DecsQ
-deriveJSONs names = do
-    deriveSchemaDecs <- traverse deriveJSON names
-    pure $ join deriveSchemaDecs
+split :: Char -> String -> [String]
+split c s = case rest of
+                []     -> [chunk]
+                _:rest' -> chunk : split c rest'
+  where (chunk, rest) = break (==c) s
+
 
 deriveJSON :: Name -> DecsQ
 deriveJSON name = do
@@ -49,3 +45,8 @@ deriveJSON name = do
     fromJson <- A.deriveToJSON encodingOptions name
     toJson <- A.deriveFromJSON encodingOptions name
     pure $ generic:(fromJson <> toJson)
+
+deriveJSONs :: [Name] -> DecsQ
+deriveJSONs names = do
+    deriveSchemaDecs <- traverse deriveJSON names
+    pure $ join deriveSchemaDecs

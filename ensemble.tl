@@ -24,9 +24,9 @@ noteOnEvent channel:Int16 key:Int16 velocity:Double = NoteOnEvent;
 
 noteOffEvent channel:Int16 key:Int16 = NoteOffEvent;
 
-noteOn channel:Int16 key:Int16 velocity:Double  = Event;
+noteOn value:NoteOnEvent = Event;
 
-noteOff channel:Int16 key:Int16  = Event;
+noteOff value:NoteOffEvent = Event;
 
 isLive = EventFlag;
 
@@ -88,39 +88,39 @@ midi2Data first:Word32 second:Word32 third:Word32 fourth:Word32 = Midi2Data;
 
 midi2Event portIndex:Word16 data:Midi2Data = Midi2Event;
 
-noteOn noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = Event;
+noteOn value:NoteEvent = Event;
 
-noteOff noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = Event;
+noteOff value:NoteEvent = Event;
 
-noteChoke noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = Event;
+noteChoke value:NoteKillEvent = Event;
 
-noteEnd noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = Event;
+noteEnd value:NoteKillEvent = Event;
 
-noteExpression noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression  = Event;
+noteExpression value:NoteExpressionEvent = Event;
 
-paramValue paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = Event;
+paramValue value:ParamValueEvent = Event;
 
-paramMod paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = Event;
+paramMod value:ParamModEvent = Event;
 
-paramGestureBegin paramId:ParamId  = Event;
+paramGestureBegin value:ParamGestureEvent = Event;
 
-paramGestureEnd paramId:ParamId  = Event;
+paramGestureEnd value:ParamGestureEvent = Event;
 
-transport flags:vector<TransportFlag> songPositionBeats:BeatTime songPositionSeconds:SecondsTime tempo:Double tempoIncrement:Double loopStartBeats:BeatTime loopEndBeats:BeatTime loopStartSeconds:SecondsTime loopEndSeconds:SecondsTime barStart:BeatTime barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = Event;
+transport value:TransportEvent = Event;
 
-midi portIndex:Word16 data:MidiData  = Event;
+midi value:MidiEvent = Event;
 
-midiSysex portIndex:Word16 buffer:vector<Word8>  = Event;
+midiSysex value:MidiSysexEvent = Event;
 
-midi2 portIndex:Word16 data:Midi2Data  = Event;
+midi2 value:Midi2Event = Event;
 
 soundfontEvent soundfontId:SoundfontId event:Event = SoundfontEvent;
 
 clapEvent pluginId:PluginId eventConfig:EventConfig event:Event = ClapEvent;
 
-soundfont soundfontId:SoundfontId event:Event  = Event;
+soundfont value:SoundfontEvent = Event;
 
-clap pluginId:PluginId eventConfig:EventConfig event:Event  = Event;
+clap value:ClapEvent = Event;
 
 ---functions---
 

@@ -125,24 +125,16 @@ generateTypeDefinition typeName = do
     datatypeInfo <- reifyDatatype typeName
     for (datatypeCons datatypeInfo) $ \constructorInfo -> do
         let name = uncapitalise $ nameBase $ constructorName constructorInfo
-        case constructorVariant constructorInfo of
-            RecordConstructor fieldNames -> do
+        pure $ case constructorVariant constructorInfo of
+            RecordConstructor fieldNames ->
                 let fields = zip fieldNames (constructorFields constructorInfo)
-                pure $ foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
+                in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
             _ ->
                 case constructorFields constructorInfo of
-                    [] -> pure $ name <> " = " <> nameBase typeName <> ";"                    
-                    [ConT singleField] -> do
-                        fieldInfo <- reifyDatatype singleField
-                        pure $ case datatypeCons fieldInfo of
-                            [subConstructorInfo] -> 
-                                case constructorVariant subConstructorInfo of
-                                    RecordConstructor fieldNames ->
-                                        let fields = zip fieldNames (constructorFields subConstructorInfo)
-                                        in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> " = " <> nameBase typeName <> ";"
-                                    _ ->
-                                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
-                            _ -> error $ "Invalid constructor field: " <> show constructorInfo
+                    [] -> 
+                        name <> " = " <> nameBase typeName <> ";"                    
+                    [ConT singleField] ->
+                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo
 

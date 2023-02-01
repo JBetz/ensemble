@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -14,10 +16,12 @@ import qualified Data.Aeson.TH as A
 import Data.Char (toLower)
 import Data.Foldable (traverse_, foldlM)
 import Data.Traversable (for)
-import GHC.Generics
 import Language.Haskell.TH
 import Language.Haskell.TH.Datatype
+import Ensemble.API
 import Ensemble.Schema.TaggedJSON
+import Foreign.Ptr
+import GHC.Generics (Generic)
 
 encodingOptions :: A.Options
 encodingOptions = 
@@ -80,14 +84,17 @@ writeSchema types functions = do
     traverse_ (appendFile fileName . (<>) "\n\n") functions 
 
 showType :: Type -> String
-showType = \case 
+showType = \case
     ConT name -> nameBase name
-    AppT ListT itemType -> 
-        if itemType == ConT ''Char
-            then "String"
-            else "vector<" <> showType itemType <> ">" 
-    AppT (ConT _) returnType -> showType returnType
-    other -> error $ "showType: " <> show other
+    TupleT 0 -> "Void"
+    AppT ListT itemType -> if
+        | itemType == ConT ''Char -> "String"
+        | otherwise -> "vector<" <> showType itemType <> ">" 
+    AppT (ConT name) innerType -> if
+        | name == ''Ensemble -> showType innerType
+        | name == ''Ptr -> "Void" 
+        | otherwise -> error $ "Unrepresentable higher order type: " <> show name
+    other -> error $ "Unrepresentable type: " <> show other
 
 showField :: (Name, Type) -> String
 showField (fieldName, fieldType) =
@@ -113,26 +120,47 @@ showFunctionType functionType =
                 (init types) 
             pure $ arguments <> "= " <> returnType
 
+generateTypeDefinition :: Name -> Q [String]
+generateTypeDefinition typeName = do
+    datatypeInfo <- reifyDatatype typeName
+    for (datatypeCons datatypeInfo) $ \constructorInfo -> do
+        let name = uncapitalise $ nameBase $ constructorName constructorInfo
+        case constructorVariant constructorInfo of
+            RecordConstructor fieldNames -> do
+                let fields = zip fieldNames (constructorFields constructorInfo)
+                pure $ foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
+            _ ->
+                case constructorFields constructorInfo of
+                    [] -> pure $ name <> " = " <> nameBase typeName <> ";"                    
+                    [ConT singleField] -> do
+                        fieldInfo <- reifyDatatype singleField
+                        pure $ case datatypeCons fieldInfo of
+                            [subConstructorInfo] -> 
+                                case constructorVariant subConstructorInfo of
+                                    RecordConstructor fieldNames ->
+                                        let fields = zip fieldNames (constructorFields subConstructorInfo)
+                                        in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> " = " <> nameBase typeName <> ";"
+                                    _ ->
+                                        name <> " value:" <> showType (ConT singleField) <> nameBase typeName <> ";" 
+                            _ -> error $ "Invalid constructor field: " <> show constructorInfo
+                    _ -> 
+                        error $ "Invalid constructor fields: " <> show constructorInfo
+
+generateFunctionDefinition :: Name -> Q String
+generateFunctionDefinition functionName = do
+    info <- reify functionName
+    case info of
+        VarI _ functionType _ -> do
+            let name = nameBase functionName
+            functionTypeString <- showFunctionType functionType
+            pure $ name <> " " <> functionTypeString <> ";"
+        _ -> error $ "Invalid function: " <> show functionName
+
 makeGenerateSchema :: [Name] -> [Name] -> DecsQ
 makeGenerateSchema typeNames functionNames = do
     jsonDecs <- deriveJSONs typeNames
-    typeDefinitions <- for typeNames $ \typeName -> do
-        datatypeInfo <- reifyDatatype typeName
-        for (datatypeCons datatypeInfo) $ \constructorInfo -> do
-            let name = uncapitalise $ nameBase $ constructorName constructorInfo
-            case constructorVariant constructorInfo of
-                RecordConstructor fieldNames -> do
-                    let fields = zip fieldNames (constructorFields constructorInfo)
-                    pure $ foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
-                _ -> pure $ name <> " = " <> nameBase typeName <> ";"                    
-    functionDefinitions <- for functionNames $ \functionName -> do
-        info <- reify functionName
-        case info of
-            VarI _ functionType _ -> do
-                let name = nameBase functionName
-                functionTypeString <- showFunctionType functionType
-                pure $ name <> " " <> functionTypeString <> ";"
-            _ -> error $ show info
+    typeDefinitions <- traverse generateTypeDefinition typeNames                  
+    functionDefinitions <- traverse generateFunctionDefinition functionNames
     let generateSchemaName = mkName "generateSchema"
     let body = NormalB $ DoE Nothing [ NoBindS $ AppE (AppE (VarE 'writeSchema) (ListE (LitE . StringL <$> join typeDefinitions))) (ListE (LitE . StringL <$> functionDefinitions)) ]
     let signature = SigD generateSchemaName (AppT (ConT ''IO) (TupleT 0))

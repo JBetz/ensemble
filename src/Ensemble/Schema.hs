@@ -6,20 +6,61 @@
 
 module Ensemble.Schema where
 
-import Clap.Interface.Plugin
-import Clap.Interface.Version (ClapVersion (..))
+import qualified Clap.Host as Clap
+import qualified Clap.Interface.Id as Clap
+import qualified Clap.Interface.Events as Clap
+import qualified Clap.Interface.Plugin as Clap
+import qualified Clap.Interface.Version as Clap
+import Data.Aeson
+import Ensemble.Event (Event(..), SoundfontEvent(..), ClapEvent(..))
 import Ensemble.Soundfont (SoundfontId(..))
+import qualified Ensemble.Soundfont as Soundfont
+import Ensemble.Sequencer (Tick(..))
 import Ensemble.API
 import Ensemble.Schema.TH
+import Foreign.Ptr 
+
+instance ToJSON a => ToJSON (Ptr a) where 
+    toJSON = undefined
+
+instance FromJSON a => FromJSON (Ptr a) where
+    parseJSON = undefined
 
 makeGenerateSchema
     -- types
-    [ ''ClapVersion
-    , ''PluginDescriptor
-    , ''SoundfontId
+    [ ''Clap.ClapId
+    , ''Clap.ParamId
+    , ''Clap.PluginId
+    , ''Clap.ClapVersion
+    , ''Clap.PluginDescriptor
+    , ''Soundfont.SoundfontId
     , ''Ok
     , ''PluginLocations
     , ''PluginDescriptors
+    , ''Tick
+    , ''Soundfont.NoteOnEvent
+    , ''Soundfont.NoteOffEvent
+    , ''Soundfont.Event
+    , ''Clap.EventFlag
+    , ''Clap.EventConfig
+    , ''Clap.NoteEvent
+    , ''Clap.NoteKillEvent
+    , ''Clap.NoteExpression
+    , ''Clap.NoteExpressionEvent
+    , ''Clap.ParamValueEvent
+    , ''Clap.ParamModEvent
+    , ''Clap.ParamGestureEvent
+    , ''Clap.TransportFlag
+    , ''Clap.TransportEvent
+    , ''Clap.MidiData
+    , ''Clap.MidiEvent
+    , ''Clap.MidiSysexEvent
+    , ''Clap.Midi2Data
+    , ''Clap.Midi2Event
+    , ''Clap.Event
+    , ''SoundfontEvent
+    , ''ClapEvent
+    , ''Event
     ]
     -- functions
     [ 'getClapPluginLocations
@@ -27,4 +68,5 @@ makeGenerateSchema
     , 'loadClapPlugin
     , 'initializeSoundfontPlayer
     , 'loadSoundfont
+    , 'scheduleEvent
     ]

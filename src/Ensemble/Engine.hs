@@ -4,7 +4,7 @@
 module Ensemble.Engine where
 
 import Clap.Interface.Host (HostConfig)
-import Clap.Host (PluginHost (..), ClapId)
+import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
 import Control.Exception
 import Control.Monad
@@ -128,11 +128,11 @@ generateOutputs engine frameCount = do
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \case 
-            Soundfont soundfontId event -> 
+            Soundfont (SoundfontEvent soundfontId event) -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> SF.processEvent soundfontPlayer soundfontId event
                     Nothing -> pure ()
-            Clap pluginId eventConfig event -> CLAP.processEvent clapHost pluginId eventConfig event
+            Clap (ClapEvent pluginId eventConfig event) -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> SF.process soundfontPlayer (fromIntegral frameCount)
@@ -202,7 +202,7 @@ initializeSoundfontPlayer engine path = do
     writeIORef (engine_soundfontPlayer engine) (Just player)    
 
 
-loadPlugin :: Engine -> ClapId -> IO ()
+loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =
     CLAP.load (engine_pluginHost engine)
 

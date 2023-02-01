@@ -8,16 +8,12 @@ module Ensemble.Schema where
 
 import Clap.Interface.Plugin
 import Clap.Interface.Version (ClapVersion (..))
-import Ensemble.Soundfont
+import Ensemble.Soundfont (SoundfontId(..))
+import Ensemble.API
 import Ensemble.Schema.TH
 
-data Ok = Ok
-
-newtype PluginLocations = PluginLocations { filePaths :: [FilePath] }
-
-newtype PluginDescriptors = PluginDescriptors { pluginDescriptors :: [PluginDescriptor] }
-
-deriveJSONs 
+makeGenerateSchema
+    -- types
     [ ''ClapVersion
     , ''PluginDescriptor
     , ''SoundfontId
@@ -25,6 +21,10 @@ deriveJSONs
     , ''PluginLocations
     , ''PluginDescriptors
     ]
-
-generateSchema :: IO ()
-generateSchema = pure ()
+    -- functions
+    [ 'getClapPluginLocations
+    , 'scanForClapPlugins
+    , 'loadClapPlugin
+    , 'initializeSoundfontPlayer
+    , 'loadSoundfont
+    ]

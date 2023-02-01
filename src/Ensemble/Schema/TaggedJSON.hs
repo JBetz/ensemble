@@ -4,7 +4,7 @@ module Ensemble.Schema.TaggedJSON where
 
 import qualified Data.Aeson as A
 import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Text (Text, pack)
+import Data.Text (pack)
 
 class A.ToJSON a => ToTaggedJSON a where
     toTaggedJSON :: a -> A.Object

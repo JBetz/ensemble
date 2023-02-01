@@ -38,7 +38,8 @@ library
                       portaudio,
                       stm,
                       template-haskell,
-                      text
+                      text,
+                      th-abstraction
     hs-source-dirs:   src
     extra-libraries:  portaudio
     if os(windows)

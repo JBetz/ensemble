@@ -1,36 +1,25 @@
-double ? = Double;
-string ? = String;
-
-int32 = Int32;
-int53 = Int53;
-int64 = Int64;
-bytes = Bytes;
-
-boolFalse = Bool;
-boolTrue = Bool;
-
 vector {t:Type} # [ t ] = Vector t;
+
+clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
+
+pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url:String manualUrl:String supportUrl:String version:String description:String features:vector<String> = PluginDescriptor;
+
+soundfontId id:Int = SoundfontId;
 
 ok = Ok;
 
-clapVersion major:int32 minor:int32 revision:int32 = ClapVersion; 
-
-pluginDescriptor clapVersion:clapVersion id:string name:string vendor:string url:string manualUrl:string supportUrl:string version:string description:string features:vector<string> = PluginDescriptor;
-
-pluginLocations filePaths:vector<String> = PluginLocations;
+pluginLocations filePaths:vector<FilePath> = PluginLocations;
 
 pluginDescriptors pluginDescriptors:vector<PluginDescriptor> = PluginDescriptors;
-
-soundfontId id:int32 = SoundfontId;
 
 ---functions---
 
 getClapPluginLocations = PluginLocations;
 
-scanForClapPlugins filePaths:vector<string> = PluginDescriptors;
+scanForClapPlugins filePaths:vector<String> = PluginDescriptors;
 
-loadClapPlugin filePath:string index:int32 = Ok;
+loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
-initializeSoundfontPlayer filePath:string = Ok;
+initializeSoundfontPlayer filePath:String = Ok;
 
-loadSoundfont filePath:string = SoundfontId;
+loadSoundfont filePath:String = SoundfontId;

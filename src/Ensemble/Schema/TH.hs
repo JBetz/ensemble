@@ -141,7 +141,7 @@ generateTypeDefinition typeName = do
                                         let fields = zip fieldNames (constructorFields subConstructorInfo)
                                         in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> " = " <> nameBase typeName <> ";"
                                     _ ->
-                                        name <> " value:" <> showType (ConT singleField) <> nameBase typeName <> ";" 
+                                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
                             _ -> error $ "Invalid constructor field: " <> show constructorInfo
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo

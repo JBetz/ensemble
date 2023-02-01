@@ -38,19 +38,19 @@ noteEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double =
 
 noteKillEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 = NoteKillEvent;
 
-volume value:DoubleNoteExpression;
+volume value:Double = NoteExpression;
 
-pan value:DoubleNoteExpression;
+pan value:Double = NoteExpression;
 
-tuning value:DoubleNoteExpression;
+tuning value:Double = NoteExpression;
 
-vibrato value:DoubleNoteExpression;
+vibrato value:Double = NoteExpression;
 
-expression value:DoubleNoteExpression;
+expression value:Double = NoteExpression;
 
-brightness value:DoubleNoteExpression;
+brightness value:Double = NoteExpression;
 
-pressure value:DoubleNoteExpression;
+pressure value:Double = NoteExpression;
 
 noteExpressionEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression = NoteExpressionEvent;
 

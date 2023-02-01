@@ -32,8 +32,6 @@ isLive = EventFlag;
 
 doNotRecord = EventFlag;
 
-eventConfig time:Word32 spaceId:Word16 flags:vector<EventFlag> = EventConfig;
-
 noteEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double = NoteEvent;
 
 noteKillEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 = NoteKillEvent;
@@ -88,6 +86,8 @@ midi2Data first:Word32 second:Word32 third:Word32 fourth:Word32 = Midi2Data;
 
 midi2Event portIndex:Word16 data:Midi2Data = Midi2Event;
 
+clapEventConfig time:Word32 spaceId:Word16 flags:vector<EventFlag> = ClapEventConfig;
+
 noteOn value:NoteEvent = ClapEvent;
 
 noteOff value:NoteEvent = ClapEvent;
@@ -114,9 +114,9 @@ midiSysex value:MidiSysexEvent = ClapEvent;
 
 midi2 value:Midi2Event = ClapEvent;
 
-soundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = Event;
+event_Soundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = Event;
 
-clap pluginId:PluginId eventConfig:EventConfig event:ClapEvent = Event;
+event_Clap clapPluginId:PluginId clapEventConfig:ClapEventConfig clapEvent:ClapEvent = Event;
 
 ---functions---
 

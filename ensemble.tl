@@ -24,9 +24,9 @@ noteOnEvent channel:Int16 key:Int16 velocity:Double = NoteOnEvent;
 
 noteOffEvent channel:Int16 key:Int16 = NoteOffEvent;
 
-noteOn value:NoteOnEvent = Event;
+noteOn value:NoteOnEvent = SoundfontEvent;
 
-noteOff value:NoteOffEvent = Event;
+noteOff value:NoteOffEvent = SoundfontEvent;
 
 isLive = EventFlag;
 
@@ -88,39 +88,35 @@ midi2Data first:Word32 second:Word32 third:Word32 fourth:Word32 = Midi2Data;
 
 midi2Event portIndex:Word16 data:Midi2Data = Midi2Event;
 
-noteOn value:NoteEvent = Event;
+noteOn value:NoteEvent = ClapEvent;
 
-noteOff value:NoteEvent = Event;
+noteOff value:NoteEvent = ClapEvent;
 
-noteChoke value:NoteKillEvent = Event;
+noteChoke value:NoteKillEvent = ClapEvent;
 
-noteEnd value:NoteKillEvent = Event;
+noteEnd value:NoteKillEvent = ClapEvent;
 
-noteExpression value:NoteExpressionEvent = Event;
+noteExpression value:NoteExpressionEvent = ClapEvent;
 
-paramValue value:ParamValueEvent = Event;
+paramValue value:ParamValueEvent = ClapEvent;
 
-paramMod value:ParamModEvent = Event;
+paramMod value:ParamModEvent = ClapEvent;
 
-paramGestureBegin value:ParamGestureEvent = Event;
+paramGestureBegin value:ParamGestureEvent = ClapEvent;
 
-paramGestureEnd value:ParamGestureEvent = Event;
+paramGestureEnd value:ParamGestureEvent = ClapEvent;
 
-transport value:TransportEvent = Event;
+transport value:TransportEvent = ClapEvent;
 
-midi value:MidiEvent = Event;
+midi value:MidiEvent = ClapEvent;
 
-midiSysex value:MidiSysexEvent = Event;
+midiSysex value:MidiSysexEvent = ClapEvent;
 
-midi2 value:Midi2Event = Event;
+midi2 value:Midi2Event = ClapEvent;
 
-soundfontEvent soundfontId:SoundfontId event:Event = SoundfontEvent;
+soundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = Event;
 
-clapEvent pluginId:PluginId eventConfig:EventConfig event:Event = ClapEvent;
-
-soundfont value:SoundfontEvent = Event;
-
-clap value:ClapEvent = Event;
+clap pluginId:PluginId eventConfig:EventConfig event:ClapEvent = Event;
 
 ---functions---
 

@@ -12,7 +12,7 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import Data.Aeson
-import Ensemble.Event (Event(..), SoundfontEvent(..), ClapEvent(..))
+import Ensemble.Event (Event(..))
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Sequencer (Tick(..))
@@ -40,9 +40,8 @@ makeGenerateSchema
     , ''Tick
     , ''Soundfont.NoteOnEvent
     , ''Soundfont.NoteOffEvent
-    , ''Soundfont.Event
+    , ''Soundfont.SoundfontEvent
     , ''Clap.EventFlag
-    , ''Clap.EventConfig
     , ''Clap.NoteEvent
     , ''Clap.NoteKillEvent
     , ''Clap.NoteExpression
@@ -57,9 +56,8 @@ makeGenerateSchema
     , ''Clap.MidiSysexEvent
     , ''Clap.Midi2Data
     , ''Clap.Midi2Event
-    , ''Clap.Event
-    , ''SoundfontEvent
-    , ''ClapEvent
+    , ''Clap.ClapEventConfig
+    , ''Clap.ClapEvent
     , ''Event
     ]
     -- functions

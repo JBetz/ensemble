@@ -64,6 +64,18 @@ handler server object = runM $ runError $ runReader server $
                     result <- API.loadSoundfont filePath
                     pure $ toTaggedJSON result
                         
+
+                -- Sequencer
+                "scheduleEvent" -> do
+                    tick <- lookupField "tick"
+                    event <- lookupField "event"
+                    result <- API.scheduleEvent tick event
+                    pure $ toTaggedJSON result
+
+                "play" -> do
+                    startTick <- lookupField "startTick"
+                    result <- API.play startTick
+                    pure $ toTaggedJSON result
                 other ->
                     throwError @String $ "Invalid message type: " <> unpack other
         Just _ -> 

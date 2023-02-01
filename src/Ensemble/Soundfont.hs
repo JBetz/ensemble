@@ -37,7 +37,7 @@ data SoundfontException
     = SoundfontPlayerNotInitialized
     deriving (Show)
 
-data Event 
+data SoundfontEvent 
     = NoteOn NoteOnEvent
     | NoteOff NoteOffEvent
     deriving (Show)
@@ -99,7 +99,7 @@ loadSoundfont player filePath resetPresets = do
     modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
     pure soundfont
 
-processEvent :: SoundfontPlayer -> SoundfontId -> Event -> IO ()
+processEvent :: SoundfontPlayer -> SoundfontId -> SoundfontEvent -> IO ()
 processEvent player _soundfontId = \case
     NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
     NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)

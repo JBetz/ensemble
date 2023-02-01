@@ -62,8 +62,8 @@ scheduleEvent tick event = do
     pure Ok
 
 play :: Tick -> Ensemble Ok
-play startingTick = do
+play startTick = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    sendM $ Sequencer.play sequencer engine startingTick
+    sendM $ Sequencer.play sequencer engine startTick
     pure Ok

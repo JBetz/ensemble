@@ -128,11 +128,11 @@ generateOutputs engine frameCount = do
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \case 
-            Soundfont (SoundfontEvent soundfontId event) -> 
+            Soundfont soundfontId event -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> SF.processEvent soundfontPlayer soundfontId event
                     Nothing -> pure ()
-            Clap (ClapEvent pluginId eventConfig event) -> CLAP.processEvent clapHost pluginId eventConfig event
+            Clap pluginId eventConfig event -> CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> SF.process soundfontPlayer (fromIntegral frameCount)

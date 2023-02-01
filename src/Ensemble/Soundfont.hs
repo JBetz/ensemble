@@ -38,8 +38,8 @@ data SoundfontException
     deriving (Show)
 
 data SoundfontEvent 
-    = NoteOn NoteOnEvent
-    | NoteOff NoteOffEvent
+    = SoundfontEvent_NoteOn NoteOnEvent
+    | SoundfontEvent_NoteOff NoteOffEvent
     deriving (Show)
 
 data NoteOnEvent = NoteOnEvent
@@ -101,8 +101,8 @@ loadSoundfont player filePath resetPresets = do
 
 processEvent :: SoundfontPlayer -> SoundfontId -> SoundfontEvent -> IO ()
 processEvent player _soundfontId = \case
-    NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
-    NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)
+    SoundfontEvent_NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
+    SoundfontEvent_NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)
     where
         library = soundfontPlayer_fluidSynthLibrary player
         synth = soundfontPlayer_synth player

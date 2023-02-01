@@ -14,7 +14,7 @@ import Sound.PortAudio
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
     , sequencer_scale :: IORef Double
-    , sequencer_eventQueue :: IORef [(Tick, Event)]
+    , sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
     , sequencer_clients :: IORef (Map String EventCallback)
     }
 
@@ -45,7 +45,7 @@ getEndTick sequencer = do
     eventQueue <- readIORef $ sequencer_eventQueue sequencer
     pure $ maximum $ fst <$> eventQueue
 
-sendAt :: Sequencer -> Tick -> Event -> IO ()
+sendAt :: Sequencer -> Tick -> SequencerEvent -> IO ()
 sendAt sequencer time event =
     modifyIORef' (sequencer_eventQueue sequencer) $ (<>) [(time, event)]
 
@@ -53,7 +53,7 @@ setTimeScale :: Sequencer -> Double -> IO ()
 setTimeScale sequencer scale =
     writeIORef (sequencer_scale sequencer) scale
 
-type EventCallback = Tick -> Event -> IO ()
+type EventCallback = Tick -> SequencerEvent -> IO ()
 
 registerClient :: Sequencer -> String -> EventCallback -> IO ()
 registerClient sequencer name callback =

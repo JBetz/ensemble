@@ -124,17 +124,25 @@ generateTypeDefinition :: Name -> Q [String]
 generateTypeDefinition typeName = do
     datatypeInfo <- reifyDatatype typeName
     for (datatypeCons datatypeInfo) $ \constructorInfo -> do
-        let name = uncapitalise $ nameBase $ constructorName constructorInfo
-        pure $ case constructorVariant constructorInfo of
-            RecordConstructor fieldNames ->
+        let name = uncapitalise $ filter (/= '_') (nameBase $ constructorName constructorInfo)
+        case constructorVariant constructorInfo of
+            RecordConstructor fieldNames -> do
                 let fields = zip fieldNames (constructorFields constructorInfo)
-                in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
+                pure $ foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
             _ ->
                 case constructorFields constructorInfo of
-                    [] -> 
-                        name <> " = " <> nameBase typeName <> ";"                    
-                    [ConT singleField] ->
-                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
+                    [] -> pure $ name <> " = " <> nameBase typeName <> ";"                    
+                    [ConT singleField] -> do
+                        fieldInfo <- reifyDatatype singleField
+                        pure $ case datatypeCons fieldInfo of
+                            [subConstructorInfo] -> 
+                                case constructorVariant subConstructorInfo of
+                                    RecordConstructor fieldNames ->
+                                        let fields = zip fieldNames (constructorFields subConstructorInfo)
+                                        in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> " = " <> nameBase typeName <> ";"
+                                    _ ->
+                                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
+                            _ -> error $ "Invalid constructor field: " <> show constructorInfo
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo
 
@@ -150,14 +158,13 @@ generateFunctionDefinition functionName = do
 
 makeGenerateSchema :: [Name] -> [Name] -> DecsQ
 makeGenerateSchema typeNames functionNames = do
-    jsonDecs <- deriveJSONs typeNames
     typeDefinitions <- traverse generateTypeDefinition typeNames                  
     functionDefinitions <- traverse generateFunctionDefinition functionNames
     let generateSchemaName = mkName "generateSchema"
     let body = NormalB $ DoE Nothing [ NoBindS $ AppE (AppE (VarE 'writeSchema) (ListE (LitE . StringL <$> join typeDefinitions))) (ListE (LitE . StringL <$> functionDefinitions)) ]
     let signature = SigD generateSchemaName (AppT (ConT ''IO) (TupleT 0))
     let function = FunD generateSchemaName [Clause [] body []]
-    pure $ jsonDecs <> [signature, function]
+    pure [signature, function]
 
 
 uncapitalise :: String -> String

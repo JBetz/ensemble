@@ -12,7 +12,7 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import Data.Aeson
-import Ensemble.Event (Event(..))
+import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Sequencer (Tick(..))
@@ -26,8 +26,7 @@ instance ToJSON a => ToJSON (Ptr a) where
 instance FromJSON a => FromJSON (Ptr a) where
     parseJSON = undefined
 
-makeGenerateSchema
-    -- types
+deriveJSONs
     [ ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
@@ -58,7 +57,30 @@ makeGenerateSchema
     , ''Clap.Midi2Event
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
-    , ''Event
+    , ''SequencerEvent
+    ]
+
+makeGenerateSchema
+    -- types
+    [ ''Clap.ClapId
+    , ''Clap.ParamId
+    , ''Clap.PluginId
+    , ''Clap.ClapVersion
+    , ''Clap.PluginDescriptor
+    , ''Soundfont.SoundfontId
+    , ''Ok
+    , ''PluginLocations
+    , ''PluginDescriptors
+    , ''Tick
+    , ''Soundfont.SoundfontEvent
+    , ''Clap.EventFlag
+    , ''Clap.NoteExpression
+    , ''Clap.TransportFlag
+    , ''Clap.MidiData
+    , ''Clap.Midi2Data
+    , ''Clap.ClapEventConfig
+    , ''Clap.ClapEvent
+    , ''SequencerEvent
     ]
     -- functions
     [ 'getClapPluginLocations

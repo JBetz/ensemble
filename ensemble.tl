@@ -20,103 +20,79 @@ pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
 
 tick value:Int = Tick;
 
-noteOnEvent channel:Int16 key:Int16 velocity:Double = NoteOnEvent;
+soundfontEventNoteOn channel:Int16 key:Int16 velocity:Double  = SoundfontEvent;
 
-noteOffEvent channel:Int16 key:Int16 = NoteOffEvent;
+soundfontEventNoteOff channel:Int16 key:Int16  = SoundfontEvent;
 
-noteOn value:NoteOnEvent = SoundfontEvent;
+eventFlagIsLive = EventFlag;
 
-noteOff value:NoteOffEvent = SoundfontEvent;
+eventFlagDoNotRecord = EventFlag;
 
-isLive = EventFlag;
+noteExpressionVolume value:Double = NoteExpression;
 
-doNotRecord = EventFlag;
+noteExpressionPan value:Double = NoteExpression;
 
-noteEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double = NoteEvent;
+noteExpressionTuning value:Double = NoteExpression;
 
-noteKillEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 = NoteKillEvent;
+noteExpressionVibrato value:Double = NoteExpression;
 
-volume value:Double = NoteExpression;
+noteExpressionExpression value:Double = NoteExpression;
 
-pan value:Double = NoteExpression;
+noteExpressionBrightness value:Double = NoteExpression;
 
-tuning value:Double = NoteExpression;
+noteExpressionPressure value:Double = NoteExpression;
 
-vibrato value:Double = NoteExpression;
+transportFlagHasTempo = TransportFlag;
 
-expression value:Double = NoteExpression;
+transportFlagHasBeatsTimeline = TransportFlag;
 
-brightness value:Double = NoteExpression;
+transportFlagHasSecondsTimeline = TransportFlag;
 
-pressure value:Double = NoteExpression;
+transportFlagHasTimeSignature = TransportFlag;
 
-noteExpressionEvent noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression = NoteExpressionEvent;
+transportFlagIsPlaying = TransportFlag;
 
-paramValueEvent paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double = ParamValueEvent;
+transportFlagIsRecording = TransportFlag;
 
-paramModEvent paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double = ParamModEvent;
+transportFlagIsLoopActive = TransportFlag;
 
-paramGestureEvent paramId:ParamId = ParamGestureEvent;
-
-hasTempo = TransportFlag;
-
-hasBeatsTimeline = TransportFlag;
-
-hasSecondsTimeline = TransportFlag;
-
-hasTimeSignature = TransportFlag;
-
-isPlaying = TransportFlag;
-
-isRecording = TransportFlag;
-
-isLoopActive = TransportFlag;
-
-isWithinPreRoll = TransportFlag;
-
-transportEvent flags:vector<TransportFlag> songPositionBeats:BeatTime songPositionSeconds:SecondsTime tempo:Double tempoIncrement:Double loopStartBeats:BeatTime loopEndBeats:BeatTime loopStartSeconds:SecondsTime loopEndSeconds:SecondsTime barStart:BeatTime barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16 = TransportEvent;
+transportFlagIsWithinPreRoll = TransportFlag;
 
 midiData first:Word8 second:Word8 third:Word8 = MidiData;
 
-midiEvent portIndex:Word16 data:MidiData = MidiEvent;
-
-midiSysexEvent portIndex:Word16 buffer:vector<Word8> = MidiSysexEvent;
-
 midi2Data first:Word32 second:Word32 third:Word32 fourth:Word32 = Midi2Data;
-
-midi2Event portIndex:Word16 data:Midi2Data = Midi2Event;
 
 clapEventConfig time:Word32 spaceId:Word16 flags:vector<EventFlag> = ClapEventConfig;
 
-noteOn value:NoteEvent = ClapEvent;
+clapEventNoteOn noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = ClapEvent;
 
-noteOff value:NoteEvent = ClapEvent;
+clapEventNoteOff noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = ClapEvent;
 
-noteChoke value:NoteKillEvent = ClapEvent;
+clapEventNoteChoke noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = ClapEvent;
 
-noteEnd value:NoteKillEvent = ClapEvent;
+clapEventNoteEnd noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = ClapEvent;
 
-noteExpression value:NoteExpressionEvent = ClapEvent;
+clapEventNoteExpression noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression  = ClapEvent;
 
-paramValue value:ParamValueEvent = ClapEvent;
+clapEventParamValue paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = ClapEvent;
 
-paramMod value:ParamModEvent = ClapEvent;
+clapEventParamMod paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = ClapEvent;
 
-paramGestureBegin value:ParamGestureEvent = ClapEvent;
+clapEventParamGestureBegin paramId:ParamId  = ClapEvent;
 
-paramGestureEnd value:ParamGestureEvent = ClapEvent;
+clapEventParamGestureEnd paramId:ParamId  = ClapEvent;
 
-transport value:TransportEvent = ClapEvent;
+clapEventTransport flags:vector<TransportFlag> songPositionBeats:BeatTime songPositionSeconds:SecondsTime tempo:Double tempoIncrement:Double loopStartBeats:BeatTime loopEndBeats:BeatTime loopStartSeconds:SecondsTime loopEndSeconds:SecondsTime barStart:BeatTime barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = ClapEvent;
 
-midi value:MidiEvent = ClapEvent;
+clapEventMidi portIndex:Word16 data:MidiData  = ClapEvent;
 
-midiSysex value:MidiSysexEvent = ClapEvent;
+clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
-midi2 value:Midi2Event = ClapEvent;
+clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-event_Soundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = Event;
+sequencerEventSoundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = SequencerEvent;
 
-event_Clap clapPluginId:PluginId clapEventConfig:ClapEventConfig clapEvent:ClapEvent = Event;
+sequencerEventClap clapPluginId:PluginId clapEventConfig:ClapEventConfig clapEvent:ClapEvent = SequencerEvent;
 
 ---functions---
 
@@ -130,4 +106,4 @@ initializeSoundfontPlayer filePath:String = Ok;
 
 loadSoundfont filePath:String = SoundfontId;
 
-scheduleEvent tick:Tick event:Event = Ok;
+scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;

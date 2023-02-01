@@ -9,7 +9,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import qualified Ensemble.Engine as Engine
-import Ensemble.Event (Event(..))
+import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
@@ -55,7 +55,7 @@ loadSoundfont filePath = do
     sendM $ Engine.loadSoundfont engine filePath
 
 -- Sequencer
-scheduleEvent :: Tick -> Event -> Ensemble Ok
+scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok
 scheduleEvent tick event = do
     sequencer <- asks server_sequencer
     sendM $ Sequencer.sendAt sequencer tick event

@@ -1,5 +1,21 @@
 vector {t:Type} # [ t ] = Vector t;
 
+ok = Ok;
+
+ensembleError message:String = EnsembleError;
+
+pluginLocations filePaths:vector<FilePath> = PluginLocations;
+
+pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
+
+soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
+
+tick value:Int = Tick;
+
+audioDevice index:Int name:String = AudioDevice;
+
+audioDevices audioDevices:vector<AudioDevice> = AudioDevices;
+
 clapId id:Int = ClapId;
 
 paramId id:Int = ParamId;
@@ -13,18 +29,6 @@ pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url
 soundfontId id:Int = SoundfontId;
 
 soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
-
-ok = Ok;
-
-ensembleError message:String = EnsembleError;
-
-pluginLocations filePaths:vector<FilePath> = PluginLocations;
-
-pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
-
-soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
-
-tick value:Int = Tick;
 
 soundfontEventNoteOn channel:Int16 key:Int16 velocity:Double  = SoundfontEvent;
 
@@ -101,6 +105,12 @@ sequencerEventSoundfont soundfontId:SoundfontId event:SoundfontEvent  = Sequence
 sequencerEventClap pluginId:PluginId eventConfig:ClapEventConfig event:ClapEvent  = SequencerEvent;
 
 ---functions---
+
+getAudioDevices = AudioDevices;
+
+startEngine = Ok;
+
+stopEngine = Ok;
 
 getClapPluginLocations = PluginLocations;
 

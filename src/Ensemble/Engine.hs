@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Engine where
@@ -8,11 +9,16 @@ import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
 import Control.Exception
 import Control.Monad
+import Control.Monad.Extra (whenJust)
+import Control.Monad.Freer
+import Control.Monad.Freer.Error
 import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
 import Data.List
+import Data.Maybe
 import Data.Word
+import Data.Traversable (for)
 import Ensemble.Soundfont (SoundfontId (..))
 import Ensemble.Event
 import qualified Ensemble.Soundfont as SF
@@ -21,8 +27,9 @@ import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
-import Sound.PortAudio as PortAudio
-import Sound.PortAudio.Base
+import qualified Sound.PortAudio as PortAudio
+import Sound.PortAudio (StreamCallbackFlag, Stream, StreamResult)
+import Sound.PortAudio.Base (PaStreamCallbackTimeInfo, PaDeviceIndex(..), PaDeviceInfo(..))
 
 data Engine = Engine
     { engine_state :: IORef EngineState
@@ -65,6 +72,29 @@ createEngine hostConfig = do
         , engine_eventBuffer = eventBuffer
         }
 
+data AudioDevice = AudioDevice
+    { audioDevice_index :: Int
+    , audioDevice_name :: String
+    } deriving (Show)
+
+getAudioDevices :: (LastMember IO effs, Member (Error String) effs) => Eff effs [AudioDevice]
+getAudioDevices = do
+    eitherResult <- sendM $ PortAudio.withPortAudio $ do
+        count <- PortAudio.getNumDevices
+        let indices = fromIntegral <$> [0 .. count]
+        devices <- for indices $ \index -> do
+            eitherInfo <- PortAudio.getDeviceInfo index
+            pure $ case eitherInfo of
+                Right info -> Just $ AudioDevice
+                    { audioDevice_index = fromIntegral $ unPaDeviceIndex index
+                    , audioDevice_name = name_PaDeviceInfo info
+                    }
+                Left deviceError -> Nothing
+        pure $ Right $ catMaybes devices
+    case eitherResult of
+        Right devices -> pure devices
+        Left portAudioError -> throwError $ "Error getting audio devices: " <> show portAudioError
+
 pushEvent :: Engine -> SequencerEvent -> IO ()
 pushEvent engine event =
     modifyIORef' (engine_eventBuffer engine) (<> [event])
@@ -73,14 +103,14 @@ pushEvents :: Engine -> [SequencerEvent] -> IO ()
 pushEvents engine events =
     modifyIORef' (engine_eventBuffer engine) (<> events)
 
-start :: Engine -> IO (Maybe Error)
+start :: (LastMember IO effs, Member (Error String) effs) => Engine -> Eff effs ()
 start engine = do
-    initializeResult <- initialize
+    initializeResult <- sendM PortAudio.initialize
     case initializeResult of
-        Just initializeError -> pure $ Just initializeError
+        Just initializeError -> throwError $ "Error when initializing audio driver: " <> show initializeError
         Nothing -> do
-            allocateBuffers engine (32 * 1024)
-            eitherStream <- openDefaultStream 
+            sendM $ allocateBuffers engine (32 * 1024)
+            eitherStream <- sendM $ PortAudio.openDefaultStream 
                 0 -- Number of input channels 
                 2 -- Number of output channels
                 (engine_sampleRate engine) -- Sample rate
@@ -89,13 +119,17 @@ start engine = do
                 Nothing -- Callback on completion
             case eitherStream of
                 Left portAudioError -> 
-                    pure $ Just portAudioError
+                    throwError $ "Error when opening audio stream: " <> show portAudioError
                 Right stream -> do
-                    writeIORef (engine_audioStream engine) (Just stream)
-                    setState engine StateRunning
-                    let pluginHost = engine_pluginHost engine
-                    CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                    startStream stream
+                    maybeError <- sendM $ do
+                        writeIORef (engine_audioStream engine) (Just stream)
+                        setState engine StateRunning
+                        let pluginHost = engine_pluginHost engine
+                        CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
+                        PortAudio.startStream stream
+                    whenJust maybeError $ \startError ->
+                        throwError $ "Error when starting audio stream: " <> show startError 
+
             
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
@@ -154,33 +188,36 @@ mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOut
         }
 
 
-sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe Error) 
+sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe PortAudio.Error) 
 sendOutputs engine frameCount audioOutput  = do
     maybeStream <- readIORef $ engine_audioStream engine
     case maybeStream of
         Just stream -> 
             withArray (interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)) $ \outputPtr -> do
                 outputForeignPtr <- newForeignPtr_ outputPtr
-                writeStream stream frameCount outputForeignPtr
-        Nothing -> pure $ Just NotInitialized
+                PortAudio.writeStream stream frameCount outputForeignPtr
+        Nothing -> pure $ Just PortAudio.NotInitialized
 
-stop :: Engine -> IO (Maybe Error)
+stop :: (LastMember IO effs, Member (Error String) effs) => Engine -> Eff effs ()
 stop engine = do
-    maybeStream <- readIORef (engine_audioStream engine)
+    maybeStream <- sendM $ readIORef (engine_audioStream engine)
     case maybeStream of
         Just stream -> do
-            maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine
-            case maybeSoundfontPlayer of
-                Just soundfontPlayer -> SF.deleteSoundfontPlayer soundfontPlayer
-                Nothing -> pure ()
-            CLAP.deactivateAll (engine_pluginHost engine)
-            _ <- stopStream stream
-            _ <- closeStream stream
-            freeBuffers engine
-            result <- terminate
-            setState engine StateStopped
-            pure result
-        Nothing -> pure Nothing 
+            maybeError <- sendM $ do
+                maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine
+                case maybeSoundfontPlayer of
+                    Just soundfontPlayer -> SF.deleteSoundfontPlayer soundfontPlayer
+                    Nothing -> pure () 
+                CLAP.deactivateAll (engine_pluginHost engine)
+                _ <- PortAudio.stopStream stream
+                _ <- PortAudio.closeStream stream
+                freeBuffers engine
+                maybeError <- PortAudio.terminate
+                setState engine StateStopped
+                pure maybeError
+            whenJust maybeError $ \stopError ->
+                throwError $ "Error when stopping audio stream: " <> show stopError
+        Nothing -> pure () 
 
 loadSoundfont :: Engine -> FilePath -> IO SoundfontId
 loadSoundfont engine filePath = do

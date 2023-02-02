@@ -9,6 +9,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import Data.IORef
+import Ensemble.Engine (AudioDevice)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
@@ -21,12 +22,29 @@ data Ok = Ok
 newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePath] }
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
 newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
+newtype AudioDevices = AudioDevices { audioDevices_audioDevices :: [AudioDevice] }
 newtype EnsembleError = EnsembleError { ensembleError_message :: String }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int
 
 type Ensemble = Eff '[Reader Server, Error String, IO]
+
+-- Audio
+getAudioDevices :: Ensemble AudioDevices
+getAudioDevices = AudioDevices <$> Engine.getAudioDevices
+
+startEngine :: Ensemble Ok
+startEngine = do
+    engine <- asks server_engine
+    Engine.start engine
+    pure Ok
+
+stopEngine :: Ensemble Ok
+stopEngine = do
+    engine <- asks server_engine
+    Engine.stop engine
+    pure Ok
 
 -- CLAP
 getClapPluginLocations :: Ensemble PluginLocations

@@ -35,11 +35,21 @@ receiveMessage server jsonMessage =
     where
         makeError = toTaggedJSON . API.EnsembleError
 
+
+-- TODO: Use template haskell to generate this function
 handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
 handler server object = runM $ runError $ runReader server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) ->
             case messageType of
+                -- Audio
+                "getAudioDevices" ->
+                    toTaggedJSON <$> API.getAudioDevices
+                "startEngine" ->
+                    toTaggedJSON <$> API.startEngine
+                "stopEngine" -> 
+                    toTaggedJSON <$> API.stopEngine
+
                 -- CLAP 
                 "getClapPluginLocations" -> do 
                     result <- API.getClapPluginLocations

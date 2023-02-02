@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Ensemble.Schema where
 
@@ -17,6 +18,7 @@ import Data.Aeson
 import Data.Aeson.Key (toString)
 import Data.Aeson.Types (parseFail)
 import Data.Text (pack)
+import Ensemble.Engine (AudioDevice(..))
 import Ensemble.Event
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
@@ -33,21 +35,23 @@ instance FromJSON (Ptr a) where
     parseJSON _ = pure nullPtr
 
 deriveJSONs
-    [ ''Clap.ClapId
-    , ''Clap.ParamId
-    , ''Clap.PluginId
-    , ''Clap.ClapVersion
-    , ''Clap.PluginDescriptor
-    , ''Soundfont.SoundfontId
-    , ''Soundfont.SoundfontPreset
-    , ''Ok
+    [ ''Ok
     , ''EnsembleError
     , ''PluginLocations
     , ''PluginDescriptors
     , ''SoundfontPresets
+    , ''AudioDevice
+    , ''AudioDevices
     , ''Tick
+    , ''Soundfont.SoundfontId
+    , ''Soundfont.SoundfontPreset
     , ''Soundfont.NoteOnEvent
     , ''Soundfont.NoteOffEvent
+    , ''Clap.ClapId
+    , ''Clap.ParamId
+    , ''Clap.PluginId
+    , ''Clap.ClapVersion
+    , ''Clap.PluginDescriptor
     , ''Clap.EventFlag
     , ''Clap.NoteEvent
     , ''Clap.NoteKillEvent
@@ -132,19 +136,21 @@ instance FromJSON Clap.ClapEvent where
 
 makeGenerateSchema
     -- types
-    [ ''Clap.ClapId
+    [  ''Ok
+    , ''EnsembleError
+    , ''PluginLocations
+    , ''PluginDescriptors
+    , ''SoundfontPresets
+    , ''Tick
+    , ''AudioDevice
+    , ''AudioDevices
+    , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
     , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
-    , ''Ok
-    , ''EnsembleError
-    , ''PluginLocations
-    , ''PluginDescriptors
-    , ''SoundfontPresets
-    , ''Tick
     , ''Soundfont.SoundfontEvent
     , ''Clap.EventFlag
     , ''Clap.NoteExpression
@@ -156,7 +162,10 @@ makeGenerateSchema
     , ''SequencerEvent
     ]
     -- functions
-    [ 'getClapPluginLocations
+    [ 'getAudioDevices
+    , 'startEngine
+    , 'stopEngine
+    , 'getClapPluginLocations
     , 'scanForClapPlugins
     , 'loadClapPlugin
     , 'initializeSoundfontPlayer

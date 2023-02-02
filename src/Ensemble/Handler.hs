@@ -71,7 +71,7 @@ handler server object = runM $ runError $ runReader server $
                 -- Sequencer
                 "scheduleEvent" -> do
                     tick <- lookupField "tick"
-                    event <- lookupField "event"
+                    event <- lookupField "sequencerEvent"
                     result <- API.scheduleEvent tick event
                     pure $ toTaggedJSON result
 

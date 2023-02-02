@@ -45,8 +45,10 @@ handler server object = runM $ runError $ runReader server $
                 -- Audio
                 "getAudioDevices" ->
                     toTaggedJSON <$> API.getAudioDevices
+
                 "startEngine" ->
                     toTaggedJSON <$> API.startEngine
+
                 "stopEngine" -> 
                     toTaggedJSON <$> API.stopEngine
 
@@ -54,10 +56,12 @@ handler server object = runM $ runError $ runReader server $
                 "getClapPluginLocations" -> do 
                     result <- API.getClapPluginLocations
                     pure $ toTaggedJSON result
+
                 "scanForClapPlugins" -> do 
                     filePaths <- lookupField "filePaths"
                     result <- API.scanForClapPlugins filePaths
                     pure $ toTaggedJSON result
+
                 "loadClapPlugin" -> do
                     filePath <- lookupField "filePath"
                     index <- lookupField "index"
@@ -91,6 +95,7 @@ handler server object = runM $ runError $ runReader server $
                     startTick <- lookupField "startTick"
                     result <- API.play startTick
                     pure $ toTaggedJSON result
+                    
                 other ->
                     throwError @String $ "Invalid message type: " <> unpack other
         Just _ -> 

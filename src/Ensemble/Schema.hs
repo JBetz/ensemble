@@ -172,4 +172,5 @@ makeGenerateSchema
     , 'loadSoundfont
     , 'getSoundfontPresets
     , 'scheduleEvent
+    , 'play
     ]

@@ -32,7 +32,6 @@ import Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts
 import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.String
 import Foreign.C.Types
-import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 
@@ -103,10 +102,8 @@ presetGetName :: FluidSynthLibrary -> Ptr C'fluid_preset_t -> IO String
 presetGetName library preset = do
     f <- lookupProcedure library "fluid_preset_get_name"
     cName <- mK'fluid_preset_get_name f preset
-    name <- peekCString cName
-    free cName
-    pure name
-
+    peekCString cName
+    
 presetGetBankNum :: FluidSynthLibrary -> Ptr C'fluid_preset_t -> IO Int
 presetGetBankNum library preset = do
     f <- lookupProcedure library "fluid_preset_get_banknum"

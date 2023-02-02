@@ -32,7 +32,7 @@ encodingOptions =
     in A.defaultOptions 
         { A.fieldLabelModifier = modifier
         , A.constructorTagModifier = modifier
-        , A.sumEncoding = A.ObjectWithSingleField
+        , A.sumEncoding = A.UntaggedValue
         , A.unwrapUnaryRecords = False
         }
 

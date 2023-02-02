@@ -24,17 +24,19 @@ receiveMessage server = do
         Right (A.Object object) -> do
             result <- handler server object
             case result of
-                Right outMessage ->
-                    pure $ Right $ A.Object $ 
+                Right (A.Object outMessage) ->
+                    pure $ Right $ A.Object $
                         case KeyMap.lookup "@extra" object of
                             Just extraValue -> KeyMap.insert "@extra" extraValue outMessage
                             Nothing -> outMessage
+                Right _ ->
+                    pure $ Left "Invalid JSON output, needs to be object"
                 Left errorMessage ->
                     pure $ Left errorMessage
         Right _ -> pure $ Left "Invalid JSON input, needs to be object"
         Left parseError -> pure $ Left $ "Parse error: " <> parseError
 
-handler :: Server -> KeyMap A.Value -> IO (Either String A.Object)
+handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
 handler server object = runM $ runError $ runReader server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) ->

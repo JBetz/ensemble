@@ -17,6 +17,7 @@ library
     import:           base
     exposed-modules:  Ensemble,
                       Ensemble.API,
+                      Ensemble.Config,
                       Ensemble.Engine,
                       Ensemble.Event,
                       Ensemble.Handler,
@@ -37,6 +38,7 @@ library
                       containers,
                       extra,
                       freer-simple,
+                      optparse-generic,
                       portaudio,
                       stm,
                       template-haskell,
@@ -59,6 +61,7 @@ executable ensemble
                       aeson,
                       bytestring,
                       ensemble,
+                      optparse-generic,
                       scotty,
                       string-class
     hs-source-dirs:   app

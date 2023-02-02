@@ -5,9 +5,12 @@ module Main where
 import Control.Monad
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
+import Data.Maybe
 import Data.String.Class (fromLazyByteString)
+import Ensemble.Config
 import Ensemble.Handler
 import Ensemble.Server
+import Options.Generic
 import System.IO
 import Web.Scotty
 
@@ -15,9 +18,12 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   server <- createServer
-  runHttpInterface server
+  config <- getRecord "Ensemble Server"
+  case fromMaybe Interface_Http (interface config) of
+    Interface_Pipe -> runPipeInterface server
+    Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)
   where                     
-    runHttpInterface server = scotty 3000 $ do
+    runHttpInterface server port' = scotty port' $ do
         post "/send" $ do
           message <- jsonData
           result <- liftAndCatchIO $ receiveMessage server message

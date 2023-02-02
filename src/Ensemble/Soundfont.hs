@@ -9,7 +9,7 @@ import Data.IORef
 import Data.Int
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Control.Monad.Extra (whenJustM, whileM)
+import Control.Monad.Extra (whileM)
 import Ensemble.Soundfont.FluidSynth.Library as FS
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
 import Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts
@@ -33,7 +33,6 @@ data SoundfontPreset = SoundfontPreset
     { soundfontPreset_name :: String
     , soundfontPreset_bankNumber :: Int
     , soundfontPreset_instrumentNumber :: Int
-    , soundfontPreset_handle :: FluidPreset
     } deriving (Show)
 
 data Soundfont = Soundfont
@@ -149,7 +148,6 @@ loadSoundfontPresets player soundfont = do
                 { soundfontPreset_name = name
                 , soundfontPreset_bankNumber = bankNumber
                 , soundfontPreset_instrumentNumber = instrumentNumber
-                , soundfontPreset_handle = presetPtr
                 }
 
 

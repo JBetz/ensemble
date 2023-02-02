@@ -12,13 +12,17 @@ pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url
 
 soundfontId id:Int = SoundfontId;
 
-soundfontPreset name:String bankNumber:Int instrumentNumber:Int handle:FluidPreset = SoundfontPreset;
+soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
 
 ok = Ok;
+
+ensembleError message:String = EnsembleError;
 
 pluginLocations filePaths:vector<FilePath> = PluginLocations;
 
 pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
+
+soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
 
 tick value:Int = Tick;
 
@@ -92,9 +96,9 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-sequencerEventSoundfont soundfontId:SoundfontId soundfontEvent:SoundfontEvent = SequencerEvent;
+sequencerEventSoundfont soundfontId:SoundfontId event:SoundfontEvent  = SequencerEvent;
 
-sequencerEventClap clapPluginId:PluginId clapEventConfig:ClapEventConfig clapEvent:ClapEvent = SequencerEvent;
+sequencerEventClap pluginId:PluginId eventConfig:ClapEventConfig event:ClapEvent  = SequencerEvent;
 
 ---functions---
 

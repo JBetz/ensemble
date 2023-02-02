@@ -27,6 +27,7 @@ library
                       Ensemble.Server,
                       Ensemble.Soundfont
     other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Settings,
+                      Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts,
                       Ensemble.Soundfont.FluidSynth.Foreign.Synth,
                       Ensemble.Soundfont.FluidSynth.Library,
     build-depends:    base,
@@ -34,6 +35,7 @@ library
                       bytestring,
                       clap,
                       containers,
+                      extra,
                       freer-simple,
                       portaudio,
                       stm,

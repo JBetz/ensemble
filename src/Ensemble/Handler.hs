@@ -66,6 +66,10 @@ handler server object = runM $ runError $ runReader server $
                     result <- API.loadSoundfont filePath
                     pure $ toTaggedJSON result
                         
+                "getSoundfontPresets" -> do
+                    soundfontId <- lookupField "soundfontId"
+                    result <- API.getSoundfontPresets soundfontId
+                    pure $ toTaggedJSON result
 
                 -- Sequencer
                 "scheduleEvent" -> do

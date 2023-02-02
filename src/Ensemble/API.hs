@@ -8,19 +8,19 @@ import Clap.Interface.Plugin
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
+import Data.IORef
 import qualified Ensemble.Engine as Engine
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
-import Ensemble.Soundfont (SoundfontId)
-
+import Ensemble.Soundfont
 
 data Ok = Ok
 
 newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePath] }
-
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
+newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int
@@ -53,6 +53,20 @@ loadSoundfont :: FilePath -> Ensemble SoundfontId
 loadSoundfont filePath = do
     engine <- asks server_engine
     sendM $ Engine.loadSoundfont engine filePath
+
+getSoundfontPresets :: SoundfontId -> Ensemble SoundfontPresets
+getSoundfontPresets soundfontId = do
+    engine <- asks server_engine
+    player <- sendM $ Engine.getSoundfontPlayer engine
+    maybeSoundfont <- sendM $ getSoundfont player soundfontId
+    presets <- case maybeSoundfont of
+        Just soundfont -> do
+            maybePresets <- sendM $ readIORef (soundfont_presets soundfont)
+            case maybePresets of
+                Just presets -> pure presets
+                Nothing -> sendM $ loadSoundfontPresets player soundfont
+        Nothing -> pure []
+    pure $ SoundfontPresets presets
 
 -- Sequencer
 scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok

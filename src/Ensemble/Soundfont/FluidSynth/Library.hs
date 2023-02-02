@@ -13,6 +13,11 @@ module Ensemble.Soundfont.FluidSynth.Library
     , noteOff
     , sfLoad
     , getSfontById
+    , sfontIterationStart
+    , sfontIterationNext
+    , presetGetName
+    , presetGetBankNum
+    , presetGetNum
     , process
     ) where
 
@@ -23,9 +28,11 @@ import Ensemble.Soundfont.FluidSynth.Library.Windows
 import Ensemble.Soundfont.FluidSynth.Library.POSIX
 #endif
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
+import Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts
 import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.String
 import Foreign.C.Types
+import Foreign.Marshal.Alloc
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 
@@ -81,6 +88,36 @@ getSfontById library synth soundfontId = do
     f <- lookupProcedure library "fluid_synth_get_sfont_by_id"
     mK'fluid_synth_get_sfont_by_id f synth (fromIntegral soundfontId)
     
+sfontIterationStart :: FluidSynthLibrary -> Ptr C'fluid_sfont_t -> IO ()
+sfontIterationStart library soundfont = do
+    f <- lookupProcedure library "fluid_sfont_iteration_start"
+    mK'fluid_sfont_iteration_start f soundfont
+
+sfontIterationNext :: FluidSynthLibrary -> Ptr C'fluid_sfont_t -> IO (Ptr C'fluid_preset_t)
+sfontIterationNext library soundfont = do
+    f <- lookupProcedure library "fluid_sfont_iteration_next"
+    mK'fluid_sfont_iteration_next f soundfont
+
+
+presetGetName :: FluidSynthLibrary -> Ptr C'fluid_preset_t -> IO String
+presetGetName library preset = do
+    f <- lookupProcedure library "fluid_preset_get_name"
+    cName <- mK'fluid_preset_get_name f preset
+    name <- peekCString cName
+    free cName
+    pure name
+
+presetGetBankNum :: FluidSynthLibrary -> Ptr C'fluid_preset_t -> IO Int
+presetGetBankNum library preset = do
+    f <- lookupProcedure library "fluid_preset_get_banknum"
+    fromIntegral <$> mK'fluid_preset_get_banknum f preset
+
+presetGetNum :: FluidSynthLibrary -> Ptr C'fluid_preset_t -> IO Int
+presetGetNum library preset = do
+    f <- lookupProcedure library "fluid_preset_get_num"
+    fromIntegral <$> mK'fluid_preset_get_num f preset
+
+
 process ::  FluidSynthLibrary -> Ptr C'fluid_synth_t -> CInt -> CInt -> Ptr (Ptr CFloat) -> CInt -> Ptr (Ptr CFloat) -> IO CInt
 process library synth frameCount wetChannelCount wetBuffers dryChannelCount dryBuffers = do
     f <- lookupProcedure library "fluid_synth_process"

@@ -188,7 +188,6 @@ loadSoundfont engine filePath = do
     soundfont <- SF.loadSoundfont player filePath True
     pure $ SF.soundfont_id soundfont
 
-
 getSoundfontPlayer :: Engine -> IO SF.SoundfontPlayer
 getSoundfontPlayer engine = do
     maybePlayer <- readIORef $ engine_soundfontPlayer engine

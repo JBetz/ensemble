@@ -16,6 +16,7 @@ import qualified Clap.Interface.Version as Clap
 import Data.Aeson
 import Data.Aeson.Key (toString)
 import Data.Aeson.Types (parseFail)
+import Data.Text (pack)
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
@@ -23,13 +24,13 @@ import Ensemble.Sequencer (Tick(..))
 import Ensemble.API
 import Ensemble.Schema.TaggedJSON
 import Ensemble.Schema.TH
-import Foreign.Ptr 
+import Foreign.Ptr
 
-instance ToJSON a => ToJSON (Ptr a) where 
-    toJSON = undefined
+instance ToJSON (Ptr a) where 
+    toJSON ptr = String (pack $ show ptr)
 
-instance FromJSON a => FromJSON (Ptr a) where
-    parseJSON = undefined
+instance FromJSON (Ptr a) where
+    parseJSON _ = pure nullPtr
 
 deriveJSONs
     [ ''Clap.ClapId
@@ -38,9 +39,11 @@ deriveJSONs
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
     , ''Soundfont.SoundfontId
+    , ''Soundfont.SoundfontPreset
     , ''Ok
     , ''PluginLocations
     , ''PluginDescriptors
+    , ''SoundfontPresets
     , ''Tick
     , ''Soundfont.NoteOnEvent
     , ''Soundfont.NoteOffEvent
@@ -120,6 +123,7 @@ makeGenerateSchema
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
     , ''Soundfont.SoundfontId
+    , ''Soundfont.SoundfontPreset
     , ''Ok
     , ''PluginLocations
     , ''PluginDescriptors
@@ -140,5 +144,6 @@ makeGenerateSchema
     , 'loadClapPlugin
     , 'initializeSoundfontPlayer
     , 'loadSoundfont
+    , 'getSoundfontPresets
     , 'scheduleEvent
     ]

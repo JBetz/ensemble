@@ -1,21 +1,6 @@
-{-# LINE 1 "src/Ensemble/Soundfont/FluidSynth/Foreign/Settings.hsc" #-}
-{-# OPTIONS_GHC -fno-warn-unused-imports #-}
-
-
 module Ensemble.Soundfont.FluidSynth.Foreign.Settings where
+
 import Foreign.Ptr
-import Foreign.Ptr (Ptr,FunPtr,plusPtr)
-import Foreign.Ptr (wordPtrToPtr,castPtrToFunPtr)
-import Foreign.Storable
-import Foreign.C.Types
-import Foreign.C.String (CString,CStringLen,CWString,CWStringLen)
-import Foreign.Marshal.Alloc (alloca)
-import Foreign.Marshal.Array (peekArray,pokeArray)
-import Data.Int
-import Data.Word
-
-{-# LINE 7 "src/Ensemble/Soundfont/FluidSynth/Foreign/Settings.hsc" #-}
-
 
 data C'fluid_settings_t = C'fluid_settings_t
 

@@ -12,6 +12,8 @@ pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url
 
 soundfontId id:Int = SoundfontId;
 
+soundfontPreset name:String bankNumber:Int instrumentNumber:Int handle:FluidPreset = SoundfontPreset;
+
 ok = Ok;
 
 pluginLocations filePaths:vector<FilePath> = PluginLocations;
@@ -105,5 +107,7 @@ loadClapPlugin filePath:String pluginIndex:Int = Ok;
 initializeSoundfontPlayer filePath:String = Ok;
 
 loadSoundfont filePath:String = SoundfontId;
+
+getSoundfontPresets soundfontId:SoundfontId = SoundfontPresets;
 
 scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;

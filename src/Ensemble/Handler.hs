@@ -16,23 +16,25 @@ import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
 import qualified Ensemble.API as API
 import Ensemble.Server
 
-receiveMessage :: Server -> A.Value -> IO (Either String A.Value)
+receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 
     case jsonMessage of
         A.Object object -> do
             result <- handler server object
             case result of
                 Right (A.Object outMessage) ->
-                    pure $ Right $ A.Object $
+                    pure $ A.Object $
                         case KeyMap.lookup "@extra" object of
                             Just extraValue -> KeyMap.insert "@extra" extraValue outMessage
                             Nothing -> outMessage
                 Right _ ->
-                    pure $ Left "Invalid JSON output, needs to be object"
+                    pure $ makeError "Invalid JSON output, needs to be object"
                 Left errorMessage ->
-                    pure $ Left errorMessage
-        _ -> pure $ Left "Invalid JSON input, needs to be object"
-        
+                    pure $ makeError errorMessage
+        _ -> pure $ makeError "Invalid JSON input, needs to be object"
+    where
+        makeError = toTaggedJSON . API.EnsembleError
+
 handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
 handler server object = runM $ runError $ runReader server $
     case KeyMap.lookup "@type" object of

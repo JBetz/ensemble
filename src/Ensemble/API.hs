@@ -21,6 +21,7 @@ data Ok = Ok
 newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePath] }
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
 newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
+newtype EnsembleError = EnsembleError { ensembleError_message :: String }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int

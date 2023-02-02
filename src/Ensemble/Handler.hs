@@ -10,18 +10,16 @@ import Control.Monad.Freer.Reader
 import qualified Data.Aeson as A
 import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KeyMap
-import qualified Data.ByteString as BS
 import Data.Text (unpack)
 import Ensemble.Schema ()
 import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
 import qualified Ensemble.API as API
 import Ensemble.Server
 
-receiveMessage :: Server -> IO (Either String A.Value)
-receiveMessage server = do
-    jsonMessage <- A.eitherDecodeStrict <$> BS.getLine
+receiveMessage :: Server -> A.Value -> IO (Either String A.Value)
+receiveMessage server jsonMessage = 
     case jsonMessage of
-        Right (A.Object object) -> do
+        A.Object object -> do
             result <- handler server object
             case result of
                 Right (A.Object outMessage) ->
@@ -33,9 +31,8 @@ receiveMessage server = do
                     pure $ Left "Invalid JSON output, needs to be object"
                 Left errorMessage ->
                     pure $ Left errorMessage
-        Right _ -> pure $ Left "Invalid JSON input, needs to be object"
-        Left parseError -> pure $ Left $ "Parse error: " <> parseError
-
+        _ -> pure $ Left "Invalid JSON input, needs to be object"
+        
 handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
 handler server object = runM $ runError $ runReader server $
     case KeyMap.lookup "@type" object of

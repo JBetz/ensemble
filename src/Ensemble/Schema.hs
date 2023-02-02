@@ -41,6 +41,7 @@ deriveJSONs
     , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
     , ''Ok
+    , ''EnsembleError
     , ''PluginLocations
     , ''PluginDescriptors
     , ''SoundfontPresets
@@ -125,6 +126,7 @@ makeGenerateSchema
     , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
     , ''Ok
+    , ''EnsembleError
     , ''PluginLocations
     , ''PluginDescriptors
     , ''Tick

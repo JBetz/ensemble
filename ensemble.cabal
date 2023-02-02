@@ -57,7 +57,9 @@ executable ensemble
     main-is:          Main.hs
     build-depends:    base,
                       aeson,
+                      bytestring,
                       ensemble,
+                      scotty,
                       string-class
     hs-source-dirs:   app
     ghc-options:      -threaded

@@ -29,10 +29,10 @@
         "homepage": "",
         "owner": "JBetz",
         "repo": "nixpkgs",
-        "rev": "7c7280a4b89b4f3fe8525a463937cbbfdddd5ceb",
-        "sha256": "1n1qgkipbhb1qy1c84lnjlqxmq3ss7ls9ws1ddx8xk08nrm9z4yn",
+        "rev": "3a03edf0c655694e9bbc715ed79d248e788cd776",
+        "sha256": "067nyry5lnlic7q8kx94nz6wi8gfmjv7ykw013fday4mfzfrnfcl",
         "type": "tarball",
-        "url": "https://github.com/JBetz/nixpkgs/archive/7c7280a4b89b4f3fe8525a463937cbbfdddd5ceb.tar.gz",
+        "url": "https://github.com/JBetz/nixpkgs/archive/3a03edf0c655694e9bbc715ed79d248e788cd776.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

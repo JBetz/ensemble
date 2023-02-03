@@ -18,7 +18,7 @@ data Sequencer = Sequencer
     , sequencer_clients :: IORef (Map String EventCallback)
     }
 
-newtype Tick = Tick { value :: Int }
+newtype Tick = Tick { tick_value :: Int }
     deriving (Eq, Ord, Show, Enum)
 
 createSequencer :: IO Sequencer

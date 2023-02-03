@@ -18,7 +18,7 @@ main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   server <- createServer
-  config <- getRecord "Ensemble Server"
+  config <- getRecord "Ensemble Audio Engine"
   case fromMaybe Interface_Http (interface config) of
     Interface_Pipe -> runPipeInterface server
     Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)

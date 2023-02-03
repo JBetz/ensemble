@@ -71,11 +71,11 @@ render sequencer engine startTick endTick = do
     where 
         renderEvents :: Double -> [(Tick, [SequencerEvent])] -> IO AudioOutput
         renderEvents frameNumber = \case
-            (Tick currentTick,events):(Tick nextTick,_):rest -> do
+            (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
                 pushEvents engine events
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount)
-                remaining <- renderEvents (frameNumber + frameCount) rest
+                remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ chunk <> remaining
             (_lastTick,events):[] -> do
                 pushEvents engine events

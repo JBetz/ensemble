@@ -109,6 +109,12 @@ renderSequence startTick endTick = do
     engine <- asks server_engine
     sendM $ Sequencer.render sequencer engine startTick endTick
 
+clearSequence :: Ensemble Ok
+clearSequence = do
+    events <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
+    sendM $ writeIORef events []
+    pure Ok
+
 playAudio :: AudioOutput -> Ensemble Ok
 playAudio audioOutput = do
     engine <- asks server_engine

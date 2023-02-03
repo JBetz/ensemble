@@ -132,4 +132,6 @@ playSequence startTick:Tick = Ok;
 
 renderSequence startTick:Tick endTick:Tick = AudioOutput;
 
+clearSequence = Ok;
+
 playAudio audioOutput:AudioOutput = Ok;

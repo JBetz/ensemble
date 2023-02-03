@@ -101,7 +101,11 @@ handler server object = runM $ runError $ runReader server $
                     endTick <- lookupField "endTick"
                     result <- API.renderSequence startTick endTick
                     pure $ toTaggedJSON result
-                    
+
+                "clearSequence" -> do
+                    result <- API.clearSequence
+                    pure $ toTaggedJSON result
+
                 "playAudio" -> do
                     audioOutput <- lookupField "audioOutput"
                     result <- API.playAudio audioOutput

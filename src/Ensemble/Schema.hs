@@ -125,5 +125,6 @@ makeGenerateSchema
     , 'scheduleEvent
     , 'playSequence
     , 'renderSequence
+    , 'clearSequence
     , 'playAudio
     ]

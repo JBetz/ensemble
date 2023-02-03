@@ -40,7 +40,7 @@ There are two ways to interface with an ensemble server, via http or pipes.
 ./ensemble --interface pipes
 ```
 
-Messages are sent by writing JSON to stdin, and responses are returned as JSON via stdout.
+Messages are sent by writing JSON to stdin, and responses are returned as JSON via stdout. All calls are asynchronous, so messages need to be tagged using the `@extra` field in order to route them back to their senders.
 
 Example:
 
@@ -55,10 +55,7 @@ $ ./ensemble --interface pipes
 ./ensemble --interface http --port 3000
 ```
 
-Messages are sent via POST requests to `localhost:<port>/send` with JSON in request body, and responses are returned as JSON in response body.
-
-
-
+Messages are sent via POST requests to `localhost:<port>/send` with JSON in request body, and responses are returned synchronously as JSON in response body.
 
 ## Platforms
 

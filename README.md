@@ -44,24 +44,10 @@ Messages are sent by writing JSON to stdin, and responses are returned as JSON v
 
 Example:
 
-```json
-stdin  >> { 
-    "@type": "getAudioDevices", 
-    "@extra": 855818240 
-}
-stdout << {
-  "@type": "AudioDevices",
-  "@extra": 855818240,
-  "audioDevices": [
-    {
-      "name": "Microsoft Sound Mapper - Input",
-      "index": 0
-    },{
-      "name": "Speakers (Realtek(R) Audio)",
-      "index": 1
-    }
-  ]
-}
+```bash
+$ ./ensemble --interface pipes
+{ "@type": "getAudioDevices", "@extra": 855818240 }
+{ "@type":"AudioDevices", "@extra": 855818240, "audioDevices": [{"name": "Microsoft Sound Mapper - Input", "index": 0}, { "name": "Speakers (Realtek (R) Audio)","index": 1}]}
 ```
 
 <b>For http:</b> 

@@ -35,7 +35,7 @@ See [ensemble.tl](./ensemble.tl) for a [Type Language](https://core.telegram.org
 
 There are two ways to interface with an ensemble server, via http or pipes.
 
-For pipes: 
+<b>For pipes:</b> 
 ```bash 
 ./ensemble --interface pipes
 ```
@@ -44,12 +44,27 @@ Messages are sent by writing JSON to stdin, and responses are returned as JSON v
 
 Example:
 
-```bash
-stdin  >> { "@type": "getAudioDevices", "@extra":855818240 }
-stdout << {"@type":"AudioDevices","@extra":855818240,"audioDevices":[{"name":"Microsoft Sound Mapper - Input","index":0},{"name":"Microphone (HD Pro Webcam C920)","index":1},{"name":"Microphone (Steam Streaming Mic","index":2},{"name":"Microphone Array (Realtek(R) Au","index":3},{"name":"Microsoft Sound Mapper - Output","index":4},{"name":"BenQ EX3501R (Intel(R) Display ","index":5},{"name":"Speakers (Steam Streaming Micro","index":6},{"name":"Speakers (Realtek(R) Audio)","index":7},{"name":"Speakers (Steam Streaming Speak","index":8}]}
+```json
+stdin  >> { 
+    "@type": "getAudioDevices", 
+    "@extra": 855818240 
+}
+stdout << {
+  "@type": "AudioDevices",
+  "@extra": 855818240,
+  "audioDevices": [
+    {
+      "name": "Microsoft Sound Mapper - Input",
+      "index": 0
+    },{
+      "name": "Speakers (Realtek(R) Audio)",
+      "index": 1
+    }
+  ]
+}
 ```
 
-For http: 
+<b>For http:</b> 
 ```bash
 ./ensemble --interface http --port 3000
 ```

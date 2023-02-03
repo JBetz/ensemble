@@ -211,7 +211,7 @@ playAudio engine audioOutput = do
             case eitherChunkSize of
                 Right chunkSize -> do 
                     let (chunk, remaining) = takeChunk chunkSize output
-                    maybeAudioPortError <- sendOutputs engine (fromIntegral chunkSize) chunk
+                    maybeAudioPortError <- sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
                     whenJust maybeAudioPortError $ \audioPortError -> 
                         error $ "Error writing to audio stream: " <> show audioPortError
                     unless (remaining == mempty) $ 
@@ -225,6 +225,9 @@ takeChunk chunkSize (AudioOutput left right) =
     let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
         remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
     in (chunk, remaining)
+
+size :: AudioOutput -> Int
+size (AudioOutput left right) = min (length left) (length right) 
 
 sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe PortAudio.Error) 
 sendOutputs engine frameCount audioOutput  = do

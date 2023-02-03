@@ -36,6 +36,8 @@ soundfontEventNoteOn channel:Int16 key:Int16 velocity:Double  = SoundfontEvent;
 
 soundfontEventNoteOff channel:Int16 key:Int16  = SoundfontEvent;
 
+soundfontEventProgramSelect channel:Int16 soundfontId:SoundfontId bank:Int16 program:Int16  = SoundfontEvent;
+
 eventFlagIsLive = EventFlag;
 
 eventFlagDoNotRecord = EventFlag;

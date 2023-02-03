@@ -44,6 +44,7 @@ deriveJSONs
     , ''Soundfont.SoundfontPreset
     , ''Soundfont.NoteOnEvent
     , ''Soundfont.NoteOffEvent
+    , ''Soundfont.ProgramSelectEvent
     , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId

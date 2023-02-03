@@ -19,7 +19,7 @@ import Foreign.Marshal.Array
 import Foreign.Ptr
 import GHC.Stack
 
-newtype SoundfontId = SoundfontId { id :: Int }
+newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
     deriving (Eq, Ord, Show)
 
 data SoundfontPlayer = SoundfontPlayer
@@ -49,6 +49,7 @@ data SoundfontException
 data SoundfontEvent 
     = SoundfontEvent_NoteOn NoteOnEvent
     | SoundfontEvent_NoteOff NoteOffEvent
+    | SoundfontEvent_ProgramSelect ProgramSelectEvent
     deriving (Show)
 
 data NoteOnEvent = NoteOnEvent
@@ -60,6 +61,13 @@ data NoteOnEvent = NoteOnEvent
 data NoteOffEvent = NoteOffEvent
     { noteOffEvent_channel :: Int16
     , noteOffEvent_key :: Int16
+    } deriving (Show)
+
+data ProgramSelectEvent = ProgramSelectEvent
+    { programSelectEvent_channel :: Int16
+    , programSelectEvent_soundfontId :: SoundfontId
+    , programSelectEvent_bank :: Int16
+    , programSelectEvent_program :: Int16
     } deriving (Show)
 
 instance Exception SoundfontException
@@ -155,6 +163,9 @@ processEvent :: SoundfontPlayer -> SoundfontId -> SoundfontEvent -> IO ()
 processEvent player _soundfontId = \case
     SoundfontEvent_NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
     SoundfontEvent_NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)
+    SoundfontEvent_ProgramSelect event -> programSelect library synth 
+        (programSelectEvent_channel event) (soundfontId_id $ programSelectEvent_soundfontId event) 
+        (programSelectEvent_bank event) (programSelectEvent_program event)
     where
         library = soundfontPlayer_fluidSynthLibrary player
         synth = soundfontPlayer_synth player

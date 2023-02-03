@@ -11,6 +11,7 @@ module Ensemble.Soundfont.FluidSynth.Library
     , deleteFluidSynth
     , noteOn
     , noteOff
+    , programSelect
     , sfLoad
     , getSfontById
     , sfontIterationStart
@@ -73,6 +74,12 @@ noteOff :: FluidSynthLibrary -> Ptr C'fluid_synth_t -> Int16 -> Int16 -> IO ()
 noteOff library synth channel key = do
     f <- lookupProcedure library "fluid_synth_noteoff"
     _result <- mK'fluid_synth_noteoff f synth (fromIntegral channel) (fromIntegral key)
+    pure ()
+
+programSelect :: FluidSynthLibrary -> Ptr C'fluid_synth_t -> Int16 -> Int -> Int16 -> Int16 -> IO ()
+programSelect library synth channel soundfontId bank program = do
+    f <- lookupProcedure library "fluid_synth_program_select"
+    _result <- mK'fluid_synth_program_select f synth (fromIntegral channel) (fromIntegral soundfontId) (fromIntegral bank) (fromIntegral program)
     pure ()
 
 sfLoad  :: FluidSynthLibrary -> Ptr C'fluid_synth_t -> FilePath -> Bool -> IO Int

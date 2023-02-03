@@ -20,6 +20,9 @@ foreign import ccall "dynamic" mK'fluid_synth_noteon :: FunPtr (Ptr C'fluid_synt
 foreign import ccall "wrapper" mk'fluid_synth_noteoff :: (Ptr C'fluid_synth_t -> CInt -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> IO CInt))
 foreign import ccall "dynamic" mK'fluid_synth_noteoff :: FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> IO CInt) -> (Ptr C'fluid_synth_t -> CInt -> CInt -> IO CInt)
 
+foreign import ccall "wrapper" mk'fluid_synth_program_select :: (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> CInt -> IO CInt))
+foreign import ccall "dynamic" mK'fluid_synth_program_select :: FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> CInt -> IO CInt) -> (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> CInt -> IO CInt)
+
 foreign import ccall "wrapper" mk'fluid_synth_sfload :: (Ptr C'fluid_synth_t -> CString -> CBool -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CString -> CBool -> IO CInt))
 foreign import ccall "dynamic" mK'fluid_synth_sfload :: FunPtr (Ptr C'fluid_synth_t -> CString -> CBool -> IO CInt) -> (Ptr C'fluid_synth_t -> CString -> CBool -> IO CInt)
 

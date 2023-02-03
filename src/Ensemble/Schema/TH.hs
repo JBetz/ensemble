@@ -12,7 +12,9 @@ import Prelude hiding (break)
 
 import Control.Monad (join)
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.TH as A
+import qualified Data.Aeson.Types as A
 import Data.Char (toLower)
 import Data.Foldable (traverse_, foldlM)
 import Data.Traversable (for)
@@ -58,6 +60,51 @@ deriveToTaggedJSON name = do
     pure $ InstanceD Nothing [] (AppT classType forType)
         [FunD functionName 
             [Clause [VarP objectVariable] body []]]
+
+deriveCustomJSONs :: [Name] -> DecsQ
+deriveCustomJSONs names = do
+    decs <- for names (\name -> do
+        fromJson <- deriveCustomFromJSON name
+        toJson <- deriveCustomToJSON name
+        pure [fromJson, toJson])
+    pure $ join decs
+
+deriveCustomToJSON :: Name -> DecQ
+deriveCustomToJSON name = do
+    constructors <- datatypeCons <$> reifyDatatype name
+    let objectName = mkName "object"
+    let body = NormalB $ CaseE (VarE objectName) $  
+            (\constructor -> 
+                let valueName = mkName "value"
+                    pattern = ConP (constructorName constructor) [] [VarP valueName]
+                    tag = toSubclassName $ constructorName constructor
+                    caseBody = NormalB $ AppE (AppE (VarE 'defaultToTaggedJSON) (LitE $ StringL tag)) (VarE valueName)
+                in Match pattern caseBody []
+                ) <$> constructors
+    pure $ InstanceD Nothing [] (AppT (ConT ''A.ToJSON) (ConT name))
+        [FunD 'A.toJSON [Clause [VarP objectName] body []]]
+
+deriveCustomFromJSON :: Name -> DecQ
+deriveCustomFromJSON name = do
+    constructors <- datatypeCons <$> reifyDatatype name
+    let objectName = mkName "object"
+    let eventTypeName = mkName "eventType"
+    let otherName = mkName "other"
+    let failureMessage = AppE (AppE (VarE '(<>)) (LitE $ StringL $ "Invalid " <> nameBase name <> " type: ")) (VarE otherName)
+    let failureCase = Match (VarP otherName) (NormalB $ AppE (VarE 'A.parseFail) failureMessage) []
+    let matches = fmap (\constructor -> 
+            let pattern = LitP $ StringL $ toSubclassName (constructorName constructor)  
+                parsed = AppE (VarE 'A.parseJSON) (AppE (ConE 'A.Object) (VarE objectName))
+                caseBody = NormalB $ AppE (AppE (VarE 'fmap) (ConE $ constructorName constructor)) parsed
+            in Match pattern caseBody []
+            ) constructors
+    let body = NormalB $ AppE (AppE (VarE 'A.withObject) (LitE $ StringL $ nameBase name)) (LamE [VarP objectName] $ 
+                    DoE Nothing 
+                        [ BindS (VarP eventTypeName ) (AppE (AppE (VarE 'A.parseField) (VarE objectName)) (LitE $ StringL "@type")) 
+                        , NoBindS $ CaseE (AppE (VarE 'A.toString) (VarE eventTypeName)) (matches <> [failureCase])
+                        ])
+    pure $ InstanceD Nothing [] (AppT (ConT ''A.FromJSON) (ConT name))
+        [FunD 'A.parseJSON [Clause [] body []]]
 
 deriveJSON :: Name -> DecsQ
 deriveJSON name = do
@@ -124,7 +171,7 @@ generateTypeDefinition :: Name -> Q [String]
 generateTypeDefinition typeName = do
     datatypeInfo <- reifyDatatype typeName
     for (datatypeCons datatypeInfo) $ \constructorInfo -> do
-        let name = uncapitalise $ filter (/= '_') (nameBase $ constructorName constructorInfo)
+        let name = toSubclassName $ constructorName constructorInfo
         case constructorVariant constructorInfo of
             RecordConstructor fieldNames -> do
                 let fields = zip fieldNames (constructorFields constructorInfo)
@@ -166,6 +213,9 @@ makeGenerateSchema typeNames functionNames = do
     let function = FunD generateSchemaName [Clause [] body []]
     pure [signature, function]
 
+
+toSubclassName :: Name -> String
+toSubclassName = uncapitalise . filter (/= '_') . nameBase
 
 uncapitalise :: String -> String
 uncapitalise [] = []

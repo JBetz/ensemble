@@ -8,12 +8,12 @@ import Options.Generic
 import Text.Read
 
 data Interface 
-    = Interface_Pipe
+    = Interface_Pipes
     | Interface_Http
     deriving (Generic)
 
 instance Show Interface where
-    show Interface_Pipe = "pipe"
+    show Interface_Pipes = "pipes"
     show Interface_Http = "http"
 
 instance Read Interface where
@@ -29,7 +29,7 @@ instance Read Interface where
           EOF -> error $ "Invalid interface argument: " <> show lexeme
         where
             readString = \case       
-                "pipe" -> Interface_Pipe
+                "pipes" -> Interface_Pipes
                 "http" -> Interface_Http
                 other -> error $ "Invalid interface argument: " <> show other
 

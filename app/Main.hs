@@ -20,7 +20,7 @@ main = do
   server <- createServer
   config <- getRecord "Ensemble Audio Engine"
   case fromMaybe Interface_Http (interface config) of
-    Interface_Pipe -> runPipeInterface server
+    Interface_Pipes -> runPipesInterface server
     Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)
   where                     
     runHttpInterface server port' = scotty port' $ do
@@ -29,7 +29,7 @@ main = do
           result <- liftAndCatchIO $ receiveMessage server message
           json result
           
-    runPipeInterface server = forever $ do
+    runPipesInterface server = forever $ do
       eitherJsonMessage <- A.eitherDecodeStrict <$> BS.getLine
       case eitherJsonMessage of
         Right jsonMessage -> do

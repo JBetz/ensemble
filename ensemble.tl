@@ -128,7 +128,7 @@ getSoundfontPresets soundfontId:SoundfontId = SoundfontPresets;
 
 scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;
 
-playSequence tick:Tick = Ok;
+playSequence startTick:Tick = Ok;
 
 renderSequence startTick:Tick endTick:Tick = AudioOutput;
 

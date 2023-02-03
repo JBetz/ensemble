@@ -1,10 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Sequencer where
 
+import Control.Monad
+import Control.Monad.Extra
 import Ensemble.Engine
 import Ensemble.Event
-import Data.Foldable (for_)
 import Data.IORef
 import Data.List
 import Data.Map (Map)
@@ -19,7 +21,7 @@ data Sequencer = Sequencer
     }
 
 newtype Tick = Tick { tick_value :: Int }
-    deriving (Eq, Ord, Show, Enum)
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral)
 
 createSequencer :: IO Sequencer
 createSequencer = do
@@ -38,7 +40,29 @@ play :: Sequencer -> Engine -> Tick -> IO ()
 play sequencer engine startTick = do
     writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- getEndTick sequencer
-    for_ [startTick .. endTick] $ process sequencer engine
+    audioOutput <- render sequencer engine startTick endTick
+    maybeAudioStream <- readIORef $ engine_audioStream engine
+    whenJust maybeAudioStream $ \audioStream ->
+        writeChunks audioStream audioOutput
+    where
+        writeChunks stream output = do
+            eitherChunkSize <- writeAvailable stream
+            case eitherChunkSize of
+                Right chunkSize -> do 
+                    let (chunk, remaining) = takeChunk chunkSize output
+                    maybeAudioPortError <- sendOutputs engine (fromIntegral chunkSize) chunk
+                    whenJust maybeAudioPortError $ \audioPortError -> 
+                        error $ "Error writing to audio stream: " <> show audioPortError
+                    unless (remaining == mempty) $ 
+                        writeChunks stream remaining
+                Left audioPortError ->
+                    error $ "Error getting available frames of audio stream: " <> show audioPortError
+
+takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
+takeChunk chunkSize (AudioOutput left right) = 
+    let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
+        remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
+    in (chunk, remaining)
 
 getEndTick :: Sequencer -> IO Tick
 getEndTick sequencer = do
@@ -62,6 +86,36 @@ registerClient sequencer name callback =
 unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
+
+render :: Sequencer -> Engine -> Tick -> Tick -> IO AudioOutput
+render sequencer engine startTick endTick = do
+    events <- getEventsBetween sequencer startTick endTick
+    let frameNumber = fromInteger (fromIntegral startTick - 1) / 1000 * engine_sampleRate engine
+    renderEvents frameNumber (groupEvents events)
+    where 
+        renderEvents :: Double -> [(Tick, [SequencerEvent])] -> IO AudioOutput
+        renderEvents frameNumber = \case
+            (_,events):(Tick nextTick,_):rest -> do
+                pushEvents engine events
+                let frameCount = (fromInteger (fromIntegral nextTick) / 1000 * engine_sampleRate engine) - frameNumber
+                chunk <- generateOutputs engine (floor frameCount)
+                remaining <- renderEvents (frameNumber + frameCount) rest
+                pure $ chunk <> remaining
+            (_lastTick,events):[] -> do
+                pushEvents engine events
+                -- One second of padding
+                let frameCount = engine_sampleRate engine
+                generateOutputs engine (floor frameCount)
+            [] -> pure mempty
+
+getEventsBetween :: Sequencer -> Tick -> Tick -> IO [(Tick, SequencerEvent)]
+getEventsBetween sequencer startTick endTick = do
+    events <- readIORef (sequencer_eventQueue sequencer)
+    pure $ filter (\(tick, _) -> tick >= startTick && tick <= endTick) events
+
+groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
+groupEvents eventList =
+    Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
 process :: Sequencer -> Engine -> Tick -> IO (Maybe Error)
 process sequencer engine tick = do

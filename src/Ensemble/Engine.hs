@@ -134,7 +134,7 @@ start engine = do
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
     receiveInputs engine numberOfInputSamples inputPtr   
-    audioOutput <- generateOutputs engine numberOfInputSamples
+    audioOutput <- generateOutputs engine (fromIntegral numberOfInputSamples)
     unless (outputPtr == nullPtr) $ do 
         let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
         pokeArray outputPtr output
@@ -154,7 +154,7 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
-generateOutputs :: Engine -> CULong -> IO AudioOutput
+generateOutputs :: Engine -> Int -> IO AudioOutput
 generateOutputs engine frameCount = do
     maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
@@ -177,7 +177,19 @@ generateOutputs engine frameCount = do
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
     , audioOutput_right :: [CFloat] 
-    }
+    } deriving (Eq, Ord)
+
+instance Semigroup AudioOutput where
+    a <> b = AudioOutput
+        { audioOutput_left = audioOutput_left a <> audioOutput_left b 
+        , audioOutput_right = audioOutput_right a <> audioOutput_right b
+        }
+
+instance Monoid AudioOutput where
+    mempty = AudioOutput 
+        { audioOutput_left = [] 
+        , audioOutput_right = []
+        }
 
 mixAudioOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =

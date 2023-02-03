@@ -9,7 +9,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import Data.IORef
-import Ensemble.Engine (AudioDevice)
+import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
@@ -27,6 +27,8 @@ newtype EnsembleError = EnsembleError { ensembleError_message :: String }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int
+type StartTick = Tick
+type EndTick = Tick
 
 type Ensemble = Eff '[Reader Server, Error String, IO]
 
@@ -94,9 +96,21 @@ scheduleEvent tick event = do
     sendM $ Sequencer.sendAt sequencer tick event
     pure Ok
 
-play :: Tick -> Ensemble Ok
-play startTick = do
+playSequence :: Tick -> Ensemble Ok
+playSequence startTick = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    sendM $ Sequencer.play sequencer engine startTick
+    sendM $ Sequencer.playSequence sequencer engine startTick
+    pure Ok
+
+renderSequence :: StartTick -> EndTick -> Ensemble AudioOutput
+renderSequence startTick endTick = do
+    sequencer <- asks server_sequencer
+    engine <- asks server_engine
+    sendM $ Sequencer.render sequencer engine startTick endTick
+
+playAudio :: AudioOutput -> Ensemble Ok
+playAudio audioOutput = do
+    engine <- asks server_engine
+    sendM $ Engine.playAudio engine audioOutput
     pure Ok

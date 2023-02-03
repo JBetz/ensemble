@@ -91,11 +91,22 @@ handler server object = runM $ runError $ runReader server $
                     result <- API.scheduleEvent tick event
                     pure $ toTaggedJSON result
 
-                "play" -> do
+                "playSequence" -> do
                     startTick <- lookupField "startTick"
-                    result <- API.play startTick
+                    result <- API.playSequence startTick
                     pure $ toTaggedJSON result
                     
+                "renderSequence" -> do
+                    startTick <- lookupField "startTick"
+                    endTick <- lookupField "endTick"
+                    result <- API.renderSequence startTick endTick
+                    pure $ toTaggedJSON result
+                    
+                "playAudio" -> do
+                    audioOutput <- lookupField "audioOutput"
+                    result <- API.playAudio audioOutput
+                    pure $ toTaggedJSON result
+
                 other ->
                     throwError @String $ "Invalid message type: " <> unpack other
         Just _ -> 

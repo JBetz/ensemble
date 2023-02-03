@@ -16,13 +16,14 @@ import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import qualified Data.Aeson as A
 import Data.Text (pack)
-import Ensemble.Engine (AudioDevice(..))
+import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Event
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Sequencer (Tick(..))
 import Ensemble.API
 import Ensemble.Schema.TH
+import Foreign.C.Types
 import Foreign.Ptr
 
 instance A.ToJSON (Ptr a) where 
@@ -39,6 +40,8 @@ deriveJSONs
     , ''SoundfontPresets
     , ''AudioDevice
     , ''AudioDevices
+    , ''CFloat
+    , ''AudioOutput
     , ''Tick
     , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
@@ -91,6 +94,7 @@ makeGenerateSchema
     , ''Tick
     , ''AudioDevice
     , ''AudioDevices
+    , ''AudioOutput
     , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
@@ -119,5 +123,7 @@ makeGenerateSchema
     , 'loadSoundfont
     , 'getSoundfontPresets
     , 'scheduleEvent
-    , 'play
+    , 'playSequence
+    , 'renderSequence
+    , 'playAudio
     ]

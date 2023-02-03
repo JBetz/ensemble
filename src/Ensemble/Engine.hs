@@ -200,6 +200,32 @@ mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOut
         }
 
 
+playAudio :: Engine -> AudioOutput -> IO ()
+playAudio engine audioOutput = do
+    maybeAudioStream <- readIORef $ engine_audioStream engine
+    whenJust maybeAudioStream $ \audioStream ->
+        writeChunks audioStream audioOutput
+    where
+        writeChunks stream output = do
+            eitherChunkSize <- PortAudio.writeAvailable stream
+            case eitherChunkSize of
+                Right chunkSize -> do 
+                    let (chunk, remaining) = takeChunk chunkSize output
+                    maybeAudioPortError <- sendOutputs engine (fromIntegral chunkSize) chunk
+                    whenJust maybeAudioPortError $ \audioPortError -> 
+                        error $ "Error writing to audio stream: " <> show audioPortError
+                    unless (remaining == mempty) $ 
+                        writeChunks stream remaining
+                Left audioPortError ->
+                    error $ "Error getting available frames of audio stream: " <> show audioPortError
+
+
+takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
+takeChunk chunkSize (AudioOutput left right) = 
+    let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
+        remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
+    in (chunk, remaining)
+
 sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe PortAudio.Error) 
 sendOutputs engine frameCount audioOutput  = do
     maybeStream <- readIORef $ engine_audioStream engine

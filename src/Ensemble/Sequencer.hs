@@ -3,15 +3,13 @@
 
 module Ensemble.Sequencer where
 
-import Control.Monad
-import Control.Monad.Extra
 import Ensemble.Engine
 import Ensemble.Event
 import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Sound.PortAudio
+import qualified Sound.PortAudio as PortAudio
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
@@ -36,33 +34,12 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-play :: Sequencer -> Engine -> Tick -> IO ()
-play sequencer engine startTick = do
+playSequence :: Sequencer -> Engine -> Tick -> IO ()
+playSequence sequencer engine startTick = do
     writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- getEndTick sequencer
     audioOutput <- render sequencer engine startTick endTick
-    maybeAudioStream <- readIORef $ engine_audioStream engine
-    whenJust maybeAudioStream $ \audioStream ->
-        writeChunks audioStream audioOutput
-    where
-        writeChunks stream output = do
-            eitherChunkSize <- writeAvailable stream
-            case eitherChunkSize of
-                Right chunkSize -> do 
-                    let (chunk, remaining) = takeChunk chunkSize output
-                    maybeAudioPortError <- sendOutputs engine (fromIntegral chunkSize) chunk
-                    whenJust maybeAudioPortError $ \audioPortError -> 
-                        error $ "Error writing to audio stream: " <> show audioPortError
-                    unless (remaining == mempty) $ 
-                        writeChunks stream remaining
-                Left audioPortError ->
-                    error $ "Error getting available frames of audio stream: " <> show audioPortError
-
-takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
-takeChunk chunkSize (AudioOutput left right) = 
-    let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
-        remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
-    in (chunk, remaining)
+    playAudio engine audioOutput
 
 getEndTick :: Sequencer -> IO Tick
 getEndTick sequencer = do
@@ -117,7 +94,7 @@ groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
-process :: Sequencer -> Engine -> Tick -> IO (Maybe Error)
+process :: Sequencer -> Engine -> Tick -> IO (Maybe PortAudio.Error)
 process sequencer engine tick = do
     writeIORef (sequencer_currentTick sequencer) tick
     events <- readIORef (sequencer_eventQueue sequencer)

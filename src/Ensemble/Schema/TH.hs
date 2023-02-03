@@ -132,7 +132,9 @@ writeSchema types functions = do
 
 showType :: Type -> String
 showType = \case
-    ConT name -> nameBase name
+    ConT name -> if
+        | nameBase name == "CFloat" -> "Float"
+        | otherwise -> nameBase name
     TupleT 0 -> "Void"
     AppT ListT itemType -> if
         | itemType == ConT ''Char -> "String"

@@ -16,6 +16,8 @@ audioDevice index:Int name:String = AudioDevice;
 
 audioDevices audioDevices:vector<AudioDevice> = AudioDevices;
 
+audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
+
 clapId id:Int = ClapId;
 
 paramId id:Int = ParamId;
@@ -126,4 +128,8 @@ getSoundfontPresets soundfontId:SoundfontId = SoundfontPresets;
 
 scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;
 
-play tick:Tick = Ok;
+playSequence tick:Tick = Ok;
+
+renderSequence startTick:Tick endTick:Tick = AudioOutput;
+
+playAudio audioOutput:AudioOutput = Ok;

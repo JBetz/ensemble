@@ -29,6 +29,36 @@ Short term goals are to support MIDI sequencing of Soundfonts and CLAP instrumen
 - [ ] audio I/O (via [portaudio](http://www.portaudio.com/))
 - [ ] MIDI device routing
 
+## API
+
+See [ensemble.tl](./ensemble.tl) for a [Type Language](https://core.telegram.org/mtproto/TL) specification of the API.
+
+There are two ways to interface with an ensemble server, via http or pipes.
+
+For pipes: 
+```bash 
+./ensemble --interface pipes
+```
+
+Messages are sent by writing JSON to stdin, and responses are returned as JSON via stdout.
+
+Example:
+
+```bash
+stdin  >> { "@type": "getAudioDevices", "@extra":855818240 }
+stdout << {"@type":"AudioDevices","@extra":855818240,"audioDevices":[{"name":"Microsoft Sound Mapper - Input","index":0},{"name":"Microphone (HD Pro Webcam C920)","index":1},{"name":"Microphone (Steam Streaming Mic","index":2},{"name":"Microphone Array (Realtek(R) Au","index":3},{"name":"Microsoft Sound Mapper - Output","index":4},{"name":"BenQ EX3501R (Intel(R) Display ","index":5},{"name":"Speakers (Steam Streaming Micro","index":6},{"name":"Speakers (Realtek(R) Audio)","index":7},{"name":"Speakers (Steam Streaming Speak","index":8}]}
+```
+
+For http: 
+```bash
+./ensemble --interface http --port 3000
+```
+
+Messages are sent via POST requests to `localhost:<port>/send` with JSON in request body, and responses are returned as JSON in response body.
+
+
+
+
 ## Platforms
 
 - [ ] unix

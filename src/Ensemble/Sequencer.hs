@@ -67,14 +67,13 @@ unregisterClient sequencer name =
 render :: Sequencer -> Engine -> Tick -> Tick -> IO AudioOutput
 render sequencer engine startTick endTick = do
     events <- getEventsBetween sequencer startTick endTick
-    let frameNumber = fromInteger (fromIntegral startTick - 1) / 1000 * engine_sampleRate engine
-    renderEvents frameNumber (groupEvents events)
+    renderEvents 0 (groupEvents events)
     where 
         renderEvents :: Double -> [(Tick, [SequencerEvent])] -> IO AudioOutput
         renderEvents frameNumber = \case
-            (_,events):(Tick nextTick,_):rest -> do
+            (Tick currentTick,events):(Tick nextTick,_):rest -> do
                 pushEvents engine events
-                let frameCount = (fromInteger (fromIntegral nextTick) / 1000 * engine_sampleRate engine) - frameNumber
+                let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount)
                 remaining <- renderEvents (frameNumber + frameCount) rest
                 pure $ chunk <> remaining

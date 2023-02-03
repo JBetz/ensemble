@@ -125,3 +125,5 @@ loadSoundfont filePath:String = SoundfontId;
 getSoundfontPresets soundfontId:SoundfontId = SoundfontPresets;
 
 scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;
+
+play tick:Tick = Ok;

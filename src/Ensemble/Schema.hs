@@ -12,8 +12,8 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import qualified Data.Aeson as A
-import Data.Text (pack)
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
+import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
 import Ensemble.Soundfont (SoundfontId(..))
@@ -25,14 +25,14 @@ import Foreign.C.Types
 import Foreign.Ptr
 
 instance A.ToJSON (Ptr a) where 
-    toJSON ptr = A.String "<handle>"
+    toJSON _ = A.String "<handle>"
 
 instance A.FromJSON (Ptr a) where
     parseJSON _ = pure nullPtr
 
 deriveJSONs
     [ ''Ok
-    , ''EnsembleError
+    , ''APIError
     , ''PluginLocations
     , ''PluginDescriptors
     , ''SoundfontPresets
@@ -82,8 +82,8 @@ deriveJSONs
 
 makeGenerateSchema
     -- types
-    [  ''Ok
-    , ''EnsembleError
+    [ ''Ok
+    , ''APIError
     , ''PluginLocations
     , ''PluginDescriptors
     , ''SoundfontPresets

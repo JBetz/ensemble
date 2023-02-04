@@ -10,7 +10,9 @@ import Control.Monad.Freer.Reader
 import qualified Data.Aeson as A
 import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Maybe
 import Data.Text (unpack)
+import Ensemble.Error
 import Ensemble.Schema ()
 import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
 import qualified Ensemble.API as API
@@ -20,24 +22,24 @@ receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 
     case jsonMessage of
         A.Object object -> do
+            let extraValue = KeyMap.lookup "@extra" object
             result <- handler server object
-            case result of
+            pure $ case result of
                 Right (A.Object outMessage) ->
-                    pure $ A.Object $
-                        case KeyMap.lookup "@extra" object of
-                            Just extraValue -> KeyMap.insert "@extra" extraValue outMessage
-                            Nothing -> outMessage
+                    A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
                 Right _ ->
-                    pure $ makeError "Invalid JSON output, needs to be object"
+                    makeError extraValue $ APIError "Invalid JSON output, needs to be object"
                 Left errorMessage ->
-                    pure $ makeError errorMessage
-        _ -> pure $ makeError "Invalid JSON input, needs to be object"
+                    makeError extraValue errorMessage
+        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object"
     where
-        makeError = toTaggedJSON . API.EnsembleError
+        makeError extraValue apiError = 
+            let A.Object errorJson = toTaggedJSON apiError
+            in A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) errorJson
 
 
 -- TODO: Use template haskell to generate this function
-handler :: Server -> KeyMap A.Value -> IO (Either String A.Value)
+handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
 handler server object = runM $ runError $ runReader server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) ->
@@ -107,11 +109,11 @@ handler server object = runM $ runError $ runReader server $
                     pure $ toTaggedJSON result
 
                 other ->
-                    throwError @String $ "Invalid message type: " <> unpack other
+                    throwError $ APIError $ "Invalid message type: " <> unpack other
         Just _ -> 
-            throwError @String "Invalid '@type' field"
+            throwError $ APIError "Invalid '@type' field"
         Nothing -> 
-            throwError @String "Message is missing '@type' field"
+            throwError $ APIError "Message is missing '@type' field"
 
     where
         lookupField key = 
@@ -119,6 +121,6 @@ handler server object = runM $ runError $ runReader server $
                 Just value -> 
                     case A.fromJSON value of
                         A.Success a -> pure a
-                        A.Error parseError -> throwError $ "Parse error on '" <> show key <> "': "  <> parseError
+                        A.Error parseError -> throwError $ APIError $ "Parse error on '" <> show key <> "': "  <> parseError
                 Nothing -> 
-                    throwError $ "Missing argument: " <> show key
+                    throwError $ APIError $ "Missing argument: " <> show key

@@ -21,6 +21,7 @@ import qualified Data.Map as Map
 import Data.Maybe
 import Data.Word
 import Data.Traversable (for)
+import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
 import Ensemble.Soundfont (SoundfontId (..))
@@ -83,7 +84,7 @@ data AudioDevice = AudioDevice
     , audioDevice_name :: String
     } deriving (Show)
 
-getAudioDevices :: (LastMember IO effs, Member (Error String) effs) => Eff effs [AudioDevice]
+getAudioDevices :: (LastMember IO effs, Member (Error APIError) effs) => Eff effs [AudioDevice]
 getAudioDevices = do
     eitherResult <- sendM $ PortAudio.withPortAudio $ do
         count <- PortAudio.getNumDevices
@@ -99,7 +100,7 @@ getAudioDevices = do
         pure $ Right $ catMaybes devices
     case eitherResult of
         Right devices -> pure devices
-        Left portAudioError -> throwError $ "Error getting audio devices: " <> show portAudioError
+        Left portAudioError -> throwError $ APIError $ "Error getting audio devices: " <> show portAudioError
 
 pushEvent :: Engine -> SequencerEvent -> IO ()
 pushEvent engine event =
@@ -109,11 +110,11 @@ pushEvents :: Engine -> [SequencerEvent] -> IO ()
 pushEvents engine events =
     modifyIORef' (engine_eventBuffer engine) (<> events)
 
-start :: (LastMember IO effs, Member (Error String) effs) => Engine -> Eff effs ()
+start :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> Eff effs ()
 start engine = do
     initializeResult <- sendM PortAudio.initialize
     case initializeResult of
-        Just initializeError -> throwError $ "Error when initializing audio driver: " <> show initializeError
+        Just initializeError -> throwError $ APIError $ "Error when initializing audio driver: " <> show initializeError
         Nothing -> do
             sendM $ allocateBuffers engine (32 * 1024)
             eitherStream <- sendM $ PortAudio.openDefaultStream 
@@ -125,7 +126,7 @@ start engine = do
                 Nothing -- Callback on completion
             case eitherStream of
                 Left portAudioError -> 
-                    throwError $ "Error when opening audio stream: " <> show portAudioError
+                    throwError $ APIError $ "Error when opening audio stream: " <> show portAudioError
                 Right stream -> do
                     maybeError <- sendM $ do
                         writeIORef (engine_audioStream engine) (Just stream)
@@ -134,7 +135,7 @@ start engine = do
                         CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
                         PortAudio.startStream stream
                     whenJust maybeError $ \startError ->
-                        throwError $ "Error when starting audio stream: " <> show startError 
+                        throwError $ APIError $ "Error when starting audio stream: " <> show startError 
 
             
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
@@ -265,7 +266,7 @@ sendOutputs engine frameCount audioOutput  = do
                 PortAudio.writeStream stream frameCount outputForeignPtr
         Nothing -> pure $ Just PortAudio.NotInitialized
 
-stop :: (LastMember IO effs, Member (Error String) effs) => Engine -> Eff effs ()
+stop :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> Eff effs ()
 stop engine = do
     maybeStream <- sendM $ readIORef (engine_audioStream engine)
     case maybeStream of
@@ -283,7 +284,7 @@ stop engine = do
                 setState engine StateStopped
                 pure maybeError
             whenJust maybeError $ \stopError ->
-                throwError $ "Error when stopping audio stream: " <> show stopError
+                throwError $ APIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
 createSoundfontInstrument :: Engine -> FilePath -> IO InstrumentInfo

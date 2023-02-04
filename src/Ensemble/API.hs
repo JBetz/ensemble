@@ -11,6 +11,7 @@ import Control.Monad.Freer.Reader
 import Data.IORef
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
+import Ensemble.Error
 import Ensemble.Instrument
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
@@ -24,14 +25,13 @@ newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePa
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
 newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
 newtype AudioDevices = AudioDevices { audioDevices_audioDevices :: [AudioDevice] }
-newtype EnsembleError = EnsembleError { ensembleError_message :: String }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int
 type StartTick = Tick
 type EndTick = Tick
 
-type Ensemble = Eff '[Reader Server, Error String, IO]
+type Ensemble = Eff '[Reader Server, Error APIError, IO]
 
 -- Audio
 getAudioDevices :: Ensemble AudioDevices

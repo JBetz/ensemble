@@ -2,7 +2,7 @@ vector {t:Type} # [ t ] = Vector t;
 
 ok = Ok;
 
-ensembleError message:String = EnsembleError;
+aPIError message:String = APIError;
 
 pluginLocations filePaths:vector<FilePath> = PluginLocations;
 

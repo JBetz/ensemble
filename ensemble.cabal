@@ -19,6 +19,7 @@ library
                       Ensemble.API,
                       Ensemble.Config,
                       Ensemble.Engine,
+                      Ensemble.Error,
                       Ensemble.Event,
                       Ensemble.Handler,
                       Ensemble.Instrument,

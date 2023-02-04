@@ -18,6 +18,14 @@ audioDevices audioDevices:vector<AudioDevice> = AudioDevices;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
+instrumentId id:Int = InstrumentId;
+
+instrumentInfo id:InstrumentId instrument:Instrument = InstrumentInfo;
+
+instrumentSoundfont soundfont:Soundfont synth:FluidSynth  = Instrument;
+
+instrumentClap pluginId:PluginId  = Instrument;
+
 clapId id:Int = ClapId;
 
 paramId id:Int = ParamId;
@@ -27,16 +35,6 @@ pluginId filePath:FilePath index:Int = PluginId;
 clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
 
 pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url:String manualUrl:String supportUrl:String version:String description:String features:vector<String> = PluginDescriptor;
-
-soundfontId id:Int = SoundfontId;
-
-soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
-
-soundfontEventNoteOn channel:Int16 key:Int16 velocity:Double  = SoundfontEvent;
-
-soundfontEventNoteOff channel:Int16 key:Int16  = SoundfontEvent;
-
-soundfontEventProgramSelect channel:Int16 soundfontId:SoundfontId bank:Int16 program:Int16  = SoundfontEvent;
 
 eventFlagIsLive = EventFlag;
 
@@ -104,9 +102,11 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-sequencerEventSoundfont soundfontId:SoundfontId event:SoundfontEvent  = SequencerEvent;
+soundfontId id:Int = SoundfontId;
 
-sequencerEventClap pluginId:PluginId eventConfig:ClapEventConfig event:ClapEvent  = SequencerEvent;
+soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
+
+sequencerEvent instrumentId:InstrumentId eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
 
 ---functions---
 
@@ -124,9 +124,7 @@ loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
 initializeSoundfontPlayer filePath:String = Ok;
 
-loadSoundfont filePath:String = SoundfontId;
-
-getSoundfontPresets soundfontId:SoundfontId = SoundfontPresets;
+createSoundfontInstrument filePath:String = InstrumentInfo;
 
 scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;
 

@@ -4,6 +4,7 @@
 
 module Ensemble.Soundfont where
 
+import Clap.Interface.Events
 import Control.Exception
 import Data.IORef
 import Data.Int
@@ -25,7 +26,6 @@ newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
 data SoundfontPlayer = SoundfontPlayer
     { soundfontPlayer_fluidSynthLibrary :: FluidSynthLibrary
     , soundfontPlayer_settings :: FluidSettings
-    , soundfontPlayer_synth :: FluidSynth
     , soundfontPlayer_soundfonts :: IORef (Map SoundfontId Soundfont)
     }
 
@@ -39,36 +39,12 @@ data Soundfont = Soundfont
     { soundfont_id :: SoundfontId
     , soundfont_filePath :: FilePath 
     , soundfont_handle :: FluidSoundfont
-    , soundfont_presets :: IORef (Maybe [SoundfontPreset])
+    , soundfont_presets :: [SoundfontPreset]
     }
 
 data SoundfontException
     = SoundfontPlayerNotInitialized
     deriving (Show)
-
-data SoundfontEvent 
-    = SoundfontEvent_NoteOn NoteOnEvent
-    | SoundfontEvent_NoteOff NoteOffEvent
-    | SoundfontEvent_ProgramSelect ProgramSelectEvent
-    deriving (Show)
-
-data NoteOnEvent = NoteOnEvent
-    { noteOnEvent_channel :: Int16
-    , noteOnEvent_key :: Int16
-    , noteOnEvent_velocity :: Double 
-    } deriving (Show)
-
-data NoteOffEvent = NoteOffEvent
-    { noteOffEvent_channel :: Int16
-    , noteOffEvent_key :: Int16
-    } deriving (Show)
-
-data ProgramSelectEvent = ProgramSelectEvent
-    { programSelectEvent_channel :: Int16
-    , programSelectEvent_soundfontId :: SoundfontId
-    , programSelectEvent_bank :: Int16
-    , programSelectEvent_program :: Int16
-    } deriving (Show)
 
 instance Exception SoundfontException
 
@@ -88,28 +64,29 @@ createSoundfontPlayer :: FilePath -> IO SoundfontPlayer
 createSoundfontPlayer filePath = do
     library <- openFluidSynthLibrary filePath
     settings <-newFluidSettings library
-    synth <- newFluidSynth library settings 
     soundfonts <- newIORef mempty
     pure $ SoundfontPlayer
         { soundfontPlayer_fluidSynthLibrary = library
         , soundfontPlayer_settings = settings
-        , soundfontPlayer_synth = synth
         , soundfontPlayer_soundfonts = soundfonts
         }
+
+createSynth :: SoundfontPlayer -> IO FluidSynth
+createSynth player = do
+    let library = soundfontPlayer_fluidSynthLibrary player
+    newFluidSynth library (soundfontPlayer_settings player)
 
 deleteSoundfontPlayer :: SoundfontPlayer -> IO ()
 deleteSoundfontPlayer player = do
     let library = soundfontPlayer_fluidSynthLibrary player
-    deleteFluidSynth library (soundfontPlayer_synth player)
     deleteFluidSettings library (soundfontPlayer_settings player)
 
-loadSoundfont :: SoundfontPlayer -> FilePath -> Bool -> IO Soundfont
-loadSoundfont player filePath resetPresets = do
+loadSoundfont :: SoundfontPlayer -> FluidSynth -> FilePath -> Bool -> IO Soundfont
+loadSoundfont player synth filePath resetPresets = do
     let library = soundfontPlayer_fluidSynthLibrary player
-    let synth = soundfontPlayer_synth player
     soundfontId <- sfLoad library synth filePath resetPresets
     handle <- getSfontById library synth soundfontId
-    presets <- newIORef mempty
+    presets <- loadSoundfontPresets player handle
     let soundfont = Soundfont 
             { soundfont_id = SoundfontId soundfontId
             , soundfont_filePath = filePath
@@ -124,10 +101,9 @@ getSoundfont player soundfontId = do
     soundfonts <- readIORef (soundfontPlayer_soundfonts player)
     pure $ Map.lookup soundfontId soundfonts
 
-loadSoundfontPresets :: SoundfontPlayer -> Soundfont -> IO [SoundfontPreset]
-loadSoundfontPresets player soundfont = do
+loadSoundfontPresets :: SoundfontPlayer -> FluidSoundfont -> IO [SoundfontPreset]
+loadSoundfontPresets player soundfontHandle = do
     let library = soundfontPlayer_fluidSynthLibrary player
-    let soundfontHandle = soundfont_handle soundfont
     sfontIterationStart library soundfontHandle
     presetsVar <- newIORef mempty
     first <- sfontIterationNext library soundfontHandle
@@ -142,9 +118,7 @@ loadSoundfontPresets player soundfont = do
                 pure $ next /= nullPtr 
         else pure ()
     presetPtrs <- readIORef presetsVar
-    presets <- traverse createPreset presetPtrs
-    writeIORef (soundfont_presets soundfont) (Just presets)
-    pure presets
+    traverse createPreset presetPtrs
     where 
         createPreset :: Ptr C'fluid_preset_t -> IO SoundfontPreset
         createPreset presetPtr = do
@@ -159,16 +133,12 @@ loadSoundfontPresets player soundfont = do
                 }
 
 
-processEvent :: SoundfontPlayer -> SoundfontId -> SoundfontEvent -> IO ()
-processEvent player _soundfontId = \case
-    SoundfontEvent_NoteOn event -> noteOn library synth (noteOnEvent_channel event) (noteOnEvent_key event) (noteOnEvent_velocity event)
-    SoundfontEvent_NoteOff event -> noteOff library synth (noteOffEvent_channel event) (noteOffEvent_key event)
-    SoundfontEvent_ProgramSelect event -> programSelect library synth 
-        (programSelectEvent_channel event) (soundfontId_id $ programSelectEvent_soundfontId event) 
-        (programSelectEvent_bank event) (programSelectEvent_program event)
+processEvent :: SoundfontPlayer -> FluidSynth -> ClapEvent -> IO ()
+processEvent player synth = \case
+    ClapEvent_NoteOn event -> noteOn library synth (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
+    ClapEvent_NoteOff event -> noteOff library synth (noteEvent_channel event) (noteEvent_key event)
     where
         library = soundfontPlayer_fluidSynthLibrary player
-        synth = soundfontPlayer_synth player
 
 data SoundfontOutput = SoundfontOutput
     { soundfontOutput_wetChannelLeft :: [CFloat]
@@ -188,9 +158,8 @@ instance Semigroup SoundfontOutput where
 instance Monoid SoundfontOutput where
     mempty = SoundfontOutput [] [] [] [] 
 
-process :: SoundfontPlayer -> Int -> IO SoundfontOutput
-process player frameCount = do
-    let synth = soundfontPlayer_synth player
+process :: SoundfontPlayer -> FluidSynth -> Int -> IO SoundfontOutput
+process player synth frameCount = do
     let wetChannelCount = 2
     wetLeft <- newArray $ replicate frameCount 0
     wetRight <- newArray $ replicate frameCount 0

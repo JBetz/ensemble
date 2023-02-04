@@ -11,6 +11,7 @@ import Control.Monad.Freer.Reader
 import Data.IORef
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
+import Ensemble.Instrument
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
@@ -70,24 +71,10 @@ initializeSoundfontPlayer filePath = do
    sendM $ Engine.initializeSoundfontPlayer engine filePath
    pure Ok
 
-loadSoundfont :: FilePath -> Ensemble SoundfontId
-loadSoundfont filePath = do
+createSoundfontInstrument :: FilePath -> Ensemble InstrumentInfo
+createSoundfontInstrument filePath = do
     engine <- asks server_engine
-    sendM $ Engine.loadSoundfont engine filePath
-
-getSoundfontPresets :: SoundfontId -> Ensemble SoundfontPresets
-getSoundfontPresets soundfontId = do
-    engine <- asks server_engine
-    player <- sendM $ Engine.getSoundfontPlayer engine
-    maybeSoundfont <- sendM $ getSoundfont player soundfontId
-    presets <- case maybeSoundfont of
-        Just soundfont -> do
-            maybePresets <- sendM $ readIORef (soundfont_presets soundfont)
-            case maybePresets of
-                Just presets -> pure presets
-                Nothing -> sendM $ loadSoundfontPresets player soundfont
-        Nothing -> pure []
-    pure $ SoundfontPresets presets
+    sendM $ Engine.createSoundfontInstrument engine filePath
 
 -- Sequencer
 scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok

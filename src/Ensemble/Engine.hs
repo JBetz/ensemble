@@ -16,11 +16,14 @@ import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
 import Data.List
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Maybe
 import Data.Word
 import Data.Traversable (for)
-import Ensemble.Soundfont (SoundfontId (..))
 import Ensemble.Event
+import Ensemble.Instrument
+import Ensemble.Soundfont (SoundfontId (..))
 import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
@@ -35,6 +38,7 @@ data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
     , engine_soundfontPlayer :: IORef (Maybe SF.SoundfontPlayer)
+    , engine_instruments :: IORef (Map InstrumentId Instrument)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
     , engine_numberOfFrames :: Word32
@@ -54,6 +58,7 @@ createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
     soundfontPlayer <- newIORef Nothing
+    instruments <- newIORef mempty
     steadyTime <- newIORef 0
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
@@ -63,6 +68,7 @@ createEngine hostConfig = do
         { engine_state = state
         , engine_pluginHost = pluginHost
         , engine_soundfontPlayer = soundfontPlayer
+        , engine_instruments = instruments
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
         , engine_numberOfFrames = 1024
@@ -154,6 +160,21 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
+lookupInstrument :: Engine -> InstrumentId -> IO Instrument
+lookupInstrument engine instrumentId = do
+    instruments <- readIORef $ engine_instruments engine
+    case Map.lookup instrumentId instruments of
+        Just instrument -> pure instrument
+        Nothing -> error $ "Invalid instrument id: " <> show instrumentId
+
+getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
+getSoundfontInstruments engine = do
+    instruments <- readIORef $ engine_instruments engine
+    pure $ mapMaybe (\case
+        Instrument_Soundfont soundfont -> Just soundfont
+        _ -> Nothing
+        ) (Map.elems instruments)
+
 generateOutputs :: Engine -> Int -> IO AudioOutput
 generateOutputs engine frameCount = do
     maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine 
@@ -161,18 +182,23 @@ generateOutputs engine frameCount = do
     steadyTime <- readIORef (engine_steadyTime engine)
     eventBuffer <- readIORef (engine_eventBuffer engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
-    for_ eventBuffer $ \case 
-        SequencerEvent_Soundfont (SoundfontEventData soundfontId event) -> 
-            case maybeSoundfontPlayer of
-                Just soundfontPlayer -> SF.processEvent soundfontPlayer soundfontId event
-                Nothing -> pure ()
-        SequencerEvent_Clap (ClapEventData pluginId eventConfig event) -> CLAP.processEvent clapHost pluginId eventConfig event
+    for_ eventBuffer $ \(SequencerEvent instrumentId eventConfig event) -> do
+        instrument <- lookupInstrument engine instrumentId
+        case instrument of
+            Instrument_Soundfont (SoundfontInstrument _ synth) -> 
+                case maybeSoundfontPlayer of
+                    Just soundfontPlayer -> SF.processEvent soundfontPlayer synth event
+                    Nothing -> error "Attempting to play Soundfont instrument before initializing FluidSynth"
+            Instrument_Clap (ClapInstrument pluginId) -> 
+                CLAP.processEvent clapHost pluginId eventConfig event
     writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
-        Just soundfontPlayer -> SF.process soundfontPlayer (fromIntegral frameCount)
+        Just soundfontPlayer -> do
+            soundfonts <- getSoundfontInstruments engine 
+            traverse (\synth -> SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
         Nothing -> pure mempty
     pluginOutputs <- CLAP.processAll clapHost
-    pure $ mixAudioOutputs soundfontOutput pluginOutputs
+    pure $ mixAudioOutputs (mconcat soundfontOutput) pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -260,11 +286,26 @@ stop engine = do
                 throwError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-loadSoundfont :: Engine -> FilePath -> IO SoundfontId
-loadSoundfont engine filePath = do
-    player <- getSoundfontPlayer engine 
-    soundfont <- SF.loadSoundfont player filePath True
-    pure $ SF.soundfont_id soundfont
+createSoundfontInstrument :: Engine -> FilePath -> IO InstrumentInfo
+createSoundfontInstrument engine filePath = do
+    player <- getSoundfontPlayer engine
+    synth <- SF.createSynth player
+    soundfont <- SF.loadSoundfont player synth filePath True
+    let instrument =Instrument_Soundfont $ SoundfontInstrument 
+            { soundfontInstrument_soundfont = soundfont
+            , soundfontInstrument_synth = synth
+            }
+    instrumentId <- addInstrument engine instrument
+    pure $ InstrumentInfo
+        { instrumentInfo_id = instrumentId
+        , instrumentInfo_instrument = instrument
+        }
+
+addInstrument :: Engine -> Instrument -> IO InstrumentId
+addInstrument engine instrument =
+    atomicModifyIORef (engine_instruments engine) $ \instruments ->
+        let newId = InstrumentId $ Map.size instruments 
+        in (Map.insert newId instrument instruments, newId)
 
 getSoundfontPlayer :: Engine -> IO SF.SoundfontPlayer
 getSoundfontPlayer engine = do

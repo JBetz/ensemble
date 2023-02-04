@@ -15,6 +15,7 @@ import qualified Data.Aeson as A
 import Data.Text (pack)
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Event
+import Ensemble.Instrument
 import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Sequencer (Tick(..))
@@ -24,7 +25,7 @@ import Foreign.C.Types
 import Foreign.Ptr
 
 instance A.ToJSON (Ptr a) where 
-    toJSON ptr = A.String (pack $ show ptr)
+    toJSON ptr = A.String "<handle>"
 
 instance A.FromJSON (Ptr a) where
     parseJSON _ = pure nullPtr
@@ -40,11 +41,12 @@ deriveJSONs
     , ''CFloat
     , ''AudioOutput
     , ''Tick
+    , ''InstrumentId
     , ''Soundfont.SoundfontId
+    , ''Soundfont.Soundfont
     , ''Soundfont.SoundfontPreset
-    , ''Soundfont.NoteOnEvent
-    , ''Soundfont.NoteOffEvent
-    , ''Soundfont.ProgramSelectEvent
+    , ''SoundfontInstrument
+    , ''ClapInstrument
     , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
@@ -69,18 +71,14 @@ deriveJSONs
     ]
 
 deriveCustomJSONs
-    [ ''Soundfont.SoundfontEvent
-    , ''Clap.ClapEvent
+    [ ''Clap.ClapEvent
+    , ''Instrument
     ] 
 
 deriveJSONs
-    [ ''SoundfontEventData
-    , ''ClapEventData
+    [ ''SequencerEvent 
+    , ''InstrumentInfo
     ]
-
-deriveCustomJSONs
-    [ ''SequencerEvent
-    ] 
 
 makeGenerateSchema
     -- types
@@ -93,14 +91,14 @@ makeGenerateSchema
     , ''AudioDevice
     , ''AudioDevices
     , ''AudioOutput
+    , ''InstrumentId
+    , ''InstrumentInfo
+    , ''Instrument
     , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
-    , ''Soundfont.SoundfontId
-    , ''Soundfont.SoundfontPreset
-    , ''Soundfont.SoundfontEvent
     , ''Clap.EventFlag
     , ''Clap.NoteExpression
     , ''Clap.TransportFlag
@@ -108,6 +106,8 @@ makeGenerateSchema
     , ''Clap.Midi2Data
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
+    , ''Soundfont.SoundfontId
+    , ''Soundfont.SoundfontPreset
     , ''SequencerEvent
     ]
     -- functions
@@ -118,8 +118,7 @@ makeGenerateSchema
     , 'scanForClapPlugins
     , 'loadClapPlugin
     , 'initializeSoundfontPlayer
-    , 'loadSoundfont
-    , 'getSoundfontPresets
+    , 'createSoundfontInstrument
     , 'scheduleEvent
     , 'playSequence
     , 'renderSequence

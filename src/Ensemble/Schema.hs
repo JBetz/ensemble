@@ -80,7 +80,7 @@ deriveJSONs
     , ''InstrumentInfo
     ]
 
-makeGenerateSchema
+makeAPI
     -- types
     [ ''Ok
     , ''APIError

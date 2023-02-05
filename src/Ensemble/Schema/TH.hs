@@ -212,6 +212,12 @@ generateFunctionDefinition functionName = do
             pure $ name <> " " <> functionTypeString <> ";"
         _ -> error $ "Invalid function: " <> show functionName
 
+makeAPI :: [Name] -> [Name] -> DecsQ
+makeAPI typeNames functionNames = do
+    generateSchemaDecs <- makeGenerateSchema typeNames functionNames
+    handleMessageDecs <- makeHandleMessage functionNames
+    pure $ generateSchemaDecs <> handleMessageDecs
+
 makeGenerateSchema :: [Name] -> [Name] -> DecsQ
 makeGenerateSchema typeNames functionNames = do
     typeDefinitions <- traverse generateTypeDefinition typeNames                  
@@ -220,8 +226,7 @@ makeGenerateSchema typeNames functionNames = do
     let body = NormalB $ DoE Nothing [ NoBindS $ AppE (AppE (VarE 'writeSchema) (ListE (LitE . StringL <$> join typeDefinitions))) (ListE (LitE . StringL <$> functionDefinitions)) ]
     let signature = SigD generateSchemaName (AppT (ConT ''IO) (TupleT 0))
     let function = FunD generateSchemaName [Clause [] body []]
-    handleMessageDecs <- makeHandleMessage functionNames
-    pure $ [signature, function] <> handleMessageDecs
+    pure [signature, function]
 
 makeHandleMessage :: [Name] -> DecsQ
 makeHandleMessage functionNames = do

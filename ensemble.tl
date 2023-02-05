@@ -2,13 +2,15 @@ vector {t:Type} # [ t ] = Vector t;
 
 ok = Ok;
 
-aPIError message:String = APIError;
+aPIError message:String callstack:String = APIError;
 
 pluginLocations filePaths:vector<FilePath> = PluginLocations;
 
 pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
 
 soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
+
+instruments instruments:vector<Instrument> = Instruments;
 
 tick value:Int = Tick;
 
@@ -117,6 +119,8 @@ getAudioDevices = AudioDevices;
 startEngine = Ok;
 
 stopEngine = Ok;
+
+getInstruments = Instruments;
 
 getClapPluginLocations = PluginLocations;
 

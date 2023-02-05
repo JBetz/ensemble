@@ -147,16 +147,16 @@ data SoundfontOutput = SoundfontOutput
     , soundfontOutput_dryChannelRight :: [CFloat]
     } deriving (Show)
 
-instance Semigroup SoundfontOutput where 
-    a <> b = SoundfontOutput
-        { soundfontOutput_wetChannelLeft = zipWith (+) (soundfontOutput_wetChannelLeft a) (soundfontOutput_wetChannelLeft b)
-        , soundfontOutput_wetChannelRight = zipWith (+) (soundfontOutput_wetChannelRight a) (soundfontOutput_wetChannelRight b)
-        , soundfontOutput_dryChannelLeft = zipWith (+) (soundfontOutput_dryChannelLeft a) (soundfontOutput_dryChannelLeft b)
-        , soundfontOutput_dryChannelRight = zipWith (+) (soundfontOutput_dryChannelRight a) (soundfontOutput_dryChannelRight b)
-        }
-
-instance Monoid SoundfontOutput where
-    mempty = SoundfontOutput (repeat 0) (repeat 0) (repeat 0) (repeat 0) 
+mixSoundfontOutputs :: Int -> [SoundfontOutput] -> SoundfontOutput
+mixSoundfontOutputs frameCount outputs = SoundfontOutput 
+    { soundfontOutput_wetChannelLeft = mix soundfontOutput_wetChannelLeft
+    , soundfontOutput_wetChannelRight = mix soundfontOutput_wetChannelRight
+    , soundfontOutput_dryChannelLeft = mix soundfontOutput_dryChannelLeft
+    , soundfontOutput_dryChannelRight = mix soundfontOutput_dryChannelRight
+    }
+    where 
+        zeroBuffer = take frameCount $ repeat 0
+        mix selector = foldl (\acc cur -> zipWith (+) acc cur) zeroBuffer (selector <$> outputs) 
 
 process :: SoundfontPlayer -> FluidSynth -> Int -> IO SoundfontOutput
 process player synth frameCount = do

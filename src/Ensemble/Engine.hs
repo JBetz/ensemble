@@ -203,30 +203,29 @@ generateOutputs engine frameCount = do
             traverse (\synth -> sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
         Nothing -> pure mempty
     pluginOutputs <- sendM $ CLAP.processAll clapHost
-    pure $ mixAudioOutputs (mconcat soundfontOutput) pluginOutputs
+    pure $ mixSoundfontAndClapOutputs (SF.mixSoundfontOutputs frameCount soundfontOutput) pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
     , audioOutput_right :: [CFloat] 
     } deriving (Eq, Ord)
 
-instance Semigroup AudioOutput where
-    a <> b = AudioOutput
-        { audioOutput_left = audioOutput_left a <> audioOutput_left b 
-        , audioOutput_right = audioOutput_right a <> audioOutput_right b
-        }
+mixAudioOutputs :: Int -> [AudioOutput] -> AudioOutput
+mixAudioOutputs frameCount outputs = AudioOutput 
+    { audioOutput_left = mix audioOutput_left
+    , audioOutput_right = mix audioOutput_right
+    }
+    where 
+        zeroBuffer = take frameCount $ repeat 0
+        mix selector = foldl (\acc cur -> zipWith (+) acc cur) zeroBuffer (selector <$> outputs) 
 
-instance Monoid AudioOutput where
-    mempty = AudioOutput (repeat 0) (repeat 0)
-
-mixAudioOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
-mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
+mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
+mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
     let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
     in AudioOutput    
         { audioOutput_left = foldl (zipWith (+)) mixedSoundfontLeft (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
         , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
         }
-
 
 playAudio :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
@@ -242,7 +241,7 @@ playAudio engine audioOutput = do
                     maybeAudioPortError <- sendM $ sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
                     whenJust maybeAudioPortError $ \audioPortError -> 
                         throwAPIError $ "Error writing to audio stream: " <> show audioPortError
-                    unless (remaining == mempty) $ 
+                    unless (size remaining == 0) $ 
                         writeChunks stream remaining
                 Left audioPortError ->
                     throwAPIError $ "Error getting available frames of audio stream: " <> show audioPortError

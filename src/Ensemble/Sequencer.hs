@@ -79,13 +79,13 @@ render sequencer engine startTick endTick = do
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount)
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
-                pure $ chunk <> remaining
+                pure $ mixAudioOutputs (floor frameCount) [chunk, remaining]
             (_lastTick,events):[] -> do
                 sendM $ pushEvents engine events
                 -- One second of padding
                 let frameCount = engine_sampleRate engine
                 generateOutputs engine (floor frameCount)
-            [] -> pure mempty
+            [] -> pure $ AudioOutput (repeat 0) (repeat 0)
 
 getEventsBetween :: Sequencer -> Tick -> Tick -> IO [(Tick, SequencerEvent)]
 getEventsBetween sequencer startTick endTick = do

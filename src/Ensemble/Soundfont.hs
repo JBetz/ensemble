@@ -5,9 +5,7 @@
 module Ensemble.Soundfont where
 
 import Clap.Interface.Events
-import Control.Exception
 import Data.IORef
-import Data.Int
 import Data.List (find)
 import Data.Map (Map)
 import qualified Data.Map as Map

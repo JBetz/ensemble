@@ -81,7 +81,7 @@ initializeSoundfontPlayer filePath = do
 createSoundfontInstrument :: FilePath -> Ensemble InstrumentInfo
 createSoundfontInstrument filePath = do
     engine <- asks server_engine
-    sendM $ Engine.createSoundfontInstrument engine filePath
+    Engine.createSoundfontInstrument engine filePath
 
 -- Sequencer
 scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok

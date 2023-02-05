@@ -217,10 +217,7 @@ instance Semigroup AudioOutput where
         }
 
 instance Monoid AudioOutput where
-    mempty = AudioOutput 
-        { audioOutput_left = [] 
-        , audioOutput_right = []
-        }
+    mempty = AudioOutput (repeat 0) (repeat 0)
 
 mixAudioOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
@@ -291,19 +288,19 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-createSoundfontInstrument :: Engine -> FilePath -> IO InstrumentInfo
+createSoundfontInstrument :: (Member (Error APIError) effs, LastMember IO effs) => Engine -> FilePath -> Eff effs InstrumentInfo
 createSoundfontInstrument engine filePath = do
     player <- getSoundfontPlayer engine
-    synth <- SF.createSynth player
-    maybeSoundfont <- SF.lookupSoundfont player filePath
+    synth <- sendM $ SF.createSynth player
+    maybeSoundfont <- sendM $ SF.lookupSoundfont player filePath
     soundfont <- case maybeSoundfont of
         Just soundfont -> pure soundfont
-        Nothing -> SF.loadSoundfont player synth filePath True
+        Nothing -> sendM $ SF.loadSoundfont player synth filePath True
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_synth = synth
             }
-    instrumentId <- addInstrument engine instrument
+    instrumentId <- sendM $ addInstrument engine instrument
     pure $ InstrumentInfo
         { instrumentInfo_id = instrumentId
         , instrumentInfo_instrument = instrument
@@ -315,12 +312,12 @@ addInstrument engine instrument =
         let newId = InstrumentId $ Map.size instruments 
         in (Map.insert newId instrument instruments, newId)
 
-getSoundfontPlayer :: Engine -> IO SF.SoundfontPlayer
+getSoundfontPlayer :: (Member (Error APIError) effs, LastMember IO effs) => Engine -> Eff effs SF.SoundfontPlayer
 getSoundfontPlayer engine = do
-    maybePlayer <- readIORef $ engine_soundfontPlayer engine
+    maybePlayer <- sendM $ readIORef $ engine_soundfontPlayer engine
     case maybePlayer of 
         Just player -> pure player
-        Nothing -> throw SF.SoundfontPlayerNotInitialized
+        Nothing -> throwAPIError "Soundfont player not initialized"
                         
 initializeSoundfontPlayer :: Engine -> FilePath -> IO ()
 initializeSoundfontPlayer engine path = do

@@ -7,4 +7,4 @@ data SequencerEvent = SequencerEvent
     { sequencerEvent_instrumentId :: InstrumentId
     , sequencerEvent_eventConfig :: Maybe Clap.ClapEventConfig
     , sequencerEvent_event :: Clap.ClapEvent
-    } 
+    } deriving (Show)

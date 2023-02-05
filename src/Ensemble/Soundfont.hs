@@ -43,12 +43,6 @@ data Soundfont = Soundfont
     , soundfont_presets :: [SoundfontPreset]
     } deriving (Show)
 
-data SoundfontException
-    = SoundfontPlayerNotInitialized
-    deriving (Show)
-
-instance Exception SoundfontException
-
 type FluidSettings = Ptr C'fluid_settings_t
 type FluidSynth = Ptr C'fluid_synth_t
 type FluidSoundfont = Ptr C'fluid_sfont_t
@@ -151,7 +145,7 @@ data SoundfontOutput = SoundfontOutput
     , soundfontOutput_wetChannelRight :: [CFloat]
     , soundfontOutput_dryChannelLeft :: [CFloat]
     , soundfontOutput_dryChannelRight :: [CFloat]
-    }
+    } deriving (Show)
 
 instance Semigroup SoundfontOutput where 
     a <> b = SoundfontOutput
@@ -162,7 +156,7 @@ instance Semigroup SoundfontOutput where
         }
 
 instance Monoid SoundfontOutput where
-    mempty = SoundfontOutput [] [] [] [] 
+    mempty = SoundfontOutput (repeat 0) (repeat 0) (repeat 0) (repeat 0) 
 
 process :: SoundfontPlayer -> FluidSynth -> Int -> IO SoundfontOutput
 process player synth frameCount = do

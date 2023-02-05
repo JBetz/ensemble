@@ -167,7 +167,9 @@ lookupInstrument engine instrumentId = do
     instruments <- sendM $ readIORef $ engine_instruments engine
     case Map.lookup instrumentId instruments of
         Just instrument -> pure instrument
-        Nothing -> throwError $ APIError $ "Invalid instrument id: " <> show instrumentId
+        Nothing -> throwError $ APIError $ 
+            "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
+            "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
 
 getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
 getSoundfontInstruments engine = do
@@ -308,7 +310,7 @@ createSoundfontInstrument engine filePath = do
 
 addInstrument :: Engine -> Instrument -> IO InstrumentId
 addInstrument engine instrument =
-    atomicModifyIORef (engine_instruments engine) $ \instruments ->
+    atomicModifyIORef' (engine_instruments engine) $ \instruments ->
         let newId = InstrumentId $ Map.size instruments 
         in (Map.insert newId instrument instruments, newId)
 

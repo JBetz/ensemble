@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module Ensemble.Sequencer where
 
@@ -9,13 +10,10 @@ import Control.Monad.Freer.Error
 import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
-import Ensemble.Instrument
-import Ensemble.Soundfont
 import Data.IORef
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
-import qualified Sound.PortAudio as PortAudio
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick

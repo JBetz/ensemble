@@ -14,6 +14,12 @@ foreign import ccall "dynamic" mK'new_fluid_synth :: FunPtr (Ptr C'fluid_setting
 foreign import ccall "wrapper" mk'delete_fluid_synth :: (Ptr C'fluid_synth_t -> IO ()) -> IO (FunPtr (Ptr C'fluid_synth_t -> IO ()))
 foreign import ccall "dynamic" mK'delete_fluid_synth :: FunPtr (Ptr C'fluid_synth_t -> IO ()) -> (Ptr C'fluid_synth_t -> IO ())
 
+foreign import ccall "wrapper" mk'fluid_synth_all_notes_off :: (Ptr C'fluid_synth_t -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CInt -> IO CInt))
+foreign import ccall "dynamic" mK'fluid_synth_all_notes_off :: FunPtr (Ptr C'fluid_synth_t -> CInt -> IO CInt) -> (Ptr C'fluid_synth_t -> CInt -> IO CInt)
+
+foreign import ccall "wrapper" mk'fluid_synth_all_sounds_off :: (Ptr C'fluid_synth_t -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CInt -> IO CInt))
+foreign import ccall "dynamic" mK'fluid_synth_all_sounds_off :: FunPtr (Ptr C'fluid_synth_t -> CInt -> IO CInt) -> (Ptr C'fluid_synth_t -> CInt -> IO CInt)
+
 foreign import ccall "wrapper" mk'fluid_synth_noteon :: (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> IO CInt))
 foreign import ccall "dynamic" mK'fluid_synth_noteon :: FunPtr (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> IO CInt) -> (Ptr C'fluid_synth_t -> CInt -> CInt -> CInt -> IO CInt)
 

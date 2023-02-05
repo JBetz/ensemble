@@ -5,6 +5,7 @@
 module Ensemble.Soundfont where
 
 import Clap.Interface.Events
+import Data.Foldable (traverse_)
 import Data.IORef
 import Data.List (find)
 import Data.Map (Map)
@@ -181,3 +182,8 @@ process player synth frameCount = do
         , soundfontOutput_dryChannelLeft = dryChannelLeft
         , soundfontOutput_dryChannelRight = dryChannelRight
         }
+
+allSynthsOff :: SoundfontPlayer -> [FluidSynth] -> IO ()
+allSynthsOff player synths = do
+    let library = soundfontPlayer_fluidSynthLibrary player
+    traverse_ (\synth -> allNotesOff library synth (-1)) synths

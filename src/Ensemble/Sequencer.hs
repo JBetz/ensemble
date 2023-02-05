@@ -9,6 +9,8 @@ import Control.Monad.Freer.Error
 import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
+import Ensemble.Instrument
+import Ensemble.Soundfont
 import Data.IORef
 import Data.List
 import Data.Map (Map)
@@ -43,6 +45,7 @@ playSequence sequencer engine startTick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- sendM $ getEndTick sequencer
     audioOutput <- render sequencer engine startTick endTick
+    sendM $ stopInstruments engine
     playAudio engine audioOutput
 
 getEndTick :: Sequencer -> IO Tick

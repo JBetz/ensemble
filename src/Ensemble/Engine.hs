@@ -333,6 +333,15 @@ loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =
     CLAP.load (engine_pluginHost engine)
 
+stopInstruments :: Engine -> IO ()
+stopInstruments engine = do
+    maybePlayer <- readIORef $ engine_soundfontPlayer engine
+    case maybePlayer of
+        Just player -> do
+            soundfontInstruments <- getSoundfontInstruments engine
+            SF.allSynthsOff player $ soundfontInstrument_synth <$> soundfontInstruments
+        Nothing -> pure ()
+
 -- unloadPlugin :: Engine -> PluginId -> IO ()
 
 -- isRunning :: Engine -> IO Bool

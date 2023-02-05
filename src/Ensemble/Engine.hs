@@ -8,7 +8,6 @@ import Clap.Interface.Events (defaultClapEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
-import Control.Exception
 import Control.Monad
 import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
@@ -25,7 +24,6 @@ import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
-import Ensemble.Soundfont (SoundfontId (..))
 import qualified Ensemble.Soundfont as SF
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
@@ -98,7 +96,7 @@ getAudioDevices = do
                     { audioDevice_index = fromIntegral $ unPaDeviceIndex index
                     , audioDevice_name = name_PaDeviceInfo info
                     }
-                Left deviceError -> Nothing
+                Left _deviceError -> Nothing
         pure $ Right $ catMaybes devices
     case eitherResult of
         Right devices -> pure devices
@@ -227,7 +225,7 @@ mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight
         , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
         }
 
-playAudio :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> AudioOutput -> Eff effs ()
+playAudio :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
     maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
@@ -238,9 +236,7 @@ playAudio engine audioOutput = do
             case eitherChunkSize of
                 Right chunkSize -> do 
                     let (chunk, remaining) = takeChunk chunkSize output
-                    maybeAudioPortError <- sendM $ sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
-                    whenJust maybeAudioPortError $ \audioPortError -> 
-                        throwAPIError $ "Error writing to audio stream: " <> show audioPortError
+                    sendOutputs engine (fromIntegral $ size chunk) chunk
                     unless (size remaining == 0) $ 
                         writeChunks stream remaining
                 Left audioPortError ->
@@ -256,15 +252,24 @@ takeChunk chunkSize (AudioOutput left right) =
 size :: AudioOutput -> Int
 size (AudioOutput left right) = min (length left) (length right) 
 
-sendOutputs :: Engine -> CULong -> AudioOutput -> IO (Maybe PortAudio.Error) 
+sendOutputs :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> CULong -> AudioOutput -> Eff effs () 
 sendOutputs engine frameCount audioOutput  = do
-    maybeStream <- readIORef $ engine_audioStream engine
+    let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
+    let expectedSize = fromIntegral $ frameCount * 2
+    let actualSize = length output
+    when (actualSize < expectedSize) $
+        throwAPIError $ "Underflow error. Expected " <> show expectedSize <> " frames, got " <> show actualSize <> "."
+    when (actualSize > expectedSize) $
+        throwAPIError $ "Overflow error. Expected " <> show expectedSize <> " frames, got " <> show actualSize <> "."
+    maybeStream <- sendM $ readIORef $ engine_audioStream engine
     case maybeStream of
-        Just stream -> 
-            withArray (interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)) $ \outputPtr -> do
+        Just stream -> do 
+            maybeError <- sendM $ withArray output $ \outputPtr -> do
                 outputForeignPtr <- newForeignPtr_ outputPtr
                 PortAudio.writeStream stream frameCount outputForeignPtr
-        Nothing -> pure $ Just PortAudio.NotInitialized
+            whenJust maybeError $ \writeError -> 
+                throwAPIError $ "Error writing to audio stream: " <> show writeError
+        Nothing -> throwAPIError "PortAudio not initialized"
 
 stop :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> Eff effs ()
 stop engine = do

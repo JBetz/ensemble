@@ -96,13 +96,12 @@ groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
-process :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs (Maybe PortAudio.Error)
+process :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 process sequencer engine tick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) tick
     events <- sendM $ readIORef (sequencer_eventQueue sequencer)
     let (activeEvents, remainingEvents) = partition (\(time, _) -> time <= tick) events 
     sendM $ pushEvents engine $ snd <$> activeEvents
     outputs <- generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
-    result <- sendM $ sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
+    sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
     sendM $ writeIORef (sequencer_eventQueue sequencer) remainingEvents
-    pure result

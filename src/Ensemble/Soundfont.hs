@@ -41,7 +41,7 @@ data Soundfont = Soundfont
     , soundfont_filePath :: FilePath 
     , soundfont_handle :: FluidSoundfont
     , soundfont_presets :: [SoundfontPreset]
-    }
+    } deriving (Show)
 
 data SoundfontException
     = SoundfontPlayerNotInitialized

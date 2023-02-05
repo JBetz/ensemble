@@ -11,6 +11,7 @@ newtype InstrumentId = InstrumentId { instrumentId_id :: Int }
 data Instrument
     = Instrument_Soundfont SoundfontInstrument
     | Instrument_Clap ClapInstrument
+    deriving (Show)
 
 isSoundfont :: Instrument -> Bool
 isSoundfont = \case
@@ -25,14 +26,14 @@ isClap = \case
 data InstrumentInfo = InstrumentInfo
     { instrumentInfo_id :: InstrumentId
     , instrumentInfo_instrument :: Instrument
-    }
+    } deriving (Show)
 
 data SoundfontInstrument = SoundfontInstrument
     { soundfontInstrument_soundfont :: Soundfont
     , soundfontInstrument_synth :: FluidSynth
-    }
+    } deriving (Show)
 
 data ClapInstrument = ClapInstrument
     { clapInstrument_pluginId :: PluginId
-    }
+    } deriving (Show)
 

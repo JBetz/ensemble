@@ -102,6 +102,8 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
+soundfont id:SoundfontId filePath:FilePath handle:FluidSoundfont presets:vector<SoundfontPreset> = Soundfont;
+
 soundfontId id:Int = SoundfontId;
 
 soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;

@@ -106,6 +106,7 @@ makeAPI
     , ''Clap.Midi2Data
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
+    , ''Soundfont.Soundfont
     , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
     , ''SequencerEvent

@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -11,16 +12,22 @@ module Ensemble.Schema.TH where
 import Prelude hiding (break)
 
 import Control.Monad (join)
+import Control.Monad.Freer.Error
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
+import Data.Aeson.KeyMap (KeyMap)
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Aeson.TH as A
 import qualified Data.Aeson.Types as A
 import Data.Char (toLower)
-import Data.Foldable (traverse_, foldlM)
+import Data.Foldable (traverse_, foldlM, foldl')
+import Control.Monad.Freer
+import Data.Text (Text)
 import Data.Traversable (for)
 import Language.Haskell.TH
 import Language.Haskell.TH.Datatype
 import Ensemble.API
+import Ensemble.Error
 import Ensemble.Schema.TaggedJSON
 import Foreign.Ptr
 import GHC.Generics (Generic)
@@ -213,8 +220,49 @@ makeGenerateSchema typeNames functionNames = do
     let body = NormalB $ DoE Nothing [ NoBindS $ AppE (AppE (VarE 'writeSchema) (ListE (LitE . StringL <$> join typeDefinitions))) (ListE (LitE . StringL <$> functionDefinitions)) ]
     let signature = SigD generateSchemaName (AppT (ConT ''IO) (TupleT 0))
     let function = FunD generateSchemaName [Clause [] body []]
+    handleMessageDecs <- makeHandleMessage functionNames
+    pure $ [signature, function] <> handleMessageDecs
+
+makeHandleMessage :: [Name] -> DecsQ
+makeHandleMessage functionNames = do
+    let functionName = mkName "handleMessage"
+    let messageTypeName = mkName "messageType"
+    let objectName = mkName "object"
+    cases <- traverse (makeCase objectName) functionNames
+    let body = NormalB $ CaseE (VarE messageTypeName) cases
+    let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT ''Ensemble) (ConT ''A.Value)))
+    let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]
     pure [signature, function]
 
+makeCase :: Name -> Name -> Q Match 
+makeCase objectName functionName = do
+    info <- reify functionName
+    pure $ case info of
+        VarI _ functionType _ ->
+            let argumentTypes = init $ getArgumentTypes functionType
+                makeLookupStatement argumentType =
+                    let argumentName = uncapitalise (showType argumentType)
+                        lookupExpression = multiAppE (VarE 'lookupField) [LitE (StringL argumentName), VarE objectName]
+                    in BindS (VarP $ mkName argumentName) lookupExpression
+                lookupStatements = makeLookupStatement <$> argumentTypes
+                resultName = mkName "result"
+                callStatement = BindS (VarP resultName) (multiAppE (VarE functionName) $ VarE . mkName . uncapitalise . showType <$> argumentTypes)
+                returnStatement = NoBindS $ AppE (VarE 'pure) (AppE (VarE 'toTaggedJSON) (VarE resultName))
+                statements = lookupStatements <> [callStatement, returnStatement]
+                body = NormalB $ DoE Nothing statements
+            in Match (LitP $ StringL $ nameBase functionName) body []
+        _ -> error $ "Invalid function: " <> show functionName
+
+lookupField :: (A.FromJSON a, Member (Error APIError) effs) => A.Key -> KeyMap A.Value -> Eff effs a
+lookupField key object = 
+    case KeyMap.lookup key object of
+        Just value -> 
+            case A.fromJSON value of
+                A.Success a -> pure a
+                A.Error parseError -> 
+                    throwError $ APIError $ "Parse error on '" <> show key <> "': "  <> parseError
+        Nothing -> 
+            throwError $ APIError $ "Missing argument: " <> show key
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase
@@ -222,3 +270,7 @@ toSubclassName = uncapitalise . filter (/= '_') . nameBase
 uncapitalise :: String -> String
 uncapitalise [] = []
 uncapitalise (c:cs) = toLower c : cs
+
+multiAppE :: Exp -> [Exp] -> Exp
+multiAppE base args =
+  foldl' AppE base args

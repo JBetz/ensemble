@@ -9,6 +9,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import Data.IORef
+import qualified Data.Map as Map
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Error
@@ -25,6 +26,7 @@ newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePa
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
 newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
 newtype AudioDevices = AudioDevices { audioDevices_audioDevices :: [AudioDevice] }
+newtype Instruments = Instruments { instruments_instruments :: [Instrument] }
 
 type FilePaths = [FilePath]
 type PluginIndex = Int
@@ -49,6 +51,11 @@ stopEngine = do
     Engine.stop engine
     pure Ok
 
+getInstruments :: Ensemble Instruments
+getInstruments = do
+    instrumentsIORef <- asks (Engine.engine_instruments . server_engine)
+    sendM $ Instruments . Map.elems <$> readIORef instrumentsIORef
+    
 -- CLAP
 getClapPluginLocations :: Ensemble PluginLocations
 getClapPluginLocations = 

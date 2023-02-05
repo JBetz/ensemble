@@ -78,6 +78,7 @@ deriveCustomJSONs
 deriveJSONs
     [ ''SequencerEvent 
     , ''InstrumentInfo
+    , ''Instruments
     ]
 
 makeAPI
@@ -87,6 +88,7 @@ makeAPI
     , ''PluginLocations
     , ''PluginDescriptors
     , ''SoundfontPresets
+    , ''Instruments
     , ''Tick
     , ''AudioDevice
     , ''AudioDevices
@@ -115,6 +117,7 @@ makeAPI
     [ 'getAudioDevices
     , 'startEngine
     , 'stopEngine
+    , 'getInstruments
     , 'getClapPluginLocations
     , 'scanForClapPlugins
     , 'loadClapPlugin

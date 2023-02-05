@@ -149,6 +149,7 @@ showType = \case
     AppT (ConT name) innerType -> if
         | name == ''Ensemble -> showType innerType
         | name == ''Ptr -> "Void" 
+        | name == ''Maybe -> showType innerType
         | otherwise -> error $ "Unrepresentable higher order type: " <> show name
     other -> error $ "Unrepresentable type: " <> show other
 

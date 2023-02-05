@@ -5,6 +5,6 @@ import Ensemble.Instrument
 
 data SequencerEvent = SequencerEvent
     { sequencerEvent_instrumentId :: InstrumentId
-    , sequencerEvent_eventConfig :: Clap.ClapEventConfig
+    , sequencerEvent_eventConfig :: Maybe Clap.ClapEventConfig
     , sequencerEvent_event :: Clap.ClapEvent
     } 

@@ -1,9 +1,13 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Sequencer where
 
+import Control.Monad.Freer
+import Control.Monad.Freer.Error
 import Ensemble.Engine
+import Ensemble.Error
 import Ensemble.Event
 import Data.IORef
 import Data.List
@@ -34,10 +38,10 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: Sequencer -> Engine -> Tick -> IO ()
+playSequence :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 playSequence sequencer engine startTick = do
-    writeIORef (sequencer_currentTick sequencer) startTick
-    endTick <- getEndTick sequencer
+    sendM $ writeIORef (sequencer_currentTick sequencer) startTick
+    endTick <- sendM $ getEndTick sequencer
     audioOutput <- render sequencer engine startTick endTick
     playAudio engine audioOutput
 
@@ -64,21 +68,20 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-render :: Sequencer -> Engine -> Tick -> Tick -> IO AudioOutput
+render :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
-    events <- getEventsBetween sequencer startTick endTick
+    events <- sendM $ getEventsBetween sequencer startTick endTick
     renderEvents 0 (groupEvents events)
     where 
-        renderEvents :: Double -> [(Tick, [SequencerEvent])] -> IO AudioOutput
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
-                pushEvents engine events
+                sendM $ pushEvents engine events
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount)
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ chunk <> remaining
             (_lastTick,events):[] -> do
-                pushEvents engine events
+                sendM $ pushEvents engine events
                 -- One second of padding
                 let frameCount = engine_sampleRate engine
                 generateOutputs engine (floor frameCount)
@@ -93,13 +96,13 @@ groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
-process :: Sequencer -> Engine -> Tick -> IO (Maybe PortAudio.Error)
+process :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs (Maybe PortAudio.Error)
 process sequencer engine tick = do
-    writeIORef (sequencer_currentTick sequencer) tick
-    events <- readIORef (sequencer_eventQueue sequencer)
+    sendM $ writeIORef (sequencer_currentTick sequencer) tick
+    events <- sendM $ readIORef (sequencer_eventQueue sequencer)
     let (activeEvents, remainingEvents) = partition (\(time, _) -> time <= tick) events 
-    pushEvents engine $ snd <$> activeEvents
+    sendM $ pushEvents engine $ snd <$> activeEvents
     outputs <- generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
-    result <- sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
-    writeIORef (sequencer_eventQueue sequencer) remainingEvents
+    result <- sendM $ sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
+    sendM $ writeIORef (sequencer_eventQueue sequencer) remainingEvents
     pure result

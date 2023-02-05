@@ -87,14 +87,14 @@ playSequence :: StartTick -> Ensemble Ok
 playSequence startTick = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    sendM $ Sequencer.playSequence sequencer engine startTick
+    Sequencer.playSequence sequencer engine startTick
     pure Ok
 
 renderSequence :: StartTick -> EndTick -> Ensemble AudioOutput
 renderSequence startTick endTick = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    sendM $ Sequencer.render sequencer engine startTick endTick
+    Sequencer.render sequencer engine startTick endTick
 
 clearSequence :: Ensemble Ok
 clearSequence = do
@@ -105,5 +105,5 @@ clearSequence = do
 playAudio :: AudioOutput -> Ensemble Ok
 playAudio audioOutput = do
     engine <- asks server_engine
-    sendM $ Engine.playAudio engine audioOutput
+    Engine.playAudio engine audioOutput
     pure Ok

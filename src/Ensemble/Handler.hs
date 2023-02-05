@@ -15,6 +15,16 @@ import Ensemble.Schema (handleMessage)
 import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
 import Ensemble.Server
 
+handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
+handler server object = runM $ runError $ runReader server $
+    case KeyMap.lookup "@type" object of
+        Just (A.String messageType) -> 
+            handleMessage messageType object
+        Just _ -> 
+            throwError $ APIError "Invalid '@type' field"
+        Nothing -> 
+            throwError $ APIError "Message is missing '@type' field"
+
 receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 
     case jsonMessage of
@@ -33,14 +43,3 @@ receiveMessage server jsonMessage =
         makeError extraValue apiError = 
             let A.Object errorJson = toTaggedJSON apiError
             in A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) errorJson
-
-
-handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
-handler server object = runM $ runError $ runReader server $
-    case KeyMap.lookup "@type" object of
-        Just (A.String messageType) -> 
-            handleMessage messageType object
-        Just _ -> 
-            throwError $ APIError "Invalid '@type' field"
-        Nothing -> 
-            throwError $ APIError "Message is missing '@type' field"

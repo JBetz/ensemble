@@ -4,6 +4,7 @@
 
 module Ensemble.Engine where
 
+import Clap.Interface.Events (defaultClapEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
@@ -138,15 +139,15 @@ start engine = do
                         throwError $ APIError $ "Error when starting audio stream: " <> show startError 
 
             
-audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
+audioCallback :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> Eff effs StreamResult
 audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
-    receiveInputs engine numberOfInputSamples inputPtr   
+    sendM $ receiveInputs engine numberOfInputSamples inputPtr   
     audioOutput <- generateOutputs engine (fromIntegral numberOfInputSamples)
     unless (outputPtr == nullPtr) $ do 
         let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-        pokeArray outputPtr output
-    modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
-    state <- readIORef (engine_state engine)
+        sendM $ pokeArray outputPtr output
+    sendM $ modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
+    state <- sendM $ readIORef (engine_state engine)
     pure $ case state of
         StateRunning -> PortAudio.Continue
         StateStopping -> PortAudio.Complete
@@ -161,12 +162,12 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
-lookupInstrument :: Engine -> InstrumentId -> IO Instrument
+lookupInstrument :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> InstrumentId -> Eff effs Instrument
 lookupInstrument engine instrumentId = do
-    instruments <- readIORef $ engine_instruments engine
+    instruments <- sendM $ readIORef $ engine_instruments engine
     case Map.lookup instrumentId instruments of
         Just instrument -> pure instrument
-        Nothing -> error $ "Invalid instrument id: " <> show instrumentId
+        Nothing -> throwError $ APIError $ "Invalid instrument id: " <> show instrumentId
 
 getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
 getSoundfontInstruments engine = do
@@ -176,29 +177,29 @@ getSoundfontInstruments engine = do
         _ -> Nothing
         ) (Map.elems instruments)
 
-generateOutputs :: Engine -> Int -> IO AudioOutput
+generateOutputs ::  (LastMember IO effs, Member (Error APIError) effs) => Engine -> Int -> Eff effs AudioOutput
 generateOutputs engine frameCount = do
-    maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine 
+    maybeSoundfontPlayer <- sendM $ readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
-    steadyTime <- readIORef (engine_steadyTime engine)
-    eventBuffer <- readIORef (engine_eventBuffer engine)
-    CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
+    steadyTime <- sendM $ readIORef (engine_steadyTime engine)
+    eventBuffer <- sendM $ readIORef (engine_eventBuffer engine)
+    sendM $ CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     for_ eventBuffer $ \(SequencerEvent instrumentId eventConfig event) -> do
         instrument <- lookupInstrument engine instrumentId
         case instrument of
             Instrument_Soundfont (SoundfontInstrument _ synth) -> 
                 case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> SF.processEvent soundfontPlayer synth event
-                    Nothing -> error "Attempting to play Soundfont instrument before initializing FluidSynth"
+                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
+                    Nothing -> throwError $ APIError "Attempting to play Soundfont instrument before initializing FluidSynth"
             Instrument_Clap (ClapInstrument pluginId) -> 
-                CLAP.processEvent clapHost pluginId eventConfig event
-    writeIORef (engine_eventBuffer engine) []
+                sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
+    sendM $ writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> do
-            soundfonts <- getSoundfontInstruments engine 
-            traverse (\synth -> SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
+            soundfonts <- sendM $ getSoundfontInstruments engine 
+            traverse (\synth -> sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
         Nothing -> pure mempty
-    pluginOutputs <- CLAP.processAll clapHost
+    pluginOutputs <- sendM $ CLAP.processAll clapHost
     pure $ mixAudioOutputs (mconcat soundfontOutput) pluginOutputs
 
 data AudioOutput = AudioOutput
@@ -227,24 +228,24 @@ mixAudioOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOut
         }
 
 
-playAudio :: Engine -> AudioOutput -> IO ()
+playAudio :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
-    maybeAudioStream <- readIORef $ engine_audioStream engine
+    maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
     where
         writeChunks stream output = do
-            eitherChunkSize <- PortAudio.writeAvailable stream
+            eitherChunkSize <- sendM $ PortAudio.writeAvailable stream
             case eitherChunkSize of
                 Right chunkSize -> do 
                     let (chunk, remaining) = takeChunk chunkSize output
-                    maybeAudioPortError <- sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
+                    maybeAudioPortError <- sendM $ sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
                     whenJust maybeAudioPortError $ \audioPortError -> 
-                        error $ "Error writing to audio stream: " <> show audioPortError
+                        throwError $ APIError $ "Error writing to audio stream: " <> show audioPortError
                     unless (remaining == mempty) $ 
                         writeChunks stream remaining
                 Left audioPortError ->
-                    error $ "Error getting available frames of audio stream: " <> show audioPortError
+                    throwError $ APIError $ "Error getting available frames of audio stream: " <> show audioPortError
 
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
@@ -295,7 +296,7 @@ createSoundfontInstrument engine filePath = do
     soundfont <- case maybeSoundfont of
         Just soundfont -> pure soundfont
         Nothing -> SF.loadSoundfont player synth filePath True
-    let instrument =Instrument_Soundfont $ SoundfontInstrument 
+    let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_synth = synth
             }

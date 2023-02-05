@@ -291,7 +291,10 @@ createSoundfontInstrument :: Engine -> FilePath -> IO InstrumentInfo
 createSoundfontInstrument engine filePath = do
     player <- getSoundfontPlayer engine
     synth <- SF.createSynth player
-    soundfont <- SF.loadSoundfont player synth filePath True
+    maybeSoundfont <- SF.lookupSoundfont player filePath
+    soundfont <- case maybeSoundfont of
+        Just soundfont -> pure soundfont
+        Nothing -> SF.loadSoundfont player synth filePath True
     let instrument =Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_synth = synth

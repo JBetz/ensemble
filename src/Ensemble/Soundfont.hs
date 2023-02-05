@@ -8,6 +8,7 @@ import Clap.Interface.Events
 import Control.Exception
 import Data.IORef
 import Data.Int
+import Data.List (find)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad.Extra (whileM)
@@ -80,6 +81,11 @@ deleteSoundfontPlayer :: SoundfontPlayer -> IO ()
 deleteSoundfontPlayer player = do
     let library = soundfontPlayer_fluidSynthLibrary player
     deleteFluidSettings library (soundfontPlayer_settings player)
+
+lookupSoundfont :: SoundfontPlayer -> FilePath -> IO (Maybe Soundfont)
+lookupSoundfont player filePath = do
+    soundfonts <- readIORef $ soundfontPlayer_soundfonts player
+    pure $ find (\soundfont -> soundfont_filePath soundfont == filePath) soundfonts
 
 loadSoundfont :: SoundfontPlayer -> FluidSynth -> FilePath -> Bool -> IO Soundfont
 loadSoundfont player synth filePath resetPresets = do

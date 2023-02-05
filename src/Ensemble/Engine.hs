@@ -32,6 +32,7 @@ import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
+import GHC.Stack
 import qualified Sound.PortAudio as PortAudio
 import Sound.PortAudio (StreamCallbackFlag, Stream, StreamResult)
 import Sound.PortAudio.Base (PaStreamCallbackTimeInfo, PaDeviceIndex(..), PaDeviceInfo(..))
@@ -101,7 +102,7 @@ getAudioDevices = do
         pure $ Right $ catMaybes devices
     case eitherResult of
         Right devices -> pure devices
-        Left portAudioError -> throwError $ APIError $ "Error getting audio devices: " <> show portAudioError
+        Left portAudioError -> throwAPIError $ "Error getting audio devices: " <> show portAudioError
 
 pushEvent :: Engine -> SequencerEvent -> IO ()
 pushEvent engine event =
@@ -115,7 +116,7 @@ start :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> Eff eff
 start engine = do
     initializeResult <- sendM PortAudio.initialize
     case initializeResult of
-        Just initializeError -> throwError $ APIError $ "Error when initializing audio driver: " <> show initializeError
+        Just initializeError -> throwAPIError $ "Error when initializing audio driver: " <> show initializeError
         Nothing -> do
             sendM $ allocateBuffers engine (32 * 1024)
             eitherStream <- sendM $ PortAudio.openDefaultStream 
@@ -127,7 +128,7 @@ start engine = do
                 Nothing -- Callback on completion
             case eitherStream of
                 Left portAudioError -> 
-                    throwError $ APIError $ "Error when opening audio stream: " <> show portAudioError
+                    throwAPIError $ "Error when opening audio stream: " <> show portAudioError
                 Right stream -> do
                     maybeError <- sendM $ do
                         writeIORef (engine_audioStream engine) (Just stream)
@@ -136,7 +137,7 @@ start engine = do
                         CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
                         PortAudio.startStream stream
                     whenJust maybeError $ \startError ->
-                        throwError $ APIError $ "Error when starting audio stream: " <> show startError 
+                        throwAPIError $ "Error when starting audio stream: " <> show startError 
 
             
 audioCallback :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> Eff effs StreamResult
@@ -167,7 +168,7 @@ lookupInstrument engine instrumentId = do
     instruments <- sendM $ readIORef $ engine_instruments engine
     case Map.lookup instrumentId instruments of
         Just instrument -> pure instrument
-        Nothing -> throwError $ APIError $ 
+        Nothing -> throwAPIError $ 
             "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
             "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
 
@@ -192,7 +193,7 @@ generateOutputs engine frameCount = do
             Instrument_Soundfont (SoundfontInstrument _ synth) -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
-                    Nothing -> throwError $ APIError "Attempting to play Soundfont instrument before initializing FluidSynth"
+                    Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
     sendM $ writeIORef (engine_eventBuffer engine) []
@@ -243,11 +244,11 @@ playAudio engine audioOutput = do
                     let (chunk, remaining) = takeChunk chunkSize output
                     maybeAudioPortError <- sendM $ sendOutputs engine (fromIntegral $ min chunkSize (size chunk)) chunk
                     whenJust maybeAudioPortError $ \audioPortError -> 
-                        throwError $ APIError $ "Error writing to audio stream: " <> show audioPortError
+                        throwAPIError $ "Error writing to audio stream: " <> show audioPortError
                     unless (remaining == mempty) $ 
                         writeChunks stream remaining
                 Left audioPortError ->
-                    throwError $ APIError $ "Error getting available frames of audio stream: " <> show audioPortError
+                    throwAPIError $ "Error getting available frames of audio stream: " <> show audioPortError
 
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
@@ -287,7 +288,7 @@ stop engine = do
                 setState engine StateStopped
                 pure maybeError
             whenJust maybeError $ \stopError ->
-                throwError $ APIError $ "Error when stopping audio stream: " <> show stopError
+                throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
 createSoundfontInstrument :: Engine -> FilePath -> IO InstrumentInfo
@@ -365,3 +366,9 @@ setState engine = writeIORef (engine_state engine)
 
 interleave :: [a] -> [a] -> [a]
 interleave xs ys = concat (transpose [xs, ys])
+
+throwAPIError :: (Member (Error APIError) effs, HasCallStack) => String -> Eff effs a
+throwAPIError message = throwError $ APIError
+    { apiError_message = message
+    , apiError_callstack = Just $ prettyCallStack callStack 
+    }

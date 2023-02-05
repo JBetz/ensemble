@@ -1,3 +1,6 @@
 module Ensemble.Error where 
 
-newtype APIError = APIError { apiError_message :: String }
+data APIError = APIError 
+    { apiError_message :: String
+    , apiError_callstack :: Maybe String 
+    } deriving (Show)

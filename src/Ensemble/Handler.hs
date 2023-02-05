@@ -21,9 +21,9 @@ handler server object = runM $ runError $ runReader server $
         Just (A.String messageType) -> 
             handleMessage messageType object
         Just _ -> 
-            throwError $ APIError "Invalid '@type' field"
+            throwError $ APIError "Invalid '@type' field" Nothing
         Nothing -> 
-            throwError $ APIError "Message is missing '@type' field"
+            throwError $ APIError "Message is missing '@type' field" Nothing
 
 receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 
@@ -35,10 +35,10 @@ receiveMessage server jsonMessage =
                 Right (A.Object outMessage) ->
                     A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
                 Right _ ->
-                    makeError extraValue $ APIError "Invalid JSON output, needs to be object"
+                    makeError extraValue $ APIError "Invalid JSON output, needs to be object" Nothing
                 Left errorMessage ->
                     makeError extraValue errorMessage
-        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object"
+        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object" Nothing
     where
         makeError extraValue apiError = 
             let A.Object errorJson = toTaggedJSON apiError

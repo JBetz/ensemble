@@ -12,7 +12,15 @@ extra-doc-files:    CHANGELOG.md
 common base
     ghc-options: -Wall
     default-language: Haskell2010
-
+    default-extensions: DataKinds,
+                        DeriveGeneric,
+                        FlexibleContexts,
+                        GADTs,
+                        LambdaCase,
+                        StandaloneDeriving,
+                        TypeApplications,
+                        TypeOperators
+                        
 library
     import:           base
     exposed-modules:  Ensemble,

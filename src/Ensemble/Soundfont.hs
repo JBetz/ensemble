@@ -1,6 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Ensemble.Soundfont where
 

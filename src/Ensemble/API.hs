@@ -1,5 +1,3 @@
-{-# LANGUAGE DataKinds #-}
-
 module Ensemble.API where
 
 import Clap.Host (PluginId (..))

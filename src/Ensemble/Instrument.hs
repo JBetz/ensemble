@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 module Ensemble.Instrument where
 
 import Clap.Host

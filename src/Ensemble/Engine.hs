@@ -11,6 +11,7 @@ import Control.Monad
 import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
+import Control.Monad.Freer.Writer
 import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
@@ -152,7 +153,7 @@ getSoundfontInstruments engine = do
         _ -> Nothing
         ) (Map.elems instruments)
 
-generateOutputs ::  (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
+generateOutputs ::  (LastMember IO effs, Members '[Writer String, Error APIError] effs, HasCallStack) => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
     maybeSoundfontPlayer <- sendM $ readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
@@ -167,13 +168,21 @@ generateOutputs engine frameCount events = do
                     Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
-    soundfontOutput <- case maybeSoundfontPlayer of
+    soundfontOutputs <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> do
             soundfonts <- sendM $ getSoundfontInstruments engine 
             traverse (\synth -> sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
         Nothing -> pure mempty
+    let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
+    tell $ "Soundfont wet left frame count: " <> show (length $ SF.soundfontOutput_wetChannelLeft soundfontOutput) <> "\n" <>
+           "Soundfont wet right frame count: " <> show (length $ SF.soundfontOutput_wetChannelRight soundfontOutput) <> "\n" <> 
+           "Soundfont dry left frame count: " <> show (length $ SF.soundfontOutput_dryChannelLeft soundfontOutput) <> "\n" <>
+           "Soundfont dry right frame count: " <> show (length $ SF.soundfontOutput_dryChannelRight soundfontOutput)
     pluginOutputs <- sendM $ CLAP.processAll clapHost
-    pure $ mixSoundfontAndClapOutputs (SF.mixSoundfontOutputs frameCount soundfontOutput) pluginOutputs
+    let mixedOutput = mixSoundfontAndClapOutputs soundfontOutput  pluginOutputs
+    tell $ "Output left frame count: " <> show (length $ audioOutput_left mixedOutput) <> "\n" <>
+           "Output right frame count: " <> show (length $ audioOutput_right mixedOutput)
+    pure mixedOutput
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 

@@ -183,15 +183,6 @@ data AudioOutput = AudioOutput
     , audioOutput_right :: [CFloat] 
     } deriving (Eq, Ord)
 
-mixAudioOutputs :: Int -> [AudioOutput] -> AudioOutput
-mixAudioOutputs frameCount outputs = AudioOutput 
-    { audioOutput_left = mix audioOutput_left
-    , audioOutput_right = mix audioOutput_right
-    }
-    where 
-        zeroBuffer = take frameCount $ repeat 0
-        mix selector = foldl (\acc cur -> zipWith (+) acc cur) zeroBuffer (selector <$> outputs) 
-
 mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
     let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)

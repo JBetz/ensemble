@@ -15,18 +15,18 @@ import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Aeson.TH as A
 import qualified Data.Aeson.Types as A
-import Data.Char (toLower)
 import Data.Foldable (traverse_, foldlM, foldl')
 import Control.Monad.Freer
 import Data.Text (Text)
 import Data.Traversable (for)
-import Language.Haskell.TH
-import Language.Haskell.TH.Datatype
+import Ensemble.Util
 import Ensemble.API
 import Ensemble.Error
 import Ensemble.Schema.TaggedJSON
 import Foreign.Ptr
 import GHC.Generics (Generic)
+import Language.Haskell.TH
+import Language.Haskell.TH.Datatype
 
 encodingOptions :: A.Options
 encodingOptions = 
@@ -38,20 +38,8 @@ encodingOptions =
         { A.fieldLabelModifier = modifier
         , A.constructorTagModifier = modifier
         , A.sumEncoding = A.UntaggedValue
-        , A.unwrapUnaryRecords = False
+        , A.unwrapUnaryRecords = True
         }
-
-break                   :: (a -> Bool) -> [a] -> ([a],[a])
-break _ xs@[]           =  (xs, xs)
-break p xs@(x:xs')
-           | p x        =  ([],xs)
-           | otherwise  =  let (ys,zs) = break p xs' in (x:ys,zs)
-
-split :: Char -> String -> [String]
-split c s = case rest of
-                []     -> [chunk]
-                _:rest' -> chunk : split c rest'
-  where (chunk, rest) = break (==c) s
 
 deriveToTaggedJSON :: Name -> DecQ
 deriveToTaggedJSON name = do
@@ -267,10 +255,6 @@ lookupField key object =
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase
-
-uncapitalise :: String -> String
-uncapitalise [] = []
-uncapitalise (c:cs) = toLower c : cs
 
 multiAppE :: Exp -> [Exp] -> Exp
 multiAppE base args =

@@ -37,7 +37,8 @@ library
                       Ensemble.Schema.TH,
                       Ensemble.Sequencer,
                       Ensemble.Server,
-                      Ensemble.Soundfont
+                      Ensemble.Soundfont,
+                      Ensemble.Util
     other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Settings,
                       Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts,
                       Ensemble.Soundfont.FluidSynth.Foreign.Synth,

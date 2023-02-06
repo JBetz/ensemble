@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MonoLocalBinds #-}
 
 module Ensemble.Engine where
 
@@ -32,8 +33,8 @@ import Foreign.ForeignPtr
 import Foreign.Ptr
 import GHC.Stack
 import qualified Sound.PortAudio as PortAudio
-import Sound.PortAudio (StreamCallbackFlag, Stream, StreamResult)
-import Sound.PortAudio.Base (PaStreamCallbackTimeInfo, PaDeviceIndex(..), PaDeviceInfo(..))
+import Sound.PortAudio (Stream)
+import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
 
 data Engine = Engine
     { engine_state :: IORef EngineState
@@ -46,7 +47,6 @@ data Engine = Engine
     , engine_inputs :: Ptr (Ptr CFloat)
     , engine_outputs :: Ptr (Ptr CFloat)
     , engine_audioStream :: IORef (Maybe (Stream CFloat CFloat))
-    , engine_eventBuffer :: IORef [SequencerEvent]
     }
 
 data EngineState
@@ -64,7 +64,6 @@ createEngine hostConfig = do
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
     audioStream <- newIORef Nothing
-    eventBuffer <- newIORef mempty
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
@@ -76,7 +75,6 @@ createEngine hostConfig = do
         , engine_inputs = inputs   
         , engine_outputs = outputs
         , engine_audioStream = audioStream
-        , engine_eventBuffer = eventBuffer
         }
 
 data AudioDevice = AudioDevice
@@ -101,14 +99,6 @@ getAudioDevices = do
     case eitherResult of
         Right devices -> pure devices
         Left portAudioError -> throwAPIError $ "Error getting audio devices: " <> show portAudioError
-
-pushEvent :: Engine -> SequencerEvent -> IO ()
-pushEvent engine event =
-    modifyIORef' (engine_eventBuffer engine) (<> [event])
-
-pushEvents :: Engine -> [SequencerEvent] -> IO ()
-pushEvents engine events =
-    modifyIORef' (engine_eventBuffer engine) (<> events)
 
 start :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> Eff effs ()
 start engine = do
@@ -137,21 +127,6 @@ start engine = do
                     whenJust maybeError $ \startError ->
                         throwAPIError $ "Error when starting audio stream: " <> show startError 
 
-            
-audioCallback :: (LastMember IO effs, Member (Error APIError) effs) => Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> Eff effs StreamResult
-audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
-    sendM $ receiveInputs engine numberOfInputSamples inputPtr   
-    audioOutput <- generateOutputs engine (fromIntegral numberOfInputSamples)
-    unless (outputPtr == nullPtr) $ do 
-        let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-        sendM $ pokeArray outputPtr output
-    sendM $ modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
-    state <- sendM $ readIORef (engine_state engine)
-    pure $ case state of
-        StateRunning -> PortAudio.Continue
-        StateStopping -> PortAudio.Complete
-        StateStopped -> PortAudio.Abort
-
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
     unless (inputPtr == nullPtr) $ do 
@@ -178,14 +153,13 @@ getSoundfontInstruments engine = do
         _ -> Nothing
         ) (Map.elems instruments)
 
-generateOutputs ::  (LastMember IO effs, Member (Error APIError) effs) => Engine -> Int -> Eff effs AudioOutput
-generateOutputs engine frameCount = do
+generateOutputs ::  (LastMember IO effs, Member (Error APIError) effs) => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
+generateOutputs engine frameCount events = do
     maybeSoundfontPlayer <- sendM $ readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- sendM $ readIORef (engine_steadyTime engine)
-    eventBuffer <- sendM $ readIORef (engine_eventBuffer engine)
     sendM $ CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
-    for_ eventBuffer $ \(SequencerEvent instrumentId eventConfig event) -> do
+    for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
         instrument <- lookupInstrument engine instrumentId
         case instrument of
             Instrument_Soundfont (SoundfontInstrument _ synth) -> 
@@ -194,7 +168,6 @@ generateOutputs engine frameCount = do
                     Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
-    sendM $ writeIORef (engine_eventBuffer engine) []
     soundfontOutput <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> do
             soundfonts <- sendM $ getSoundfontInstruments engine 

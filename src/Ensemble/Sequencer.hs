@@ -11,7 +11,6 @@ import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
 import Data.IORef
-import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -76,16 +75,14 @@ render sequencer engine startTick endTick = do
     where 
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
-                sendM $ pushEvents engine events
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
-                chunk <- generateOutputs engine (floor frameCount)
+                chunk <- generateOutputs engine (floor frameCount) events
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ mixAudioOutputs (floor frameCount) [chunk, remaining]
             (_lastTick,events):[] -> do
-                sendM $ pushEvents engine events
                 -- One second of padding
                 let frameCount = engine_sampleRate engine
-                generateOutputs engine (floor frameCount)
+                generateOutputs engine (floor frameCount) events
             [] -> pure $ AudioOutput (repeat 0) (repeat 0)
 
 getEventsBetween :: Sequencer -> Tick -> Tick -> IO [(Tick, SequencerEvent)]
@@ -96,13 +93,3 @@ getEventsBetween sequencer startTick endTick = do
 groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
-
-process :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs ()
-process sequencer engine tick = do
-    sendM $ writeIORef (sequencer_currentTick sequencer) tick
-    events <- sendM $ readIORef (sequencer_eventQueue sequencer)
-    let (activeEvents, remainingEvents) = partition (\(time, _) -> time <= tick) events 
-    sendM $ pushEvents engine $ snd <$> activeEvents
-    outputs <- generateOutputs engine (fromIntegral $ engine_numberOfFrames engine)
-    sendOutputs engine (fromIntegral $ engine_numberOfFrames engine) outputs
-    sendM $ writeIORef (sequencer_eventQueue sequencer) remainingEvents

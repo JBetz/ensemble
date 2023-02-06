@@ -77,10 +77,7 @@ render sequencer engine startTick endTick = do
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount) events
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
-                pure $ AudioOutput
-                    { audioOutput_left = audioOutput_left chunk <> audioOutput_left remaining
-                    , audioOutput_right = audioOutput_right chunk <> audioOutput_right remaining
-                    }
+                pure $ chunk <> remaining
             (_lastTick,events):[] -> do
                 -- One second of padding
                 let frameCount = engine_sampleRate engine

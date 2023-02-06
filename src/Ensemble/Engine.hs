@@ -84,6 +84,12 @@ data AudioDevice = AudioDevice
     , audioDevice_name :: String
     } deriving (Show)
 
+instance Semigroup AudioOutput where
+    a <> b = AudioOutput
+        { audioOutput_left = audioOutput_left a <> audioOutput_left b
+        , audioOutput_right = audioOutput_right a <> audioOutput_right b
+        }
+
 getAudioDevices :: EngineEffects effs => Eff effs [AudioDevice]
 getAudioDevices = do
     eitherResult <- sendM $ PortAudio.withPortAudio $ do

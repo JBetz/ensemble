@@ -2,7 +2,7 @@ vector {t:Type} # [ t ] = Vector t;
 
 ok = Ok;
 
-aPIError message:String callstack:String = APIError;
+aPIError message:String = APIError;
 
 pluginLocations filePaths:vector<FilePath> = PluginLocations;
 
@@ -104,7 +104,7 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-soundfont id:SoundfontId filePath:FilePath handle:FluidSoundfont presets:vector<SoundfontPreset> = Soundfont;
+soundfont id:SoundfontId filePath:FilePath handle:FluidSoundfont = Soundfont;
 
 soundfontId id:Int = SoundfontId;
 

@@ -17,8 +17,8 @@ import Web.Scotty
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  server <- createServer
   config <- getRecord "Ensemble Audio Engine"
+  server <- createServer config
   case fromMaybe Interface_Http (interface config) of
     Interface_Pipes -> runPipesInterface server
     Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)

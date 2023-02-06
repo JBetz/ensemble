@@ -11,6 +11,7 @@ import Control.Monad.Freer.Reader
 import Control.Monad.Freer.Writer
 import Data.IORef
 import qualified Data.Map as Map
+import Ensemble.Config
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Error
@@ -41,8 +42,10 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ 
     where
         runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
         runLogWriter = interpret $ \case
-            Tell message -> sendM $ putStrLn message
-
+            Tell message -> 
+                case logFile (server_config server) of
+                    Just logFile -> sendM $ appendFile logFile message
+                    Nothing -> pure ()
 -- Audio
 getAudioDevices :: Ensemble AudioDevices
 getAudioDevices = AudioDevices <$> Engine.getAudioDevices

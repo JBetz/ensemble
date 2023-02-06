@@ -35,7 +35,7 @@ instance ParseField Interface
 instance ParseFields Interface
 
 data Config = Config
-    { interface :: Maybe Interface 
+    { interface :: Interface 
     , port :: Maybe Int 
     , logFile :: Maybe FilePath
     } deriving (Show, Generic)

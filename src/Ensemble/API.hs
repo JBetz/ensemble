@@ -43,9 +43,13 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ 
         runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
         runLogWriter = interpret $ \case
             Tell message -> 
-                case logFile (server_config server) of
+                case logFile config of
                     Just filePath -> sendM $ appendFile filePath message
-                    Nothing -> pure ()
+                    Nothing -> case interface config of
+                        Interface_Http -> sendM $ putStrLn message
+                        Interface_Pipes -> pure ()
+        config = server_config server
+
 -- Audio
 getAudioDevices :: Ensemble AudioDevices
 getAudioDevices = AudioDevices <$> Engine.getAudioDevices

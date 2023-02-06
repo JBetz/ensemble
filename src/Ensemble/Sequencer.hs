@@ -75,10 +75,6 @@ render sequencer engine startTick endTick = do
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
-                tell $ "renderEvents:\n\t" <> 
-                    show frameCount <> " (frame count)\n\t" <> 
-                    show currentTick <> " (current tick)\n\t" <> 
-                    show (length events) <> " (number of events)"
                 chunk <- generateOutputs engine (floor frameCount) events
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ mixAudioOutputs (floor frameCount) [chunk, remaining]

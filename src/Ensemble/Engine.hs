@@ -179,7 +179,13 @@ generateOutputs engine frameCount events = do
     soundfontOutputs <- case maybeSoundfontPlayer of
         Just soundfontPlayer -> do
             soundfonts <- sendM $ getSoundfontInstruments engine 
-            traverse (\synth -> sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
+            for soundfonts $ \soundfont -> do
+                let synth = soundfontInstrument_synth soundfont
+                result <- sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)
+                tell $ "Sample outputs from: " <> show synth <> "\n\t" <> 
+                    "left: " <> show (take 10 $ SF.soundfontOutput_dryChannelLeft result) <> "\n\t" <>
+                    "right: " <> show (take 10 $ SF.soundfontOutput_dryChannelRight result)
+                pure result
         Nothing -> pure mempty
     let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
     pluginOutputs <- sendM $ CLAP.processAll clapHost

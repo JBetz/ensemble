@@ -209,7 +209,6 @@ playAudio engine audioOutput = do
             case eitherChunkSize of
                 Right chunkSize -> do 
                     let (chunk, remaining) = takeChunk chunkSize output
-                    tell $ "Chunks requested: " <> show chunkSize <> ", chunks sending: " <> show (size chunk) <> ", chunks remaining: " <> show (size remaining)
                     sendOutputs engine (fromIntegral $ size chunk) chunk
                     unless (size remaining == 0) $ 
                         writeChunks stream remaining

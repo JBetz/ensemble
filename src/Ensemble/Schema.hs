@@ -10,6 +10,7 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import qualified Data.Aeson as A
+import Data.Text (pack)
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Error
 import Ensemble.Event
@@ -23,7 +24,7 @@ import Foreign.C.Types
 import Foreign.Ptr
 
 instance A.ToJSON (Ptr a) where 
-    toJSON _ = A.String "<handle>"
+    toJSON ptr = A.String (pack $ show ptr)
 
 instance A.FromJSON (Ptr a) where
     parseJSON _ = pure nullPtr

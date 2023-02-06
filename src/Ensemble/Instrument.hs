@@ -28,6 +28,7 @@ data InstrumentInfo = InstrumentInfo
 
 data SoundfontInstrument = SoundfontInstrument
     { soundfontInstrument_soundfont :: Soundfont
+    , soundfontInstrument_settings :: FluidSettings
     , soundfontInstrument_synth :: FluidSynth
     } deriving (Show)
 

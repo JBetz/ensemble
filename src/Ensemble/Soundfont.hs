@@ -24,7 +24,6 @@ newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
 
 data SoundfontPlayer = SoundfontPlayer
     { soundfontPlayer_fluidSynthLibrary :: FluidSynthLibrary
-    , soundfontPlayer_settings :: FluidSettings
     , soundfontPlayer_soundfonts :: IORef (Map SoundfontId Soundfont)
     }
 
@@ -46,33 +45,24 @@ type FluidSynth = Ptr C'fluid_synth_t
 type FluidSoundfont = Ptr C'fluid_sfont_t
 type FluidPreset = Ptr C'fluid_preset_t
 
-withSoundfontPlayer :: HasCallStack => FilePath -> (SoundfontPlayer -> IO a) -> IO a
-withSoundfontPlayer filePath f = do
-    player <- createSoundfontPlayer filePath
-    result <- f player
-    deleteSoundfontPlayer player
-    pure result
-
 createSoundfontPlayer :: FilePath -> IO SoundfontPlayer
 createSoundfontPlayer filePath = do
     library <- openFluidSynthLibrary filePath
-    settings <-newFluidSettings library
     soundfonts <- newIORef mempty
     pure $ SoundfontPlayer
         { soundfontPlayer_fluidSynthLibrary = library
-        , soundfontPlayer_settings = settings
         , soundfontPlayer_soundfonts = soundfonts
         }
 
-createSynth :: SoundfontPlayer -> IO FluidSynth
-createSynth player = do
+createSettings :: SoundfontPlayer -> IO FluidSettings 
+createSettings player = do
     let library = soundfontPlayer_fluidSynthLibrary player
-    newFluidSynth library (soundfontPlayer_settings player)
+    newFluidSettings library
 
-deleteSoundfontPlayer :: SoundfontPlayer -> IO ()
-deleteSoundfontPlayer player = do
+createSynth :: SoundfontPlayer -> FluidSettings -> IO FluidSynth
+createSynth player settings = do
     let library = soundfontPlayer_fluidSynthLibrary player
-    deleteFluidSettings library (soundfontPlayer_settings player)
+    newFluidSynth library settings
 
 lookupSoundfont :: SoundfontPlayer -> FilePath -> IO (Maybe Soundfont)
 lookupSoundfont player filePath = do

@@ -24,7 +24,7 @@ instrumentId id:Int = InstrumentId;
 
 instrumentInfo id:InstrumentId instrument:Instrument = InstrumentInfo;
 
-instrumentSoundfont soundfont:Soundfont synth:FluidSynth  = Instrument;
+instrumentSoundfont soundfont:Soundfont settings:FluidSettings synth:FluidSynth  = Instrument;
 
 instrumentClap pluginId:PluginId  = Instrument;
 

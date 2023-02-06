@@ -161,7 +161,7 @@ generateOutputs engine frameCount events = do
     for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
         instrument <- lookupInstrument engine instrumentId
         case instrument of
-            Instrument_Soundfont (SoundfontInstrument _ synth) -> 
+            Instrument_Soundfont (SoundfontInstrument _ _ synth) -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
                     Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
@@ -249,10 +249,6 @@ stop engine = do
     case maybeStream of
         Just stream -> do
             maybeError <- sendM $ do
-                maybeSoundfontPlayer <- readIORef $ engine_soundfontPlayer engine
-                case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> SF.deleteSoundfontPlayer soundfontPlayer
-                    Nothing -> pure () 
                 CLAP.deactivateAll (engine_pluginHost engine)
                 _ <- PortAudio.stopStream stream
                 _ <- PortAudio.closeStream stream
@@ -267,13 +263,15 @@ stop engine = do
 createSoundfontInstrument :: (Member (Error APIError) effs, LastMember IO effs) => Engine -> FilePath -> Eff effs InstrumentInfo
 createSoundfontInstrument engine filePath = do
     player <- getSoundfontPlayer engine
-    synth <- sendM $ SF.createSynth player
+    settings <- sendM $ SF.createSettings player
+    synth <- sendM $ SF.createSynth player settings
     maybeSoundfont <- sendM $ SF.lookupSoundfont player filePath
     soundfont <- case maybeSoundfont of
         Just soundfont -> pure soundfont
         Nothing -> sendM $ SF.loadSoundfont player synth filePath True
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
+            , soundfontInstrument_settings = settings
             , soundfontInstrument_synth = synth
             }
     instrumentId <- sendM $ addInstrument engine instrument

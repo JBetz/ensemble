@@ -172,7 +172,9 @@ generateOutputs engine frameCount events = do
         case instrument of
             Instrument_Soundfont (SoundfontInstrument _ _ synth) -> 
                 case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
+                    Just soundfontPlayer -> do
+                        tell $ show synth <> "\t" <> show event
+                        sendM $ SF.processEvent soundfontPlayer synth event
                     Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
@@ -181,11 +183,7 @@ generateOutputs engine frameCount events = do
             soundfonts <- sendM $ getSoundfontInstruments engine 
             for soundfonts $ \soundfont -> do
                 let synth = soundfontInstrument_synth soundfont
-                result <- sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)
-                tell $ "Sample outputs from: " <> show synth <> "\n\t" <> 
-                    "left: " <> show (take 10 $ SF.soundfontOutput_dryChannelLeft result) <> "\n\t" <>
-                    "right: " <> show (take 10 $ SF.soundfontOutput_dryChannelRight result)
-                pure result
+                sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)
         Nothing -> pure mempty
     let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
     pluginOutputs <- sendM $ CLAP.processAll clapHost

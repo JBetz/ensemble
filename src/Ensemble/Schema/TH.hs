@@ -261,9 +261,9 @@ lookupField key object =
         Just value -> 
             case A.fromJSON value of
                 A.Success a -> pure a
-                A.Error parseError -> throwError $ APIError ("Parse error on '" <> show key <> "': "  <> parseError) Nothing
+                A.Error parseError -> throwError $ APIError ("Parse error on '" <> show key <> "': "  <> parseError)
         Nothing -> 
-            throwError $ APIError ("Missing argument: " <> show key) Nothing
+            throwError $ APIError ("Missing argument: " <> show key)
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase

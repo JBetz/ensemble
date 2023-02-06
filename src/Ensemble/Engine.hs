@@ -54,6 +54,8 @@ data EngineState
     | StateRunning
     | StateStopping
 
+type EngineEffects effs = (Members '[Writer String, Error APIError] effs, LastMember IO effs, HasCallStack)
+
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
@@ -82,7 +84,7 @@ data AudioDevice = AudioDevice
     , audioDevice_name :: String
     } deriving (Show)
 
-getAudioDevices :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Eff effs [AudioDevice]
+getAudioDevices :: EngineEffects effs => Eff effs [AudioDevice]
 getAudioDevices = do
     eitherResult <- sendM $ PortAudio.withPortAudio $ do
         count <- PortAudio.getNumDevices
@@ -100,7 +102,7 @@ getAudioDevices = do
         Right devices -> pure devices
         Left portAudioError -> throwAPIError $ "Error getting audio devices: " <> show portAudioError
 
-start :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> Eff effs ()
+start :: EngineEffects effs => Engine -> Eff effs ()
 start engine = do
     initializeResult <- sendM PortAudio.initialize
     case initializeResult of
@@ -136,7 +138,7 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
-lookupInstrument :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> InstrumentId -> Eff effs Instrument
+lookupInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs Instrument
 lookupInstrument engine instrumentId = do
     instruments <- sendM $ readIORef $ engine_instruments engine
     case Map.lookup instrumentId instruments of
@@ -153,7 +155,7 @@ getSoundfontInstruments engine = do
         _ -> Nothing
         ) (Map.elems instruments)
 
-generateOutputs ::  (LastMember IO effs, Members '[Writer String, Error APIError] effs, HasCallStack) => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
+generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
     maybeSoundfontPlayer <- sendM $ readIORef $ engine_soundfontPlayer engine 
     let clapHost = engine_pluginHost engine
@@ -175,8 +177,7 @@ generateOutputs engine frameCount events = do
         Nothing -> pure mempty
     let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
     pluginOutputs <- sendM $ CLAP.processAll clapHost
-    let mixedOutput = mixSoundfontAndClapOutputs soundfontOutput  pluginOutputs
-    pure mixedOutput
+    pure $ mixSoundfontAndClapOutputs soundfontOutput  pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -191,7 +192,7 @@ mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight
         , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
         }
 
-playAudio :: (LastMember IO effs, Members '[Writer String, Error APIError] effs, HasCallStack) => Engine -> AudioOutput -> Eff effs ()
+playAudio :: EngineEffects effs => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
     maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
@@ -219,7 +220,7 @@ takeChunk chunkSize (AudioOutput left right) =
 size :: AudioOutput -> Int
 size (AudioOutput left right) = min (length left) (length right) 
 
-sendOutputs :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> CULong -> AudioOutput -> Eff effs () 
+sendOutputs :: EngineEffects effs => Engine -> CULong -> AudioOutput -> Eff effs () 
 sendOutputs engine frameCount audioOutput  = do
     let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
     let expectedSize = fromIntegral $ frameCount * 2
@@ -238,7 +239,7 @@ sendOutputs engine frameCount audioOutput  = do
                 throwAPIError $ "Error writing to audio stream: " <> show writeError
         Nothing -> throwAPIError "PortAudio not initialized"
 
-stop :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> Eff effs ()
+stop :: EngineEffects effs => Engine -> Eff effs ()
 stop engine = do
     maybeStream <- sendM $ readIORef (engine_audioStream engine)
     case maybeStream of
@@ -255,7 +256,7 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-createSoundfontInstrument :: (Member (Error APIError) effs, LastMember IO effs) => Engine -> FilePath -> Eff effs InstrumentInfo
+createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentInfo
 createSoundfontInstrument engine filePath = do
     player <- getSoundfontPlayer engine
     settings <- sendM $ SF.createSettings player
@@ -281,7 +282,7 @@ addInstrument engine instrument =
         let newId = InstrumentId $ Map.size instruments 
         in (Map.insert newId instrument instruments, newId)
 
-getSoundfontPlayer :: (Member (Error APIError) effs, LastMember IO effs, HasCallStack) => Engine -> Eff effs SF.SoundfontPlayer
+getSoundfontPlayer :: EngineEffects effs => Engine -> Eff effs SF.SoundfontPlayer
 getSoundfontPlayer engine = do
     maybePlayer <- sendM $ readIORef $ engine_soundfontPlayer engine
     case maybePlayer of 
@@ -342,8 +343,7 @@ setState engine = writeIORef (engine_state engine)
 interleave :: [a] -> [a] -> [a]
 interleave xs ys = concat (transpose [xs, ys])
 
-throwAPIError :: (Member (Error APIError) effs, HasCallStack) => String -> Eff effs a
-throwAPIError message = throwError $ APIError
-    { apiError_message = message
-    , apiError_callstack = Just $ prettyCallStack (fromList $ init $ toList callStack) 
-    }
+throwAPIError :: (Members '[Writer String, Error APIError] effs, HasCallStack) => String -> Eff effs a
+throwAPIError message = do
+    tell $ prettyCallStack (fromList $ init $ toList callStack) 
+    throwError $ APIError { apiError_message = message }

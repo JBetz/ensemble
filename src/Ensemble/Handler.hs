@@ -21,9 +21,9 @@ handler server object = runM $ runError $ runLogWriter $ runReader server $
         Just (A.String messageType) -> 
             handleMessage messageType object
         Just _ -> 
-            throwError $ APIError "Invalid '@type' field" Nothing
+            throwError $ APIError "Invalid '@type' field"
         Nothing -> 
-            throwError $ APIError "Message is missing '@type' field" Nothing
+            throwError $ APIError "Message is missing '@type' field"
     where
         runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
         runLogWriter = interpret $ \case
@@ -39,10 +39,10 @@ receiveMessage server jsonMessage =
                 Right (A.Object outMessage) ->
                     A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
                 Right _ ->
-                    makeError extraValue $ APIError "Invalid JSON output, needs to be object" Nothing
+                    makeError extraValue $ APIError "Invalid JSON output, needs to be object"
                 Left errorMessage ->
                     makeError extraValue errorMessage
-        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object" Nothing
+        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object"
     where
         makeError extraValue apiError = 
             let A.Object errorJson = toTaggedJSON apiError

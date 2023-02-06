@@ -12,7 +12,8 @@ extra-doc-files:    CHANGELOG.md
 common base
     ghc-options: -Wall
     default-language: Haskell2010
-    default-extensions: DataKinds,
+    default-extensions: ConstraintKinds,
+                        DataKinds,
                         DeriveGeneric,
                         FlexibleContexts,
                         GADTs,

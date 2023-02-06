@@ -228,12 +228,6 @@ size (AudioOutput left right) = min (length left) (length right)
 sendOutputs :: EngineEffects effs => Engine -> CULong -> AudioOutput -> Eff effs () 
 sendOutputs engine frameCount audioOutput  = do
     let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-    let expectedSize = fromIntegral $ frameCount * 2
-    let actualSize = length output
-    when (actualSize < expectedSize) $
-        throwAPIError $ "Underflow error. Expected " <> show expectedSize <> " frames, got " <> show actualSize <> "."
-    when (actualSize > expectedSize) $
-        throwAPIError $ "Overflow error. Expected " <> show expectedSize <> " frames, got " <> show actualSize <> "."
     maybeStream <- sendM $ readIORef $ engine_audioStream engine
     case maybeStream of
         Just stream -> do 

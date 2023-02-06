@@ -44,7 +44,7 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ 
         runLogWriter = interpret $ \case
             Tell message -> 
                 case logFile (server_config server) of
-                    Just logFile -> sendM $ appendFile logFile message
+                    Just filePath -> sendM $ appendFile filePath message
                     Nothing -> pure ()
 -- Audio
 getAudioDevices :: Ensemble AudioDevices

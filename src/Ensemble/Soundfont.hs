@@ -36,7 +36,6 @@ data Soundfont = Soundfont
     { soundfont_id :: SoundfontId
     , soundfont_filePath :: FilePath 
     , soundfont_handle :: FluidSoundfont
-    , soundfont_presets :: [SoundfontPreset]
     } deriving (Show)
 
 type FluidSettings = Ptr C'fluid_settings_t
@@ -73,12 +72,10 @@ loadSoundfont player synth filePath resetPresets = do
     let library = soundfontPlayer_fluidSynthLibrary player
     soundfontId <- sfLoad library synth filePath resetPresets
     handle <- getSfontById library synth soundfontId
-    presets <- loadSoundfontPresets player handle
     let soundfont = Soundfont 
             { soundfont_id = SoundfontId soundfontId
             , soundfont_filePath = filePath
             , soundfont_handle = handle
-            , soundfont_presets = presets
             }
     modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
     pure soundfont

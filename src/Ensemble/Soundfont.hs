@@ -17,7 +17,6 @@ import Ensemble.Soundfont.FluidSynth.Foreign.Synth
 import Foreign.C.Types
 import Foreign.Marshal.Array
 import Foreign.Ptr
-import GHC.Stack
 
 newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
     deriving (Eq, Ord, Show)

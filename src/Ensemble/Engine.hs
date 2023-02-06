@@ -174,14 +174,8 @@ generateOutputs engine frameCount events = do
             traverse (\synth -> sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)) (soundfontInstrument_synth <$> soundfonts)
         Nothing -> pure mempty
     let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
-    tell $ "Soundfont wet left frame count: " <> show (length $ SF.soundfontOutput_wetChannelLeft soundfontOutput) <> "\n" <>
-           "Soundfont wet right frame count: " <> show (length $ SF.soundfontOutput_wetChannelRight soundfontOutput) <> "\n" <> 
-           "Soundfont dry left frame count: " <> show (length $ SF.soundfontOutput_dryChannelLeft soundfontOutput) <> "\n" <>
-           "Soundfont dry right frame count: " <> show (length $ SF.soundfontOutput_dryChannelRight soundfontOutput)
     pluginOutputs <- sendM $ CLAP.processAll clapHost
     let mixedOutput = mixSoundfontAndClapOutputs soundfontOutput  pluginOutputs
-    tell $ "Output left frame count: " <> show (length $ audioOutput_left mixedOutput) <> "\n" <>
-           "Output right frame count: " <> show (length $ audioOutput_right mixedOutput)
     pure mixedOutput
 
 data AudioOutput = AudioOutput
@@ -206,7 +200,7 @@ mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight
         , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
         }
 
-playAudio :: (LastMember IO effs, Member (Error APIError) effs, HasCallStack) => Engine -> AudioOutput -> Eff effs ()
+playAudio :: (LastMember IO effs, Members '[Writer String, Error APIError] effs, HasCallStack) => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
     maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
@@ -217,6 +211,7 @@ playAudio engine audioOutput = do
             case eitherChunkSize of
                 Right chunkSize -> do 
                     let (chunk, remaining) = takeChunk chunkSize output
+                    tell $ "Chunks requested: " <> show chunkSize <> ", chunks sending: " <> show (size chunk) <> ", chunks remaining: " <> show (size remaining)
                     sendOutputs engine (fromIntegral $ size chunk) chunk
                     unless (size remaining == 0) $ 
                         writeChunks stream remaining

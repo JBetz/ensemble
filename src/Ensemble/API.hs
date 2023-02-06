@@ -3,6 +3,8 @@ module Ensemble.API where
 import Clap.Host (PluginId (..))
 import qualified Clap.Library as CLAP
 import Clap.Interface.Plugin
+import Control.Concurrent
+import Control.Monad (void)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
@@ -33,6 +35,13 @@ type StartTick = Tick
 type EndTick = Tick
 
 type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
+
+runEnsemble :: Server -> Ensemble a -> IO (Either APIError a)
+runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ action
+    where
+        runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
+        runLogWriter = interpret $ \case
+            Tell message -> sendM $ putStrLn message
 
 -- Audio
 getAudioDevices :: Ensemble AudioDevices
@@ -91,9 +100,10 @@ scheduleEvent tick event = do
 
 playSequence :: StartTick -> Ensemble Ok
 playSequence startTick = do
+    server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    Sequencer.playSequence sequencer engine startTick
+    void $ sendM $ forkIO $ void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick
     pure Ok
 
 renderSequence :: StartTick -> EndTick -> Ensemble AudioOutput

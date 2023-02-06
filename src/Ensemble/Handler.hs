@@ -2,21 +2,19 @@
 
 module Ensemble.Handler where
 
-import Control.Monad.Freer
 import Control.Monad.Freer.Error
-import Control.Monad.Freer.Reader
-import Control.Monad.Freer.Writer
 import qualified Data.Aeson as A
 import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Maybe
+import Ensemble.API
 import Ensemble.Error
 import Ensemble.Schema (handleMessage)
 import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
 import Ensemble.Server
 
 handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
-handler server object = runM $ runError $ runLogWriter $ runReader server $
+handler server object = runEnsemble server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) -> 
             handleMessage messageType object
@@ -24,10 +22,6 @@ handler server object = runM $ runError $ runLogWriter $ runReader server $
             throwError $ APIError "Invalid '@type' field"
         Nothing -> 
             throwError $ APIError "Message is missing '@type' field"
-    where
-        runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
-        runLogWriter = interpret $ \case
-            Tell message -> sendM $ putStrLn message
 
 receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 

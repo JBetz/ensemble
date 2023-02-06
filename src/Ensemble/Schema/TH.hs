@@ -121,27 +121,40 @@ writeSchema types functions = do
     appendFile fileName "\n\n---functions---"
     traverse_ (appendFile fileName . (<>) "\n\n") functions 
 
-showType :: Type -> String
-showType = \case
+showResolvedType :: Type -> Q String
+showResolvedType type' = resolveTypeSynonyms type' >>= showType True
+
+showUnresolvedType :: Type -> Q String
+showUnresolvedType = showType False
+
+showType :: Bool -> Type -> Q String
+showType resolve = \case
     ConT name -> if
-        | nameBase name == "CFloat" -> "Float"
-        | otherwise -> nameBase name
-    TupleT 0 -> "Void"
+        | nameBase name == "CFloat" -> pure "Float"
+        | nameBase name == "String" -> pure "String"
+        | not resolve -> pure $ nameBase name
+        | otherwise -> do
+            typeInfo <- reifyDatatype name
+            if | datatypeVariant typeInfo == Newtype -> showType resolve $ head (constructorFields (head (datatypeCons typeInfo)))
+               | otherwise -> pure $ nameBase name
+    TupleT 0 -> pure "Void"
     AppT ListT itemType -> if
-        | itemType == ConT ''Char -> "String"
-        | otherwise -> "vector<" <> showType itemType <> ">" 
+        | itemType == ConT ''Char -> pure "String"
+        | otherwise ->  do
+            itemTypeString <- showType resolve itemType
+            pure $ "vector<" <> itemTypeString <> ">" 
     AppT (ConT name) innerType -> if
-        | name == ''Ensemble -> showType innerType
-        | name == ''Ptr -> "Void" 
-        | name == ''Maybe -> showType innerType
+        | name == ''Ensemble -> showType resolve innerType
+        | name == ''Ptr -> pure "Void" 
+        | name == ''Maybe -> showType resolve innerType
         | otherwise -> error $ "Unrepresentable higher order type: " <> show name
     other -> error $ "Unrepresentable type: " <> show other
 
-showField :: (Name, Type) -> String
-showField (fieldName, fieldType) =
+showField :: (Name, Type) -> Q String
+showField (fieldName, fieldType) = do
     let nameString =  last (split '_' (last (split '.' $ show fieldName)))
-        typeString = showType fieldType
-   in nameString <> ":" <> typeString
+    typeString <- showResolvedType fieldType
+    pure $ nameString <> ":" <> typeString
 
 getArgumentTypes :: Type -> [Type]
 getArgumentTypes = \case
@@ -151,15 +164,18 @@ getArgumentTypes = \case
 showFunctionType :: Type -> Q String
 showFunctionType functionType = 
     case getArgumentTypes functionType of
-        [returnType] -> pure $  "= " <> showType returnType
+        [returnType] -> do
+            returnTypeString <- showUnresolvedType returnType
+            pure $ "= " <> returnTypeString
         types -> do
-            let returnType = showType (last types)
+            returnTypeString <- showUnresolvedType (last types)
             arguments <- foldlM (\acc currentType -> do
-                resolvedType <- resolveTypeSynonyms currentType
-                pure $ acc <> uncapitalise (showType currentType) <> ":" <> showType resolvedType <> " ") 
+                currentTypeString <- showUnresolvedType currentType
+                resolvedTypeString <- showResolvedType currentType
+                pure $ acc <> uncapitalise currentTypeString <> ":" <> resolvedTypeString <> " ") 
                 "" 
                 (init types) 
-            pure $ arguments <> "= " <> returnType
+            pure $ arguments <> "= " <> returnTypeString
 
 generateTypeDefinition :: Name -> Q [String]
 generateTypeDefinition typeName = do
@@ -169,20 +185,27 @@ generateTypeDefinition typeName = do
         case constructorVariant constructorInfo of
             RecordConstructor fieldNames -> do
                 let fields = zip fieldNames (constructorFields constructorInfo)
-                pure $ foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> "= " <> nameBase typeName <> ";"                    
+                fieldsString <- foldlM (\acc field -> do
+                    fieldString <- showField field
+                    pure $ acc <> fieldString <> " ") (name <> " ") fields
+                pure $ fieldsString <> "= " <> nameBase typeName <> ";"                    
             _ ->
                 case constructorFields constructorInfo of
                     [] -> pure $ name <> " = " <> nameBase typeName <> ";"                    
                     [ConT singleField] -> do
                         fieldInfo <- reifyDatatype singleField
-                        pure $ case datatypeCons fieldInfo of
+                        case datatypeCons fieldInfo of
                             [subConstructorInfo] -> 
                                 case constructorVariant subConstructorInfo of
-                                    RecordConstructor fieldNames ->
+                                    RecordConstructor fieldNames -> do
                                         let fields = zip fieldNames (constructorFields subConstructorInfo)
-                                        in foldl (\acc field -> acc <> showField field <> " ") (name <> " ") fields <> " = " <> nameBase typeName <> ";"
-                                    _ ->
-                                        name <> " value:" <> showType (ConT singleField) <> " = " <> nameBase typeName <> ";" 
+                                        fieldsString <- foldlM (\acc field -> do
+                                            fieldString <- showField field
+                                            pure $ acc <> fieldString <> " ") (name <> " ") fields
+                                        pure $ fieldsString <> " = " <> nameBase typeName <> ";"
+                                    _ -> do
+                                        typeString <- showResolvedType (ConT singleField)
+                                        pure $ name <> " value:" <> typeString  <> " = " <> nameBase typeName <> ";" 
                             _ -> error $ "Invalid constructor field: " <> show constructorInfo
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo
@@ -227,20 +250,22 @@ makeHandleMessage functionNames = do
 makeCase :: Name -> Name -> Q Match 
 makeCase objectName functionName = do
     info <- reify functionName
-    pure $ case info of
-        VarI _ functionType _ ->
+    case info of
+        VarI _ functionType _ -> do
             let argumentTypes = init $ getArgumentTypes functionType
-                makeLookupStatement argumentType =
-                    let argumentName = uncapitalise (showType argumentType)
+                makeLookupStatement argumentType = do
+                    argumentTypeString <- showUnresolvedType argumentType
+                    let argumentName = uncapitalise argumentTypeString
                         lookupExpression = multiAppE (VarE 'lookupField) [LitE (StringL argumentName), VarE objectName]
-                    in BindS (VarP $ mkName argumentName) lookupExpression
-                lookupStatements = makeLookupStatement <$> argumentTypes
-                resultName = mkName "result"
-                callStatement = BindS (VarP resultName) (multiAppE (VarE functionName) $ VarE . mkName . uncapitalise . showType <$> argumentTypes)
+                    pure $ BindS (VarP $ mkName argumentName) lookupExpression
+            lookupStatements <- traverse makeLookupStatement argumentTypes
+            let resultName = mkName "result"
+            argumentTypeStrings <- traverse showUnresolvedType argumentTypes 
+            let callStatement = BindS (VarP resultName) (multiAppE (VarE functionName) $ VarE . mkName . uncapitalise <$> argumentTypeStrings)
                 returnStatement = NoBindS $ AppE (VarE 'pure) (AppE (VarE 'toTaggedJSON) (VarE resultName))
                 statements = lookupStatements <> [callStatement, returnStatement]
                 body = NormalB $ DoE Nothing statements
-            in Match (LitP $ StringL $ nameBase functionName) body []
+            pure $ Match (LitP $ StringL $ nameBase functionName) body []
         _ -> error $ "Invalid function: " <> show functionName
 
 lookupField :: (A.FromJSON a, Member (Error APIError) effs) => A.Key -> KeyMap A.Value -> Eff effs a

@@ -1,5 +1,7 @@
 module Ensemble.API where
 
+import Prelude hiding (FilePath)
+
 import Clap.Host (PluginId (..))
 import qualified Clap.Library as CLAP
 import Clap.Interface.Plugin
@@ -24,16 +26,17 @@ import Ensemble.Soundfont
 
 data Ok = Ok
 
-newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [FilePath] }
+newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [String] }
 newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
 newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
 newtype AudioDevices = AudioDevices { audioDevices_audioDevices :: [AudioDevice] }
 newtype Instruments = Instruments { instruments_instruments :: [Instrument] }
 
-type FilePaths = [FilePath]
-type PluginIndex = Int
-type StartTick = Tick
-type EndTick = Tick
+newtype FilePaths = FilePaths [String]
+newtype PluginIndex = PluginIndex Int
+newtype StartTick = StartTick Tick
+newtype EndTick = EndTick Tick
+newtype FilePath = FilePath String
 
 type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
 
@@ -77,24 +80,24 @@ getClapPluginLocations =
     sendM $ PluginLocations <$> CLAP.pluginLibraryPaths 
 
 scanForClapPlugins :: FilePaths -> Ensemble PluginDescriptors
-scanForClapPlugins filePaths = 
+scanForClapPlugins (FilePaths filePaths) = 
     sendM $ PluginDescriptors <$> CLAP.scanForPluginsIn filePaths
 
 loadClapPlugin :: FilePath -> PluginIndex -> Ensemble Ok
-loadClapPlugin filePath index = do
+loadClapPlugin (FilePath filePath) (PluginIndex index) = do
     engine <- asks server_engine
     sendM $ Engine.loadPlugin engine $ PluginId filePath index
     pure Ok
 
 -- Soundfont
 initializeSoundfontPlayer :: FilePath -> Ensemble Ok
-initializeSoundfontPlayer filePath = do
+initializeSoundfontPlayer (FilePath filePath) = do
    engine <- asks server_engine
    sendM $ Engine.initializeSoundfontPlayer engine filePath
    pure Ok
 
 createSoundfontInstrument :: FilePath -> Ensemble InstrumentInfo
-createSoundfontInstrument filePath = do
+createSoundfontInstrument (FilePath filePath) = do
     engine <- asks server_engine
     Engine.createSoundfontInstrument engine filePath
 
@@ -106,7 +109,7 @@ scheduleEvent tick event = do
     pure Ok
 
 playSequence :: StartTick -> Ensemble Ok
-playSequence startTick = do
+playSequence (StartTick startTick) = do
     server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
@@ -114,7 +117,7 @@ playSequence startTick = do
     pure Ok
 
 renderSequence :: StartTick -> EndTick -> Ensemble AudioOutput
-renderSequence startTick endTick = do
+renderSequence (StartTick startTick) (EndTick endTick) = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
     Sequencer.render sequencer engine startTick endTick

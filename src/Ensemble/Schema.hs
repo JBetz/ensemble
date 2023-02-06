@@ -4,6 +4,8 @@
 
 module Ensemble.Schema where
 
+import Prelude hiding (FilePath)
+
 import qualified Clap.Host as Clap
 import qualified Clap.Interface.Id as Clap
 import qualified Clap.Interface.Events as Clap
@@ -34,6 +36,11 @@ deriveJSONs
     , ''APIError
     , ''PluginLocations
     , ''PluginDescriptors
+    , ''FilePaths
+    , ''PluginIndex
+    , ''StartTick
+    , ''EndTick
+    , ''FilePath
     , ''SoundfontPresets
     , ''AudioDevice
     , ''AudioDevices
@@ -88,15 +95,11 @@ makeAPI
     , ''PluginDescriptors
     , ''SoundfontPresets
     , ''Instruments
-    , ''Tick
     , ''AudioDevice
     , ''AudioDevices
     , ''AudioOutput
-    , ''InstrumentId
     , ''InstrumentInfo
     , ''Instrument
-    , ''Clap.ClapId
-    , ''Clap.ParamId
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
@@ -108,7 +111,6 @@ makeAPI
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
     , ''Soundfont.Soundfont
-    , ''Soundfont.SoundfontId
     , ''Soundfont.SoundfontPreset
     , ''SequencerEvent
     ]

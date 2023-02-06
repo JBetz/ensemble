@@ -4,7 +4,7 @@ ok = Ok;
 
 aPIError message:String = APIError;
 
-pluginLocations filePaths:vector<FilePath> = PluginLocations;
+pluginLocations filePaths:vector<String> = PluginLocations;
 
 pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
 
@@ -12,27 +12,19 @@ soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
 
 instruments instruments:vector<Instrument> = Instruments;
 
-tick value:Int = Tick;
-
 audioDevice index:Int name:String = AudioDevice;
 
 audioDevices audioDevices:vector<AudioDevice> = AudioDevices;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
-instrumentId id:Int = InstrumentId;
+instrumentInfo id:Int instrument:Instrument = InstrumentInfo;
 
-instrumentInfo id:InstrumentId instrument:Instrument = InstrumentInfo;
-
-instrumentSoundfont soundfont:Soundfont settings:FluidSettings synth:FluidSynth  = Instrument;
+instrumentSoundfont soundfont:Soundfont settings:Void synth:Void  = Instrument;
 
 instrumentClap pluginId:PluginId  = Instrument;
 
-clapId id:Int = ClapId;
-
-paramId id:Int = ParamId;
-
-pluginId filePath:FilePath index:Int = PluginId;
+pluginId filePath:String index:Int = PluginId;
 
 clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
 
@@ -88,15 +80,15 @@ clapEventNoteEnd noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = ClapEve
 
 clapEventNoteExpression noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression  = ClapEvent;
 
-clapEventParamValue paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = ClapEvent;
+clapEventParamValue paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = ClapEvent;
 
-clapEventParamMod paramId:ParamId cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = ClapEvent;
+clapEventParamMod paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = ClapEvent;
 
-clapEventParamGestureBegin paramId:ParamId  = ClapEvent;
+clapEventParamGestureBegin paramId:Int  = ClapEvent;
 
-clapEventParamGestureEnd paramId:ParamId  = ClapEvent;
+clapEventParamGestureEnd paramId:Int  = ClapEvent;
 
-clapEventTransport flags:vector<TransportFlag> songPositionBeats:BeatTime songPositionSeconds:SecondsTime tempo:Double tempoIncrement:Double loopStartBeats:BeatTime loopEndBeats:BeatTime loopStartSeconds:SecondsTime loopEndSeconds:SecondsTime barStart:BeatTime barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = ClapEvent;
+clapEventTransport flags:vector<TransportFlag> songPositionBeats:Word64 songPositionSeconds:Word64 tempo:Double tempoIncrement:Double loopStartBeats:Word64 loopEndBeats:Word64 loopStartSeconds:Word64 loopEndSeconds:Word64 barStart:Word64 barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = ClapEvent;
 
 clapEventMidi portIndex:Word16 data:MidiData  = ClapEvent;
 
@@ -104,13 +96,11 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-soundfont id:SoundfontId filePath:FilePath handle:FluidSoundfont = Soundfont;
-
-soundfontId id:Int = SoundfontId;
+soundfont id:Int filePath:String handle:Void = Soundfont;
 
 soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
 
-sequencerEvent instrumentId:InstrumentId eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
+sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
 
 ---functions---
 
@@ -132,11 +122,11 @@ initializeSoundfontPlayer filePath:String = Ok;
 
 createSoundfontInstrument filePath:String = InstrumentInfo;
 
-scheduleEvent tick:Tick sequencerEvent:SequencerEvent = Ok;
+scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 
-playSequence startTick:Tick = Ok;
+playSequence startTick:Int = Ok;
 
-renderSequence startTick:Tick endTick:Tick = AudioOutput;
+renderSequence startTick:Int endTick:Int = AudioOutput;
 
 clearSequence = Ok;
 

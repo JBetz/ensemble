@@ -8,6 +8,7 @@ import Clap.Interface.Plugin
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
+import Control.Monad.Freer.Writer
 import Data.IORef
 import qualified Data.Map as Map
 import Ensemble.Engine (AudioDevice, AudioOutput)
@@ -33,7 +34,7 @@ type PluginIndex = Int
 type StartTick = Tick
 type EndTick = Tick
 
-type Ensemble = Eff '[Reader Server, Error APIError, IO]
+type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
 
 -- Audio
 getAudioDevices :: Ensemble AudioDevices

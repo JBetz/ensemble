@@ -7,6 +7,7 @@ module Ensemble.Sequencer where
 
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
+import Control.Monad.Freer.Writer
 import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
@@ -37,7 +38,7 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Eff effs ()
+playSequence :: (LastMember IO effs, Members '[Writer String, Error APIError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 playSequence sequencer engine startTick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- sendM $ getEndTick sequencer
@@ -68,7 +69,7 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-render :: (LastMember IO effs, Member (Error APIError) effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
+render :: (Members '[Writer String, Error APIError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
     renderEvents 0 (groupEvents events)
@@ -76,6 +77,10 @@ render sequencer engine startTick endTick = do
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
+                tell $ "renderEvents:\n\t" <> 
+                    show frameCount <> " (frame count)\n\t" <> 
+                    show currentTick <> " (current tick)\n\t" <> 
+                    show (length events) <> " (number of events)"
                 chunk <- generateOutputs engine (floor frameCount) events
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ mixAudioOutputs (floor frameCount) [chunk, remaining]

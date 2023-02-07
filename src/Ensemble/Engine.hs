@@ -25,6 +25,7 @@ import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
 import qualified Ensemble.Soundfont as SF
+import Ensemble.Soundfont.FluidSynth.Library (FluidSynthLibrary, openFluidSynthLibrary)
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -39,7 +40,7 @@ import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    , engine_soundfontPlayer :: IORef (Maybe SF.SoundfontPlayer)
+    , ending_fluidSynthLibrary :: IORef (Maybe FluidSynthLibrary)
     , engine_instruments :: IORef (Map InstrumentId Instrument)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
@@ -69,7 +70,7 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
-        , engine_soundfontPlayer = soundfontPlayer
+        , ending_fluidSynthLibrary = soundfontPlayer
         , engine_instruments = instruments
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
@@ -163,7 +164,7 @@ getSoundfontInstruments engine = do
 
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
-    maybeSoundfontPlayer <- sendM $ readIORef $ engine_soundfontPlayer engine 
+    maybeSoundfontPlayer <- sendM $ readIORef $ ending_fluidSynthLibrary engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- sendM $ readIORef (engine_steadyTime engine)
     sendM $ CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
@@ -264,10 +265,7 @@ createSoundfontInstrument engine filePath = do
     player <- getSoundfontPlayer engine
     settings <- sendM $ SF.createSettings player
     synth <- sendM $ SF.createSynth player settings
-    maybeSoundfont <- sendM $ SF.lookupSoundfont player filePath
-    soundfont <- case maybeSoundfont of
-        Just soundfont -> pure soundfont
-        Nothing -> sendM $ SF.loadSoundfont player synth filePath True
+    soundfont <- sendM $ SF.loadSoundfont player synth filePath True
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_settings = settings
@@ -285,18 +283,17 @@ addInstrument engine instrument =
         let newId = InstrumentId $ Map.size instruments 
         in (Map.insert newId instrument instruments, newId)
 
-getSoundfontPlayer :: EngineEffects effs => Engine -> Eff effs SF.SoundfontPlayer
+getSoundfontPlayer :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary
 getSoundfontPlayer engine = do
-    maybePlayer <- sendM $ readIORef $ engine_soundfontPlayer engine
+    maybePlayer <- sendM $ readIORef $ ending_fluidSynthLibrary engine
     case maybePlayer of 
         Just player -> pure player
         Nothing -> throwAPIError "Soundfont player not initialized"
                         
 initializeSoundfontPlayer :: Engine -> FilePath -> IO ()
 initializeSoundfontPlayer engine path = do
-    player <- SF.createSoundfontPlayer path
-    writeIORef (engine_soundfontPlayer engine) (Just player)    
-
+    fluidSynthLibrary <- openFluidSynthLibrary path
+    writeIORef (ending_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 
 loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =
@@ -304,7 +301,7 @@ loadPlugin engine =
 
 stopInstruments :: Engine -> IO ()
 stopInstruments engine = do
-    maybePlayer <- readIORef $ engine_soundfontPlayer engine
+    maybePlayer <- readIORef $ ending_fluidSynthLibrary engine
     case maybePlayer of
         Just player -> do
             soundfontInstruments <- getSoundfontInstruments engine

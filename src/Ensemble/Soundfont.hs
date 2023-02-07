@@ -6,9 +6,6 @@ module Ensemble.Soundfont where
 import Clap.Interface.Events
 import Data.Foldable (traverse_)
 import Data.IORef
-import Data.List (find)
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Control.Monad.Extra (whileM)
 import Ensemble.Soundfont.FluidSynth.Library as FS
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
@@ -20,11 +17,6 @@ import Foreign.Ptr
 
 newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
     deriving (Eq, Ord, Show)
-
-data SoundfontPlayer = SoundfontPlayer
-    { soundfontPlayer_fluidSynthLibrary :: FluidSynthLibrary
-    , soundfontPlayer_soundfonts :: IORef (Map SoundfontId Soundfont)
-    }
 
 data SoundfontPreset = SoundfontPreset
     { soundfontPreset_name :: String
@@ -43,51 +35,30 @@ type FluidSynth = Ptr C'fluid_synth_t
 type FluidSoundfont = Ptr C'fluid_sfont_t
 type FluidPreset = Ptr C'fluid_preset_t
 
-createSoundfontPlayer :: FilePath -> IO SoundfontPlayer
-createSoundfontPlayer filePath = do
-    library <- openFluidSynthLibrary filePath
-    soundfonts <- newIORef mempty
-    pure $ SoundfontPlayer
-        { soundfontPlayer_fluidSynthLibrary = library
-        , soundfontPlayer_soundfonts = soundfonts
-        }
-
-createSettings :: SoundfontPlayer -> IO FluidSettings 
-createSettings player = do
-    let library = soundfontPlayer_fluidSynthLibrary player
+createSettings :: FluidSynthLibrary -> IO FluidSettings 
+createSettings library = do
+    
     newFluidSettings library
 
-createSynth :: SoundfontPlayer -> FluidSettings -> IO FluidSynth
-createSynth player settings = do
-    let library = soundfontPlayer_fluidSynthLibrary player
+createSynth :: FluidSynthLibrary -> FluidSettings -> IO FluidSynth
+createSynth library settings = do
+    
     newFluidSynth library settings
 
-lookupSoundfont :: SoundfontPlayer -> FilePath -> IO (Maybe Soundfont)
-lookupSoundfont player filePath = do
-    soundfonts <- readIORef $ soundfontPlayer_soundfonts player
-    pure $ find (\soundfont -> soundfont_filePath soundfont == filePath) soundfonts
-
-loadSoundfont :: SoundfontPlayer -> FluidSynth -> FilePath -> Bool -> IO Soundfont
-loadSoundfont player synth filePath resetPresets = do
-    let library = soundfontPlayer_fluidSynthLibrary player
+loadSoundfont :: FluidSynthLibrary -> FluidSynth -> FilePath -> Bool -> IO Soundfont
+loadSoundfont library synth filePath resetPresets = do
+    
     soundfontId <- sfLoad library synth filePath resetPresets
     handle <- getSfontById library synth soundfontId
-    let soundfont = Soundfont 
-            { soundfont_id = SoundfontId soundfontId
-            , soundfont_filePath = filePath
-            , soundfont_handle = handle
-            }
-    modifyIORef' (soundfontPlayer_soundfonts player) $ Map.insert (soundfont_id soundfont) soundfont 
-    pure soundfont
+    pure $  Soundfont 
+        { soundfont_id = SoundfontId soundfontId
+        , soundfont_filePath = filePath
+        , soundfont_handle = handle
+        }
 
-getSoundfont :: SoundfontPlayer -> SoundfontId -> IO (Maybe Soundfont)
-getSoundfont player soundfontId = do
-    soundfonts <- readIORef (soundfontPlayer_soundfonts player)
-    pure $ Map.lookup soundfontId soundfonts
-
-loadSoundfontPresets :: SoundfontPlayer -> FluidSoundfont -> IO [SoundfontPreset]
-loadSoundfontPresets player soundfontHandle = do
-    let library = soundfontPlayer_fluidSynthLibrary player
+loadSoundfontPresets :: FluidSynthLibrary -> FluidSoundfont -> IO [SoundfontPreset]
+loadSoundfontPresets library soundfontHandle = do
+    
     sfontIterationStart library soundfontHandle
     presetsVar <- newIORef mempty
     first <- sfontIterationNext library soundfontHandle
@@ -106,7 +77,7 @@ loadSoundfontPresets player soundfontHandle = do
     where 
         createPreset :: Ptr C'fluid_preset_t -> IO SoundfontPreset
         createPreset presetPtr = do
-            let library = soundfontPlayer_fluidSynthLibrary player
+            
             name <- presetGetName library presetPtr
             bankNumber <- presetGetBankNum library presetPtr
             instrumentNumber <- presetGetNum library presetPtr
@@ -117,12 +88,10 @@ loadSoundfontPresets player soundfontHandle = do
                 }
 
 
-processEvent :: SoundfontPlayer -> FluidSynth -> ClapEvent -> IO ()
-processEvent player synth = \case
+processEvent :: FluidSynthLibrary -> FluidSynth -> ClapEvent -> IO ()
+processEvent library synth = \case
     ClapEvent_NoteOn event -> noteOn library synth (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
     ClapEvent_NoteOff event -> noteOff library synth (noteEvent_channel event) (noteEvent_key event)
-    where
-        library = soundfontPlayer_fluidSynthLibrary player
 
 data SoundfontOutput = SoundfontOutput
     { soundfontOutput_wetChannelLeft :: [CFloat]
@@ -142,8 +111,8 @@ mixSoundfontOutputs frameCount outputs = SoundfontOutput
         zeroBuffer = take frameCount $ repeat 0
         mix selector = foldl (\acc cur -> zipWith (+) acc cur) zeroBuffer (selector <$> outputs) 
 
-process :: SoundfontPlayer -> FluidSynth -> Int -> IO SoundfontOutput
-process player synth frameCount = do
+process :: FluidSynthLibrary -> FluidSynth -> Int -> IO SoundfontOutput
+process library synth frameCount = do
     let wetChannelCount = 2
     wetLeft <- newArray $ replicate frameCount 0
     wetRight <- newArray $ replicate frameCount 0
@@ -153,7 +122,7 @@ process player synth frameCount = do
     dryRight <- newArray $ replicate frameCount 0
     dryBuffers <- newArray [dryLeft, dryRight]
     _ <- FS.process 
-        (soundfontPlayer_fluidSynthLibrary player) synth 
+        library synth 
         (fromIntegral frameCount) 
         (fromIntegral wetChannelCount) wetBuffers 
         (fromIntegral dryChannelCount) dryBuffers
@@ -168,7 +137,6 @@ process player synth frameCount = do
         , soundfontOutput_dryChannelRight = dryChannelRight
         }
 
-allSynthsOff :: SoundfontPlayer -> [FluidSynth] -> IO ()
-allSynthsOff player synths = do
-    let library = soundfontPlayer_fluidSynthLibrary player
+allSynthsOff :: FluidSynthLibrary -> [FluidSynth] -> IO ()
+allSynthsOff library synths =
     traverse_ (\synth -> allNotesOff library synth (-1)) synths

@@ -265,7 +265,8 @@ createSoundfontInstrument engine filePath bankNumber programNumber = do
     settings <- sendM $ SF.createSettings library
     synth <- sendM $ SF.createSynth library settings
     soundfont <- sendM $ SF.loadSoundfont library synth filePath True
-    sendM $ FS.programSelect library synth (fromIntegral $ SF.soundfontId_id $ SF.soundfont_id soundfont) 0 (fromIntegral bankNumber) (fromIntegral programNumber)
+    let soundfontId = SF.soundfont_id soundfont
+    sendM $ FS.programSelect library synth 0 (fromIntegral $ SF.soundfontId_id soundfontId) (fromIntegral bankNumber) (fromIntegral programNumber)
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_settings = settings

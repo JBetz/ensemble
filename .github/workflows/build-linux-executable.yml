@@ -1,7 +1,7 @@
 name: Build Linux executable
 
 on:
-  workflow-dispatch:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:

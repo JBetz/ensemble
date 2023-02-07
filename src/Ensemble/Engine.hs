@@ -290,8 +290,8 @@ getSoundfontPlayer engine = do
         Just player -> pure player
         Nothing -> throwAPIError "Soundfont player not initialized"
                         
-initializeSoundfontPlayer :: Engine -> FilePath -> IO ()
-initializeSoundfontPlayer engine path = do
+loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
+loadFluidSynthLibrary engine path = do
     fluidSynthLibrary <- openFluidSynthLibrary path
     writeIORef (ending_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 

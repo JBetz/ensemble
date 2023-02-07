@@ -90,10 +90,10 @@ loadClapPlugin (FilePath filePath) (PluginIndex index) = do
     pure Ok
 
 -- Soundfont
-initializeSoundfontPlayer :: FilePath -> Ensemble Ok
-initializeSoundfontPlayer (FilePath filePath) = do
+loadFluidSynthLibrary :: FilePath -> Ensemble Ok
+loadFluidSynthLibrary (FilePath filePath) = do
    engine <- asks server_engine
-   sendM $ Engine.initializeSoundfontPlayer engine filePath
+   sendM $ Engine.loadFluidSynthLibrary engine filePath
    pure Ok
 
 createSoundfontInstrument :: FilePath -> Ensemble InstrumentInfo

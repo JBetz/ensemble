@@ -118,7 +118,7 @@ scanForClapPlugins filePaths:vector<String> = PluginDescriptors;
 
 loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
-initializeSoundfontPlayer filePath:String = Ok;
+loadFluidSynthLibrary filePath:String = Ok;
 
 createSoundfontInstrument filePath:String = InstrumentInfo;
 

@@ -122,7 +122,7 @@ makeAPI
     , 'getClapPluginLocations
     , 'scanForClapPlugins
     , 'loadClapPlugin
-    , 'initializeSoundfontPlayer
+    , 'loadFluidSynthLibrary
     , 'createSoundfontInstrument
     , 'scheduleEvent
     , 'playSequence

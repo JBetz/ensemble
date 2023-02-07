@@ -41,6 +41,8 @@ deriveJSONs
     , ''StartTick
     , ''EndTick
     , ''FilePath
+    , ''BankNumber
+    , ''ProgramNumber
     , ''SoundfontPresets
     , ''AudioDevice
     , ''AudioDevices

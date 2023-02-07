@@ -25,7 +25,8 @@ import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
 import qualified Ensemble.Soundfont as SF
-import Ensemble.Soundfont.FluidSynth.Library (FluidSynthLibrary, openFluidSynthLibrary)
+import Ensemble.Soundfont.FluidSynth.Library (FluidSynthLibrary)
+import qualified Ensemble.Soundfont.FluidSynth.Library as FS
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -258,12 +259,13 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentInfo
-createSoundfontInstrument engine filePath = do
-    player <- getSoundfontPlayer engine
-    settings <- sendM $ SF.createSettings player
-    synth <- sendM $ SF.createSynth player settings
-    soundfont <- sendM $ SF.loadSoundfont player synth filePath True
+createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Int -> Int -> Eff effs InstrumentInfo
+createSoundfontInstrument engine filePath bankNumber programNumber = do
+    library <- getFluidSynthLibrary engine
+    settings <- sendM $ SF.createSettings library
+    synth <- sendM $ SF.createSynth library settings
+    soundfont <- sendM $ SF.loadSoundfont library synth filePath True
+    sendM $ FS.programSelect library synth (fromIntegral $ SF.soundfontId_id $ SF.soundfont_id soundfont) 0 (fromIntegral bankNumber) (fromIntegral programNumber)
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_settings = settings
@@ -281,16 +283,16 @@ addInstrument engine instrument =
         let newId = InstrumentId $ Map.size instruments 
         in (Map.insert newId instrument instruments, newId)
 
-getSoundfontPlayer :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary
-getSoundfontPlayer engine = do
-    maybePlayer <- sendM $ readIORef $ ending_fluidSynthLibrary engine
-    case maybePlayer of 
-        Just player -> pure player
-        Nothing -> throwAPIError "Soundfont player not initialized"
+getFluidSynthLibrary :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary
+getFluidSynthLibrary engine = do
+    maybeLibrary <- sendM $ readIORef $ ending_fluidSynthLibrary engine
+    case maybeLibrary of 
+        Just library -> pure library
+        Nothing -> throwAPIError "FluidSynth DLL not loaded"
                         
 loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
 loadFluidSynthLibrary engine path = do
-    fluidSynthLibrary <- openFluidSynthLibrary path
+    fluidSynthLibrary <- FS.openFluidSynthLibrary path
     writeIORef (ending_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 
 loadPlugin :: Engine -> PluginId -> IO ()

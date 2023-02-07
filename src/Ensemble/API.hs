@@ -38,6 +38,8 @@ newtype PluginIndex = PluginIndex Int
 newtype StartTick = StartTick Tick
 newtype EndTick = EndTick Tick
 newtype FilePath = FilePath String
+newtype BankNumber = BankNumber Int
+newtype ProgramNumber = ProgramNumber Int
 
 type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
 
@@ -97,10 +99,10 @@ loadFluidSynthLibrary (FilePath filePath) = do
    sendM $ Engine.loadFluidSynthLibrary engine filePath
    pure Ok
 
-createSoundfontInstrument :: FilePath -> Ensemble InstrumentInfo
-createSoundfontInstrument (FilePath filePath) = do
+createSoundfontInstrument :: FilePath -> BankNumber -> ProgramNumber -> Ensemble InstrumentInfo
+createSoundfontInstrument (FilePath filePath) (BankNumber bank) (ProgramNumber program) = do
     engine <- asks server_engine
-    Engine.createSoundfontInstrument engine filePath
+    Engine.createSoundfontInstrument engine filePath bank program
 
 -- Sequencer
 scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok

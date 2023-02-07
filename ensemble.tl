@@ -110,7 +110,7 @@ loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
 loadFluidSynthLibrary filePath:String = Ok;
 
-createSoundfontInstrument filePath:String = InstrumentInfo;
+createSoundfontInstrument filePath:String bankNumber:Int programNumber:Int = InstrumentInfo;
 
 scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 

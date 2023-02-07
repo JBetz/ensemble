@@ -91,12 +91,7 @@ makeAPI
     -- types
     [ ''Ok
     , ''APIError
-    , ''PluginLocations
-    , ''PluginDescriptors
-    , ''SoundfontPresets
-    , ''Instruments
     , ''AudioDevice
-    , ''AudioDevices
     , ''AudioOutput
     , ''InstrumentInfo
     , ''Instrument

@@ -206,7 +206,7 @@ generateTypeDefinition typeName = do
                                     _ -> do
                                         typeString <- showResolvedType (ConT singleField)
                                         pure $ name <> " value:" <> typeString  <> " = " <> nameBase typeName <> ";" 
-                            _ -> error $ "Invalid constructor field: " <> show constructorInfo
+                            _ -> error $ "Invalid constructor field: " <> show fieldInfo
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo
 

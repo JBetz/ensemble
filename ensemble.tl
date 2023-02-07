@@ -4,17 +4,7 @@ ok = Ok;
 
 aPIError message:String = APIError;
 
-pluginLocations filePaths:vector<String> = PluginLocations;
-
-pluginDescriptors descriptors:vector<PluginDescriptor> = PluginDescriptors;
-
-soundfontPresets presets:vector<SoundfontPreset> = SoundfontPresets;
-
-instruments instruments:vector<Instrument> = Instruments;
-
 audioDevice index:Int name:String = AudioDevice;
-
-audioDevices audioDevices:vector<AudioDevice> = AudioDevices;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 

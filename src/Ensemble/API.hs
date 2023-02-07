@@ -26,12 +26,13 @@ import Ensemble.Soundfont
 
 data Ok = Ok
 
-newtype PluginLocations = PluginLocations { pluginLocations_filePaths :: [String] }
-newtype PluginDescriptors = PluginDescriptors { pluginDescriptors_descriptors :: [PluginDescriptor] }
-newtype SoundfontPresets = SoundfontPresets { sounfontPresets_presets :: [SoundfontPreset] }
-newtype AudioDevices = AudioDevices { audioDevices_audioDevices :: [AudioDevice] }
-newtype Instruments = Instruments { instruments_instruments :: [Instrument] }
-
+-- Newtypes for generating argument names in TL schema.
+-- TODO: Use type-level string instead?
+newtype PluginLocations = PluginLocations [String]
+newtype PluginDescriptors = PluginDescriptors [PluginDescriptor]
+newtype SoundfontPresets = SoundfontPresets [SoundfontPreset]
+newtype AudioDevices = AudioDevices [AudioDevice]
+newtype Instruments = Instruments [Instrument]
 newtype FilePaths = FilePaths [String]
 newtype PluginIndex = PluginIndex Int
 newtype StartTick = StartTick Tick

@@ -3,9 +3,9 @@ name: Build Windows executable
 on: 
   workflow_dispatch:
   push:
-    branches: [ "release" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "release" ]
+    branches: [ "main" ]
 
 permissions:
   contents: read

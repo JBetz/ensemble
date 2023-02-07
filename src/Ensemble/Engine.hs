@@ -173,10 +173,8 @@ generateOutputs engine frameCount events = do
         case instrument of
             Instrument_Soundfont (SoundfontInstrument _ _ synth) -> 
                 case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> do
-                        tell $ show synth <> "\t" <> show event
-                        sendM $ SF.processEvent soundfontPlayer synth event
-                    Nothing -> throwAPIError "Attempting to play Soundfont instrument before initializing FluidSynth"
+                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
+                    Nothing -> throwAPIError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
     soundfontOutputs <- case maybeSoundfontPlayer of

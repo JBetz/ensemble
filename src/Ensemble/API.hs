@@ -1,6 +1,6 @@
-module Ensemble.API where
+{-# LANGUAGE KindSignatures #-}
 
-import Prelude hiding (FilePath)
+module Ensemble.API where
 
 import Clap.Host (PluginId (..))
 import qualified Clap.Library as CLAP
@@ -13,6 +13,7 @@ import Control.Monad.Freer.Reader
 import Control.Monad.Freer.Writer
 import Data.IORef
 import qualified Data.Map as Map
+import Data.Text (Text, unpack, pack)
 import Ensemble.Config
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
@@ -22,24 +23,11 @@ import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
-import Ensemble.Soundfont
+import GHC.TypeLits
 
 data Ok = Ok
 
--- Newtypes for generating argument names in TL schema.
--- TODO: Use type-level string instead?
-newtype PluginLocations = PluginLocations [String]
-newtype PluginDescriptors = PluginDescriptors [PluginDescriptor]
-newtype SoundfontPresets = SoundfontPresets [SoundfontPreset]
-newtype AudioDevices = AudioDevices [AudioDevice]
-newtype Instruments = Instruments [Instrument]
-newtype FilePaths = FilePaths [String]
-newtype PluginIndex = PluginIndex Int
-newtype StartTick = StartTick Tick
-newtype EndTick = EndTick Tick
-newtype FilePath = FilePath String
-newtype BankNumber = BankNumber Int
-newtype ProgramNumber = ProgramNumber Int
+data Argument (name :: Symbol) t = Argument t
 
 type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
 
@@ -57,8 +45,8 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ 
         config = server_config server
 
 -- Audio
-getAudioDevices :: Ensemble AudioDevices
-getAudioDevices = AudioDevices <$> Engine.getAudioDevices
+getAudioDevices :: Ensemble [AudioDevice]
+getAudioDevices = Engine.getAudioDevices
 
 startEngine :: Ensemble Ok
 startEngine = do
@@ -72,55 +60,55 @@ stopEngine = do
     Engine.stop engine
     pure Ok
 
-getInstruments :: Ensemble Instruments
+getInstruments :: Ensemble [Instrument]
 getInstruments = do
     instrumentsIORef <- asks (Engine.engine_instruments . server_engine)
-    sendM $ Instruments . Map.elems <$> readIORef instrumentsIORef
+    sendM $ Map.elems <$> readIORef instrumentsIORef
     
 -- CLAP
-getClapPluginLocations :: Ensemble PluginLocations
+getClapPluginLocations :: Ensemble [Text]
 getClapPluginLocations = 
-    sendM $ PluginLocations <$> CLAP.pluginLibraryPaths 
+    sendM $ fmap pack <$> CLAP.pluginLibraryPaths 
 
-scanForClapPlugins :: FilePaths -> Ensemble PluginDescriptors
-scanForClapPlugins (FilePaths filePaths) = 
-    sendM $ PluginDescriptors <$> CLAP.scanForPluginsIn filePaths
+scanForClapPlugins :: Argument "filePaths" [Text] -> Ensemble [PluginDescriptor]
+scanForClapPlugins (Argument filePaths) = 
+    sendM $ CLAP.scanForPluginsIn $ unpack <$> filePaths
 
-loadClapPlugin :: FilePath -> PluginIndex -> Ensemble Ok
-loadClapPlugin (FilePath filePath) (PluginIndex index) = do
+loadClapPlugin :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble Ok
+loadClapPlugin (Argument filePath) (Argument pluginIndex) = do
     engine <- asks server_engine
-    sendM $ Engine.loadPlugin engine $ PluginId filePath index
+    sendM $ Engine.loadPlugin engine $ PluginId (unpack filePath) pluginIndex
     pure Ok
 
 -- Soundfont
-loadFluidSynthLibrary :: FilePath -> Ensemble Ok
-loadFluidSynthLibrary (FilePath filePath) = do
+loadFluidSynthLibrary :: Argument "filePath" Text -> Ensemble Ok
+loadFluidSynthLibrary (Argument filePath) = do
    engine <- asks server_engine
-   sendM $ Engine.loadFluidSynthLibrary engine filePath
+   sendM $ Engine.loadFluidSynthLibrary engine (unpack filePath)
    pure Ok
 
-createSoundfontInstrument :: FilePath -> BankNumber -> ProgramNumber -> Ensemble InstrumentInfo
-createSoundfontInstrument (FilePath filePath) (BankNumber bank) (ProgramNumber program) = do
+createSoundfontInstrument :: Argument "filePath" Text -> Argument "bankNumber" Int -> Argument "programNumber" Int -> Ensemble InstrumentInfo
+createSoundfontInstrument (Argument filePath) (Argument bank) (Argument program) = do
     engine <- asks server_engine
-    Engine.createSoundfontInstrument engine filePath bank program
+    Engine.createSoundfontInstrument engine (unpack filePath) bank program
 
 -- Sequencer
-scheduleEvent :: Tick -> SequencerEvent -> Ensemble Ok
-scheduleEvent tick event = do
+scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok
+scheduleEvent (Argument tick) (Argument event) = do
     sequencer <- asks server_sequencer
     sendM $ Sequencer.sendAt sequencer tick event
     pure Ok
 
-playSequence :: StartTick -> Ensemble Ok
-playSequence (StartTick startTick) = do
+playSequence :: Argument "startTick" Tick -> Ensemble Ok
+playSequence (Argument startTick) = do
     server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
     void $ sendM $ forkIO $ void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick
     pure Ok
 
-renderSequence :: StartTick -> EndTick -> Ensemble AudioOutput
-renderSequence (StartTick startTick) (EndTick endTick) = do
+renderSequence :: Argument "startTick" Tick -> Argument "endTick" Tick -> Ensemble AudioOutput
+renderSequence (Argument startTick) (Argument endTick) = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
     Sequencer.render sequencer engine startTick endTick
@@ -131,8 +119,8 @@ clearSequence = do
     sendM $ writeIORef events []
     pure Ok
 
-playAudio :: AudioOutput -> Ensemble Ok
-playAudio audioOutput = do
+playAudio :: Argument "audioOutput" AudioOutput -> Ensemble Ok
+playAudio (Argument audioOutput) = do
     engine <- asks server_engine
     Engine.playAudio engine audioOutput
     pure Ok

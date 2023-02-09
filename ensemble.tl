@@ -94,17 +94,17 @@ sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = Se
 
 ---functions---
 
-getAudioDevices = AudioDevices;
+getAudioDevices = vector<AudioDevice>;
 
 startEngine = Ok;
 
 stopEngine = Ok;
 
-getInstruments = Instruments;
+getInstruments = vector<Instrument>;
 
-getClapPluginLocations = PluginLocations;
+getClapPluginLocations = vector<String>;
 
-scanForClapPlugins filePaths:vector<String> = PluginDescriptors;
+scanForClapPlugins filePaths:vector<String> = vector<PluginDescriptor>;
 
 loadClapPlugin filePath:String pluginIndex:Int = Ok;
 

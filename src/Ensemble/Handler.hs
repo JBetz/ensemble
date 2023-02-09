@@ -10,7 +10,7 @@ import Data.Maybe
 import Ensemble.API
 import Ensemble.Error
 import Ensemble.Schema (handleMessage)
-import Ensemble.Schema.TaggedJSON (ToTaggedJSON(..))
+import Ensemble.Schema.TaggedJSON (toTaggedJSON)
 import Ensemble.Server
 
 handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)

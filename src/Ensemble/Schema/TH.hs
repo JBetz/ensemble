@@ -25,6 +25,7 @@ import Ensemble.Error
 import Ensemble.Schema.TaggedJSON
 import Foreign.Ptr
 import GHC.Generics (Generic)
+import GHC.Stack
 import Language.Haskell.TH
 import Language.Haskell.TH.Datatype
 
@@ -41,26 +42,26 @@ encodingOptions =
         , A.unwrapUnaryRecords = True
         }
 
-deriveToTaggedJSON :: Name -> DecQ
-deriveToTaggedJSON name = do
-    let classType = ConT ''ToTaggedJSON
+deriveHasTypeTag :: HasCallStack => Name -> DecQ
+deriveHasTypeTag name = do
+    let classType = ConT ''HasTypeTag
     let forType = ConT name
-    let functionName = 'toTaggedJSON
-    objectVariable <- newName "object"
-    let body = NormalB $ AppE (AppE (VarE 'defaultToTaggedJSON) (LitE $ StringL $ nameBase name)) (VarE objectVariable)
+    let functionName = 'typeTag
+    let body = NormalB $ LitE $ StringL $ nameBase name
     pure $ InstanceD Nothing [] (AppT classType forType)
         [FunD functionName 
-            [Clause [VarP objectVariable] body []]]
+            [Clause [VarP (mkName "_")] body []]]
 
 deriveCustomJSONs :: [Name] -> DecsQ
 deriveCustomJSONs names = do
     decs <- for names (\name -> do
         fromJson <- deriveCustomFromJSON name
         toJson <- deriveCustomToJSON name
-        pure [fromJson, toJson])
+        toTaggedJson <- deriveHasTypeTag name
+        pure [fromJson, toJson, toTaggedJson])
     pure $ join decs
 
-deriveCustomToJSON :: Name -> DecQ
+deriveCustomToJSON :: HasCallStack => Name -> DecQ
 deriveCustomToJSON name = do
     constructors <- datatypeCons <$> reifyDatatype name
     let objectName = mkName "object"
@@ -68,14 +69,13 @@ deriveCustomToJSON name = do
             (\constructor -> 
                 let valueName = mkName "value"
                     pattern = ConP (constructorName constructor) [] [VarP valueName]
-                    tag = toSubclassName $ constructorName constructor
-                    caseBody = NormalB $ AppE (AppE (VarE 'defaultToTaggedJSON) (LitE $ StringL tag)) (VarE valueName)
+                    caseBody = NormalB $ AppE (VarE 'toTaggedJSON) (VarE valueName)
                 in Match pattern caseBody []
                 ) <$> constructors
     pure $ InstanceD Nothing [] (AppT (ConT ''A.ToJSON) (ConT name))
         [FunD 'A.toJSON [Clause [VarP objectName] body []]]
 
-deriveCustomFromJSON :: Name -> DecQ
+deriveCustomFromJSON :: HasCallStack => Name -> DecQ
 deriveCustomFromJSON name = do
     constructors <- datatypeCons <$> reifyDatatype name
     let objectName = mkName "object"
@@ -97,12 +97,12 @@ deriveCustomFromJSON name = do
     pure $ InstanceD Nothing [] (AppT (ConT ''A.FromJSON) (ConT name))
         [FunD 'A.parseJSON [Clause [] body []]]
 
-deriveJSON :: Name -> DecsQ
+deriveJSON :: HasCallStack => Name -> DecsQ
 deriveJSON name = do
     let generic = StandaloneDerivD Nothing [] (ConT ''Generic `AppT` ConT name)
     fromJson <- A.deriveToJSON encodingOptions name
     toJson <- A.deriveFromJSON encodingOptions name
-    toTaggedJson <- deriveToTaggedJSON name
+    toTaggedJson <- deriveHasTypeTag name
     pure $ [generic] <> fromJson <> toJson <> [toTaggedJson]
 
 deriveJSONs :: [Name] -> DecsQ
@@ -121,17 +121,17 @@ writeSchema types functions = do
     appendFile fileName "\n\n---functions---"
     traverse_ (appendFile fileName . (<>) "\n\n") functions 
 
-showResolvedType :: Type -> Q String
+showResolvedType :: HasCallStack => Type -> Q String
 showResolvedType type' = resolveTypeSynonyms type' >>= showType True
 
-showUnresolvedType :: Type -> Q String
+showUnresolvedType :: HasCallStack => Type -> Q String
 showUnresolvedType = showType False
 
-showType :: Bool -> Type -> Q String
+showType :: HasCallStack => Bool -> Type -> Q String
 showType resolve = \case
     ConT name -> if
         | nameBase name == "CFloat" -> pure "Float"
-        | nameBase name == "String" -> pure "String"
+        | nameBase name == "Text" -> pure "String"
         | not resolve -> pure $ nameBase name
         | otherwise -> do
             typeInfo <- reifyDatatype name
@@ -150,7 +150,7 @@ showType resolve = \case
         | otherwise -> error $ "Unrepresentable higher order type: " <> show name
     other -> error $ "Unrepresentable type: " <> show other
 
-showField :: (Name, Type) -> Q String
+showField :: HasCallStack => (Name, Type) -> Q String
 showField (fieldName, fieldType) = do
     let nameString =  last (split '_' (last (split '.' $ show fieldName)))
     typeString <- showResolvedType fieldType
@@ -161,7 +161,7 @@ getArgumentTypes = \case
     AppT (AppT ArrowT argumentType) rest -> argumentType:getArgumentTypes rest
     other -> [other]
 
-showFunctionType :: Type -> Q String
+showFunctionType :: HasCallStack => Type -> Q String
 showFunctionType functionType = 
     case getArgumentTypes functionType of
         [returnType] -> do
@@ -169,15 +169,16 @@ showFunctionType functionType =
             pure $ "= " <> returnTypeString
         types -> do
             returnTypeString <- showUnresolvedType (last types)
-            arguments <- foldlM (\acc currentType -> do
-                currentTypeString <- showUnresolvedType currentType
-                resolvedTypeString <- showResolvedType currentType
-                pure $ acc <> uncapitalise currentTypeString <> ":" <> resolvedTypeString <> " ") 
+            arguments <- foldlM (\acc -> \case 
+                AppT (AppT (ConT _) (LitT (StrTyLit argumentName))) argumentType -> do
+                    resolvedTypeString <- showResolvedType argumentType
+                    pure $ acc <> argumentName <> ":" <> resolvedTypeString <> " "
+                other -> error $ "Invalid argument type: " <> show other) 
                 "" 
                 (init types) 
             pure $ arguments <> "= " <> returnTypeString
 
-generateTypeDefinition :: Name -> Q [String]
+generateTypeDefinition :: HasCallStack => Name -> Q [String]
 generateTypeDefinition typeName = do
     datatypeInfo <- reifyDatatype typeName
     for (datatypeCons datatypeInfo) $ \constructorInfo -> do
@@ -210,7 +211,7 @@ generateTypeDefinition typeName = do
                     _ -> 
                         error $ "Invalid constructor fields: " <> show constructorInfo
 
-generateFunctionDefinition :: Name -> Q String
+generateFunctionDefinition :: HasCallStack => Name -> Q String
 generateFunctionDefinition functionName = do
     info <- reify functionName
     case info of
@@ -220,13 +221,13 @@ generateFunctionDefinition functionName = do
             pure $ name <> " " <> functionTypeString <> ";"
         _ -> error $ "Invalid function: " <> show functionName
 
-makeAPI :: [Name] -> [Name] -> DecsQ
+makeAPI :: HasCallStack => [Name] -> [Name] -> DecsQ
 makeAPI typeNames functionNames = do
     generateSchemaDecs <- makeGenerateSchema typeNames functionNames
     handleMessageDecs <- makeHandleMessage functionNames
     pure $ generateSchemaDecs <> handleMessageDecs
 
-makeGenerateSchema :: [Name] -> [Name] -> DecsQ
+makeGenerateSchema :: HasCallStack => [Name] -> [Name] -> DecsQ
 makeGenerateSchema typeNames functionNames = do
     typeDefinitions <- traverse generateTypeDefinition typeNames                  
     functionDefinitions <- traverse generateFunctionDefinition functionNames
@@ -236,7 +237,7 @@ makeGenerateSchema typeNames functionNames = do
     let function = FunD generateSchemaName [Clause [] body []]
     pure [signature, function]
 
-makeHandleMessage :: [Name] -> DecsQ
+makeHandleMessage :: HasCallStack => [Name] -> DecsQ
 makeHandleMessage functionNames = do
     let functionName = mkName "handleMessage"
     let messageTypeName = mkName "messageType"
@@ -247,21 +248,23 @@ makeHandleMessage functionNames = do
     let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]
     pure [signature, function]
 
-makeCase :: Name -> Name -> Q Match 
+getArgumentInfo :: Type -> (String, Type)
+getArgumentInfo = \case
+    AppT (AppT (ConT _) (LitT (StrTyLit argumentName))) argumentType ->  (argumentName, argumentType)
+    other -> error $ "Invalid argument type: " <> show other
+
+makeCase :: HasCallStack => Name -> Name -> Q Match 
 makeCase objectName functionName = do
     info <- reify functionName
     case info of
         VarI _ functionType _ -> do
-            let argumentTypes = init $ getArgumentTypes functionType
-                makeLookupStatement argumentType = do
-                    argumentTypeString <- showUnresolvedType argumentType
-                    let argumentName = uncapitalise argumentTypeString
-                        lookupExpression = multiAppE (VarE 'lookupField) [LitE (StringL argumentName), VarE objectName]
+            let argumentInfos = getArgumentInfo <$> init (getArgumentTypes functionType)
+                makeLookupStatement = \(argumentName, _argumentType) -> do
+                    let lookupExpression = multiAppE (VarE 'lookupField) [LitE (StringL argumentName), VarE objectName]
                     pure $ BindS (VarP $ mkName argumentName) lookupExpression
-            lookupStatements <- traverse makeLookupStatement argumentTypes
+            lookupStatements <- traverse makeLookupStatement argumentInfos
             let resultName = mkName "result"
-            argumentTypeStrings <- traverse showUnresolvedType argumentTypes 
-            let callStatement = BindS (VarP resultName) (multiAppE (VarE functionName) $ VarE . mkName . uncapitalise <$> argumentTypeStrings)
+            let callStatement = BindS (VarP resultName) (multiAppE (VarE functionName) $ AppE (ConE 'Argument) . VarE . mkName <$> (fst <$> argumentInfos))
                 returnStatement = NoBindS $ AppE (VarE 'pure) (AppE (VarE 'toTaggedJSON) (VarE resultName))
                 statements = lookupStatements <> [callStatement, returnStatement]
                 body = NormalB $ DoE Nothing statements

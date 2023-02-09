@@ -34,18 +34,7 @@ instance A.FromJSON (Ptr a) where
 deriveJSONs
     [ ''Ok
     , ''APIError
-    , ''PluginLocations
-    , ''PluginDescriptors
-    , ''FilePaths
-    , ''PluginIndex
-    , ''StartTick
-    , ''EndTick
-    , ''FilePath
-    , ''BankNumber
-    , ''ProgramNumber
-    , ''SoundfontPresets
     , ''AudioDevice
-    , ''AudioDevices
     , ''CFloat
     , ''AudioOutput
     , ''Tick
@@ -86,7 +75,6 @@ deriveCustomJSONs
 deriveJSONs
     [ ''SequencerEvent 
     , ''InstrumentInfo
-    , ''Instruments
     ]
 
 makeAPI

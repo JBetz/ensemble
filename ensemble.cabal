@@ -27,6 +27,7 @@ library
     exposed-modules:  Ensemble,
                       Ensemble.API,
                       Ensemble.Config,
+                      Ensemble.Effects,
                       Ensemble.Engine,
                       Ensemble.Error,
                       Ensemble.Event,

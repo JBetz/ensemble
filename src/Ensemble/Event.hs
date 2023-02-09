@@ -8,3 +8,9 @@ data SequencerEvent = SequencerEvent
     , sequencerEvent_eventConfig :: Maybe Clap.ClapEventConfig
     , sequencerEvent_event :: Clap.ClapEvent
     } deriving (Show)
+
+data PlaybackEvent 
+    = PlaybackEvent_Started
+    | PlaybackEvent_Stopped
+    | PlaybackEvent_Looped
+    deriving (Show)

@@ -7,7 +7,7 @@ import qualified Data.Aeson as A
 import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Maybe
-import Ensemble.API
+import Ensemble.Effects
 import Ensemble.Error
 import Ensemble.Schema (handleMessage)
 import Ensemble.Schema.TaggedJSON (toTaggedJSON)

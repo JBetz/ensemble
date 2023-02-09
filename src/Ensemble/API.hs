@@ -8,16 +8,13 @@ import Clap.Interface.Plugin
 import Control.Concurrent
 import Control.Monad (void)
 import Control.Monad.Freer
-import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
-import Control.Monad.Freer.Writer
 import Data.IORef
 import qualified Data.Map as Map
 import Data.Text (Text, unpack, pack)
-import Ensemble.Config
+import Ensemble.Effects
 import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
-import Ensemble.Error
 import Ensemble.Instrument
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
@@ -28,21 +25,6 @@ import GHC.TypeLits
 data Ok = Ok
 
 data Argument (name :: Symbol) t = Argument t
-
-type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
-
-runEnsemble :: Server -> Ensemble a -> IO (Either APIError a)
-runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ action
-    where
-        runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
-        runLogWriter = interpret $ \case
-            Tell message -> 
-                case logFile config of
-                    Just filePath -> sendM $ appendFile filePath message
-                    Nothing -> case interface config of
-                        Interface_Http -> sendM $ putStrLn message
-                        Interface_Pipes -> pure ()
-        config = server_config server
 
 -- Audio
 getAudioDevices :: Ensemble [AudioDevice]

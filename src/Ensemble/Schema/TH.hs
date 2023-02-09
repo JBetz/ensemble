@@ -21,6 +21,7 @@ import Data.Text (Text)
 import Data.Traversable (for)
 import Ensemble.Util
 import Ensemble.API
+import Ensemble.Effects
 import Ensemble.Error
 import Ensemble.Schema.TaggedJSON
 import Foreign.Ptr

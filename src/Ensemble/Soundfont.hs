@@ -4,7 +4,6 @@
 module Ensemble.Soundfont where
 
 import Clap.Interface.Events
-import Data.Foldable (traverse_)
 import Data.IORef
 import Control.Monad.Extra (whileM)
 import Ensemble.Soundfont.FluidSynth.Library as FS
@@ -35,19 +34,8 @@ type FluidSynth = Ptr C'fluid_synth_t
 type FluidSoundfont = Ptr C'fluid_sfont_t
 type FluidPreset = Ptr C'fluid_preset_t
 
-createSettings :: FluidSynthLibrary -> IO FluidSettings 
-createSettings library = do
-    
-    newFluidSettings library
-
-createSynth :: FluidSynthLibrary -> FluidSettings -> IO FluidSynth
-createSynth library settings = do
-    
-    newFluidSynth library settings
-
 loadSoundfont :: FluidSynthLibrary -> FluidSynth -> FilePath -> Bool -> IO Soundfont
 loadSoundfont library synth filePath resetPresets = do
-    
     soundfontId <- sfLoad library synth filePath resetPresets
     handle <- getSfontById library synth soundfontId
     pure $  Soundfont 
@@ -58,7 +46,6 @@ loadSoundfont library synth filePath resetPresets = do
 
 loadSoundfontPresets :: FluidSynthLibrary -> FluidSoundfont -> IO [SoundfontPreset]
 loadSoundfontPresets library soundfontHandle = do
-    
     sfontIterationStart library soundfontHandle
     presetsVar <- newIORef mempty
     first <- sfontIterationNext library soundfontHandle
@@ -136,7 +123,3 @@ process library synth frameCount = do
         , soundfontOutput_dryChannelLeft = dryChannelLeft
         , soundfontOutput_dryChannelRight = dryChannelRight
         }
-
-allSynthsOff :: FluidSynthLibrary -> [FluidSynth] -> IO ()
-allSynthsOff library synths =
-    traverse_ (\synth -> allNotesOff library synth (-1)) synths

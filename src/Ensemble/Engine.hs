@@ -12,7 +12,7 @@ import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
-import Data.Foldable (for_)
+import Data.Foldable (for_, traverse_)
 import Data.IORef
 import Data.Int
 import Data.List
@@ -172,9 +172,9 @@ generateOutputs engine frameCount events = do
     for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
         instrument <- lookupInstrument engine instrumentId
         case instrument of
-            Instrument_Soundfont (SoundfontInstrument _ _ synth) -> 
+            Instrument_Soundfont soundfontInstrument -> 
                 case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer synth event
+                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer (soundfontInstrument_synth soundfontInstrument) event
                     Nothing -> throwAPIError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
@@ -262,8 +262,8 @@ stop engine = do
 createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Int -> Int -> Eff effs InstrumentInfo
 createSoundfontInstrument engine filePath bankNumber programNumber = do
     library <- getFluidSynthLibrary engine
-    settings <- sendM $ SF.createSettings library
-    synth <- sendM $ SF.createSynth library settings
+    settings <- sendM $ FS.newFluidSettings library
+    synth <- sendM $ FS.newFluidSynth library settings
     soundfont <- sendM $ SF.loadSoundfont library synth filePath True
     let soundfontId = SF.soundfont_id soundfont
     sendM $ FS.programSelect library synth 0 (fromIntegral $ SF.soundfontId_id soundfontId) (fromIntegral bankNumber) (fromIntegral programNumber)
@@ -271,6 +271,8 @@ createSoundfontInstrument engine filePath bankNumber programNumber = do
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_settings = settings
             , soundfontInstrument_synth = synth
+            , soundfontInstrument_bankNumber = bankNumber
+            , soundfontInstrument_programNumber = programNumber
             }
     instrumentId <- sendM $ addInstrument engine instrument
     pure $ InstrumentInfo
@@ -302,11 +304,11 @@ loadPlugin engine =
 
 stopInstruments :: Engine -> IO ()
 stopInstruments engine = do
-    maybePlayer <- readIORef $ ending_fluidSynthLibrary engine
-    case maybePlayer of
-        Just player -> do
+    maybeLibrary <- readIORef $ ending_fluidSynthLibrary engine
+    case maybeLibrary of
+        Just library -> do
             soundfontInstruments <- getSoundfontInstruments engine
-            SF.allSynthsOff player $ soundfontInstrument_synth <$> soundfontInstruments
+            traverse_ (\synth -> FS.allSoundsOff library synth (-1)) (soundfontInstrument_synth <$> soundfontInstruments)
         Nothing -> pure ()
 
 -- unloadPlugin :: Engine -> PluginId -> IO ()

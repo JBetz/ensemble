@@ -10,7 +10,7 @@ audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
 instrumentInfo id:Int instrument:Instrument = InstrumentInfo;
 
-instrumentSoundfont soundfont:Soundfont settings:Void synth:Void  = Instrument;
+instrumentSoundfont soundfont:Soundfont settings:Void synth:Void bankNumber:Int programNumber:Int  = Instrument;
 
 instrumentClap pluginId:PluginId  = Instrument;
 

@@ -85,7 +85,10 @@ deriveCustomToJSON name = do
             (\constructor -> 
                 let valueName = mkName "value"
                     pattern = ConP (constructorName constructor) [] [VarP valueName]
-                    caseBody = NormalB $ AppE (VarE 'toTaggedJSON) (VarE valueName)
+                    caseBody = NormalB $ multiAppE (VarE 'toTaggedCustomJSON) 
+                        [ LitE $ StringL $ toSubclassName $ constructorName constructor
+                        , VarE valueName
+                        ]
                 in Match pattern caseBody []
                 ) <$> constructors
     pure $ InstanceD Nothing [] (AppT (ConT ''A.ToJSON) (ConT name))

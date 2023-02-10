@@ -23,3 +23,11 @@ toTaggedJSON object =
         other -> KeyMap.fromList [("@type", typeNameValue), ("value", other)] 
     where 
         typeNameValue = A.String $ pack (typeTag object)
+
+toTaggedCustomJSON :: A.ToJSON a => String -> a -> A.Value
+toTaggedCustomJSON typeTag object =
+    A.Object $ case A.toJSON object of
+        A.Object jsonObject -> KeyMap.insert "@type" typeNameValue jsonObject 
+        other -> KeyMap.fromList [("@type", typeNameValue), ("value", other)] 
+    where 
+        typeNameValue = A.String $ pack typeTag

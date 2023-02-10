@@ -30,8 +30,6 @@ data SoundfontInstrument = SoundfontInstrument
     { soundfontInstrument_soundfont :: Soundfont
     , soundfontInstrument_settings :: FluidSettings
     , soundfontInstrument_synth :: FluidSynth
-    , soundfontInstrument_bankNumber :: Int
-    , soundfontInstrument_programNumber :: Int
     } deriving (Show)
 
 data ClapInstrument = ClapInstrument

@@ -108,7 +108,9 @@ makeAPI
     , 'scanForClapPlugins
     , 'loadClapPlugin
     , 'loadFluidSynthLibrary
-    , 'createSoundfontInstrument
+    , 'createSoundfontInstrument    
+    , 'getSoundfontInstrumentPresets
+    , 'selectSoundfontInstrumentPreset
     , 'scheduleEvent
     , 'playSequence
     , 'renderSequence

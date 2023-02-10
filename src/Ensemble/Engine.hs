@@ -155,6 +155,13 @@ lookupInstrument engine instrumentId = do
             "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
             "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
 
+lookupSoundfontInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs SoundfontInstrument
+lookupSoundfontInstrument engine instrumentId = do
+    instrument <- lookupInstrument engine instrumentId
+    case instrument of
+        Instrument_Soundfont soundfontInstrument -> pure soundfontInstrument
+        Instrument_Clap _  -> throwAPIError $ "Expected Soundfont instrument id, received CLAP instrument id: " <> show instrumentId
+
 getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
 getSoundfontInstruments engine = do
     instruments <- readIORef $ engine_instruments engine
@@ -162,6 +169,12 @@ getSoundfontInstruments engine = do
         Instrument_Soundfont soundfont -> Just soundfont
         _ -> Nothing
         ) (Map.elems instruments)
+
+getSoundfontInstrumentPresets :: EngineEffects effs => Engine -> InstrumentId -> Eff effs [SF.SoundfontPreset]
+getSoundfontInstrumentPresets engine instrumentId = do
+    library <- getFluidSynthLibrary engine
+    soundfontInstrument <- lookupSoundfontInstrument engine instrumentId
+    sendM $ SF.loadSoundfontPresets library (SF.soundfont_handle $ soundfontInstrument_soundfont soundfontInstrument)
 
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
@@ -259,26 +272,31 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Int -> Int -> Eff effs InstrumentInfo
-createSoundfontInstrument engine filePath bankNumber programNumber = do
+createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentInfo
+createSoundfontInstrument engine filePath = do
     library <- getFluidSynthLibrary engine
     settings <- sendM $ FS.newFluidSettings library
     synth <- sendM $ FS.newFluidSynth library settings
     soundfont <- sendM $ SF.loadSoundfont library synth filePath True
-    let soundfontId = SF.soundfont_id soundfont
-    sendM $ FS.programSelect library synth 0 (fromIntegral $ SF.soundfontId_id soundfontId) (fromIntegral bankNumber) (fromIntegral programNumber)
     let instrument = Instrument_Soundfont $ SoundfontInstrument 
             { soundfontInstrument_soundfont = soundfont
             , soundfontInstrument_settings = settings
             , soundfontInstrument_synth = synth
-            , soundfontInstrument_bankNumber = bankNumber
-            , soundfontInstrument_programNumber = programNumber
             }
     instrumentId <- sendM $ addInstrument engine instrument
     pure $ InstrumentInfo
         { instrumentInfo_id = instrumentId
         , instrumentInfo_instrument = instrument
         }
+
+selectSoundfontInstrumentPreset :: EngineEffects effs => Engine -> InstrumentId -> Int -> Int -> Eff effs ()
+selectSoundfontInstrumentPreset engine instrumentId bankNumber programNumber = do
+    soundfontInstrument <- lookupSoundfontInstrument engine instrumentId
+    library <- getFluidSynthLibrary engine
+    let soundfont = soundfontInstrument_soundfont soundfontInstrument
+    sendM $ FS.programSelect library (soundfontInstrument_synth soundfontInstrument) 0 
+        (fromIntegral $ SF.soundfontId_id $ SF.soundfont_id soundfont) 
+        (fromIntegral bankNumber) (fromIntegral programNumber)
 
 addInstrument :: Engine -> Instrument -> IO InstrumentId
 addInstrument engine instrument =

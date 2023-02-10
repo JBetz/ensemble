@@ -20,6 +20,7 @@ import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
+import Ensemble.Soundfont (SoundfontPreset)
 import GHC.TypeLits
 
 data Ok = Ok
@@ -69,10 +70,21 @@ loadFluidSynthLibrary (Argument filePath) = do
    sendM $ Engine.loadFluidSynthLibrary engine (unpack filePath)
    pure Ok
 
-createSoundfontInstrument :: Argument "filePath" Text -> Argument "bankNumber" Int -> Argument "programNumber" Int -> Ensemble InstrumentInfo
-createSoundfontInstrument (Argument filePath) (Argument bank) (Argument program) = do
+createSoundfontInstrument :: Argument "filePath" Text -> Ensemble InstrumentInfo
+createSoundfontInstrument (Argument filePath) = do
     engine <- asks server_engine
-    Engine.createSoundfontInstrument engine (unpack filePath) bank program
+    Engine.createSoundfontInstrument engine (unpack filePath)
+
+selectSoundfontInstrumentPreset :: Argument "instrumentId" InstrumentId  -> Argument "bankNumber" Int -> Argument "programNumber" Int -> Ensemble Ok
+selectSoundfontInstrumentPreset (Argument instrumentId) (Argument bank) (Argument program) = do
+    engine <- asks server_engine
+    Engine.selectSoundfontInstrumentPreset engine instrumentId bank program
+    pure Ok
+
+getSoundfontInstrumentPresets :: Argument "instrumentId" InstrumentId -> Ensemble [SoundfontPreset]
+getSoundfontInstrumentPresets (Argument instrumentId) = do
+    engine <- asks server_engine
+    Engine.getSoundfontInstrumentPresets engine instrumentId
 
 -- Sequencer
 scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok

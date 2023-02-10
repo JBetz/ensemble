@@ -10,7 +10,7 @@ audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
 instrumentInfo id:Int instrument:Instrument = InstrumentInfo;
 
-instrumentSoundfont soundfont:Soundfont settings:Void synth:Void bankNumber:Int programNumber:Int  = Instrument;
+instrumentSoundfont soundfont:Soundfont settings:Void synth:Void  = Instrument;
 
 instrumentClap pluginId:PluginId  = Instrument;
 
@@ -110,7 +110,11 @@ loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
 loadFluidSynthLibrary filePath:String = Ok;
 
-createSoundfontInstrument filePath:String bankNumber:Int programNumber:Int = InstrumentInfo;
+createSoundfontInstrument filePath:String = InstrumentInfo;
+
+getSoundfontInstrumentPresets instrumentId:Int = vector<SoundfontPreset>;
+
+selectSoundfontInstrumentPreset instrumentId:Int bankNumber:Int programNumber:Int = Ok;
 
 scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 

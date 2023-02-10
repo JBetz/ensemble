@@ -70,7 +70,7 @@ loadFluidSynthLibrary (Argument filePath) = do
    sendM $ Engine.loadFluidSynthLibrary engine (unpack filePath)
    pure Ok
 
-createSoundfontInstrument :: Argument "filePath" Text -> Ensemble InstrumentInfo
+createSoundfontInstrument :: Argument "filePath" Text -> Ensemble InstrumentId
 createSoundfontInstrument (Argument filePath) = do
     engine <- asks server_engine
     Engine.createSoundfontInstrument engine (unpack filePath)

@@ -8,11 +8,11 @@ audioDevice index:Int name:String = AudioDevice;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
-instrumentInfo id:Int instrument:Instrument = InstrumentInfo;
-
 instrumentSoundfont soundfont:Soundfont settings:Void synth:Void  = Instrument;
 
 instrumentClap pluginId:PluginId  = Instrument;
+
+instrumentId id:Int = InstrumentId;
 
 pluginId filePath:String index:Int = PluginId;
 
@@ -110,7 +110,7 @@ loadClapPlugin filePath:String pluginIndex:Int = Ok;
 
 loadFluidSynthLibrary filePath:String = Ok;
 
-createSoundfontInstrument filePath:String = InstrumentInfo;
+createSoundfontInstrument filePath:String = Int;
 
 getSoundfontInstrumentPresets instrumentId:Int = vector<SoundfontPreset>;
 

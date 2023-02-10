@@ -272,7 +272,7 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
-createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentInfo
+createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentId
 createSoundfontInstrument engine filePath = do
     library <- getFluidSynthLibrary engine
     settings <- sendM $ FS.newFluidSettings library
@@ -283,11 +283,7 @@ createSoundfontInstrument engine filePath = do
             , soundfontInstrument_settings = settings
             , soundfontInstrument_synth = synth
             }
-    instrumentId <- sendM $ addInstrument engine instrument
-    pure $ InstrumentInfo
-        { instrumentInfo_id = instrumentId
-        , instrumentInfo_instrument = instrument
-        }
+    sendM $ addInstrument engine instrument
 
 selectSoundfontInstrumentPreset :: EngineEffects effs => Engine -> InstrumentId -> Int -> Int -> Eff effs ()
 selectSoundfontInstrumentPreset engine instrumentId bankNumber programNumber = do

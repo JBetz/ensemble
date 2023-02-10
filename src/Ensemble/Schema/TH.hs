@@ -146,6 +146,11 @@ showResolvedType type' = resolveTypeSynonyms type' >>= showType True
 showUnresolvedType :: HasCallStack => Type -> Q String
 showUnresolvedType = showType False
 
+showReturnType :: HasCallStack => Type -> Q String
+showReturnType = \case
+    AppT _ returnType -> showResolvedType returnType
+    other -> error $ "Invalid return type: " <> show other
+
 showType :: HasCallStack => Bool -> Type -> Q String
 showType resolve = \case
     ConT name -> if
@@ -184,10 +189,10 @@ showFunctionType :: HasCallStack => Type -> Q String
 showFunctionType functionType = 
     case getArgumentTypes functionType of
         [returnType] -> do
-            returnTypeString <- showUnresolvedType returnType
+            returnTypeString <- showReturnType returnType
             pure $ "= " <> returnTypeString
         types -> do
-            returnTypeString <- showUnresolvedType (last types)
+            returnTypeString <- showReturnType (last types)
             arguments <- foldlM (\acc -> \case 
                 AppT (AppT (ConT _) (LitT (StrTyLit argumentName))) argumentType -> do
                     resolvedTypeString <- showResolvedType argumentType

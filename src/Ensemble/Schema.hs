@@ -83,7 +83,6 @@ makeAPI
     , ''APIError
     , ''AudioDevice
     , ''AudioOutput
-    , ''InstrumentInfo
     , ''Instrument
     , ''Clap.PluginId
     , ''Clap.ClapVersion

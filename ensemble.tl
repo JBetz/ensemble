@@ -92,6 +92,8 @@ startEngine = Ok;
 
 stopEngine = Ok;
 
+deleteInstrument instrumentId:Int = Ok;
+
 getClapPluginLocations = vector<String>;
 
 scanForClapPlugins filePaths:vector<String> = vector<PluginDescriptor>;

@@ -42,6 +42,12 @@ stopEngine = do
     Engine.stop engine
     pure Ok
 
+deleteInstrument :: Argument "instrumentId" InstrumentId -> Ensemble Ok
+deleteInstrument (Argument instrumentId) = do
+    engine <- asks server_engine
+    Engine.deleteInstrument engine instrumentId
+    pure Ok 
+
 -- CLAP
 getClapPluginLocations :: Ensemble [Text]
 getClapPluginLocations = 

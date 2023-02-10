@@ -93,6 +93,7 @@ makeAPI
     [ 'getAudioDevices
     , 'startEngine
     , 'stopEngine
+    , 'deleteInstrument
     , 'getClapPluginLocations
     , 'scanForClapPlugins
     , 'loadClapPlugin

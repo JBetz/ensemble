@@ -272,6 +272,17 @@ stop engine = do
                 throwAPIError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
+deleteInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs ()
+deleteInstrument engine instrumentId = do
+    instrument <- lookupInstrument engine instrumentId
+    case instrument of
+        Instrument_Clap _ -> pure ()
+        Instrument_Soundfont soundfontInstrument -> do
+            library <- getFluidSynthLibrary engine
+            sendM $ FS.deleteFluidSynth library (soundfontInstrument_synth soundfontInstrument)
+            sendM $ FS.deleteFluidSettings library (soundfontInstrument_settings soundfontInstrument)
+    sendM $ modifyIORef' (engine_instruments engine) $ Map.delete instrumentId
+
 createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentId
 createSoundfontInstrument engine filePath = do
     library <- getFluidSynthLibrary engine

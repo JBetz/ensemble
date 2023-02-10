@@ -48,13 +48,19 @@ deriveHasTypeTag name = do
     let classType = ConT ''HasTypeTag
     let forType = ConT name
     let functionName = 'typeTag
-    constructors <- datatypeCons <$> reifyDatatype name
-    case constructors of 
-        [single] -> do
-            let body = NormalB $ LitE $ StringL $ toSubclassName (constructorName single)
-            pure $ InstanceD Nothing [] (AppT classType forType)
-                [FunD functionName 
-                    [Clause [VarP (mkName "_")] body []]]
+    datatype <- reifyDatatype name
+    case datatypeCons datatype of 
+        [single] ->
+            case datatypeVariant datatype of
+                Newtype -> do 
+                    resolvedTypeName <- showResolvedType $ head $ constructorFields single
+                    let body = NormalB $ LitE $ StringL $ uncapitalise resolvedTypeName
+                    pure $ InstanceD Nothing [] (AppT classType forType)
+                        [FunD functionName [Clause [VarP (mkName "_")] body []]]
+                _ -> do
+                    let body = NormalB $ LitE $ StringL $ toSubclassName (constructorName single)
+                    pure $ InstanceD Nothing [] (AppT classType forType)
+                        [FunD functionName [Clause [VarP (mkName "_")] body []]]
         multiple -> do
             let objectName = mkName "object"
             let body = NormalB $ CaseE (VarE objectName) $

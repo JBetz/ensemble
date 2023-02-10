@@ -308,7 +308,9 @@ selectSoundfontInstrumentPreset engine instrumentId bankNumber programNumber = d
 addInstrument :: Engine -> Instrument -> IO InstrumentId
 addInstrument engine instrument =
     atomicModifyIORef' (engine_instruments engine) $ \instruments ->
-        let newId = InstrumentId $ succ $ maximum $ instrumentId_id <$> Map.keys instruments 
+        let newId = InstrumentId $ case Map.keys instruments of
+                        [] -> 1
+                        ids -> succ $ maximum $ instrumentId_id <$> ids 
         in (Map.insert newId instrument instruments, newId)
 
 getFluidSynthLibrary :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary

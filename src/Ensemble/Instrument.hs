@@ -21,11 +21,6 @@ isClap = \case
     Instrument_Soundfont _ -> False
     Instrument_Clap _ -> True
 
-data InstrumentInfo = InstrumentInfo
-    { instrumentInfo_id :: InstrumentId
-    , instrumentInfo_instrument :: Instrument
-    } deriving (Show)
-
 data SoundfontInstrument = SoundfontInstrument
     { soundfontInstrument_soundfont :: Soundfont
     , soundfontInstrument_settings :: FluidSettings

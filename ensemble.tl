@@ -8,12 +8,6 @@ audioDevice index:Int name:String = AudioDevice;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
-instrumentSoundfont soundfont:Soundfont settings:Void synth:Void  = Instrument;
-
-instrumentClap pluginId:PluginId  = Instrument;
-
-instrumentId id:Int = InstrumentId;
-
 pluginId filePath:String index:Int = PluginId;
 
 clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
@@ -86,8 +80,6 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-soundfont id:Int filePath:String handle:Void = Soundfont;
-
 soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
 
 sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
@@ -99,8 +91,6 @@ getAudioDevices = vector<AudioDevice>;
 startEngine = Ok;
 
 stopEngine = Ok;
-
-getInstruments = vector<Instrument>;
 
 getClapPluginLocations = vector<String>;
 

@@ -17,7 +17,6 @@ import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
-import Ensemble.Soundfont (SoundfontId(..))
 import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Sequencer (Tick(..))
 import Ensemble.API
@@ -39,11 +38,7 @@ deriveJSONs
     , ''AudioOutput
     , ''Tick
     , ''InstrumentId
-    , ''Soundfont.SoundfontId
-    , ''Soundfont.Soundfont
     , ''Soundfont.SoundfontPreset
-    , ''SoundfontInstrument
-    , ''ClapInstrument
     , ''Clap.ClapId
     , ''Clap.ParamId
     , ''Clap.PluginId
@@ -69,12 +64,10 @@ deriveJSONs
 
 deriveCustomJSONs
     [ ''Clap.ClapEvent
-    , ''Instrument
     ] 
 
 deriveJSONs
     [ ''SequencerEvent 
-    , ''InstrumentInfo
     ]
 
 makeAPI
@@ -83,7 +76,6 @@ makeAPI
     , ''APIError
     , ''AudioDevice
     , ''AudioOutput
-    , ''Instrument
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
@@ -94,7 +86,6 @@ makeAPI
     , ''Clap.Midi2Data
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
-    , ''Soundfont.Soundfont
     , ''Soundfont.SoundfontPreset
     , ''SequencerEvent
     ]
@@ -102,7 +93,6 @@ makeAPI
     [ 'getAudioDevices
     , 'startEngine
     , 'stopEngine
-    , 'getInstruments
     , 'getClapPluginLocations
     , 'scanForClapPlugins
     , 'loadClapPlugin

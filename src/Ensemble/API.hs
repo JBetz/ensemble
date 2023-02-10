@@ -10,7 +10,6 @@ import Control.Monad (void)
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
-import qualified Data.Map as Map
 import Data.Text (Text, unpack, pack)
 import Ensemble.Effects
 import Ensemble.Engine (AudioDevice, AudioOutput)
@@ -43,11 +42,6 @@ stopEngine = do
     Engine.stop engine
     pure Ok
 
-getInstruments :: Ensemble [Instrument]
-getInstruments = do
-    instrumentsIORef <- asks (Engine.engine_instruments . server_engine)
-    sendM $ Map.elems <$> readIORef instrumentsIORef
-    
 -- CLAP
 getClapPluginLocations :: Ensemble [Text]
 getClapPluginLocations = 

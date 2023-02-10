@@ -48,18 +48,33 @@ deriveHasTypeTag name = do
     let classType = ConT ''HasTypeTag
     let forType = ConT name
     let functionName = 'typeTag
-    let body = NormalB $ LitE $ StringL $ nameBase name
-    pure $ InstanceD Nothing [] (AppT classType forType)
-        [FunD functionName 
-            [Clause [VarP (mkName "_")] body []]]
+    constructors <- datatypeCons <$> reifyDatatype name
+    case constructors of 
+        [single] -> do
+            let body = NormalB $ LitE $ StringL $ toSubclassName (constructorName single)
+            pure $ InstanceD Nothing [] (AppT classType forType)
+                [FunD functionName 
+                    [Clause [VarP (mkName "_")] body []]]
+        multiple -> do
+            let objectName = mkName "object"
+            let body = NormalB $ CaseE (VarE objectName) $
+                    (\constructor -> 
+                        let pattern = ConP (constructorName constructor) [] $ VarP (mkName "_") <$ constructorFields constructor 
+                            caseBody = NormalB $ LitE $ StringL $ toSubclassName (constructorName constructor)
+                        in Match pattern caseBody []
+                    ) <$> multiple
+            pure $ InstanceD Nothing [] (AppT classType forType)
+                [FunD functionName 
+                    [Clause [VarP objectName] body []]]
+
 
 deriveCustomJSONs :: [Name] -> DecsQ
 deriveCustomJSONs names = do
-    decs <- for names (\name -> do
+    decs <- for names $ \name -> do
         fromJson <- deriveCustomFromJSON name
         toJson <- deriveCustomToJSON name
         toTaggedJson <- deriveHasTypeTag name
-        pure [fromJson, toJson, toTaggedJson])
+        pure [fromJson, toJson, toTaggedJson]
     pure $ join decs
 
 deriveCustomToJSON :: HasCallStack => Name -> DecQ

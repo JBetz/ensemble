@@ -1,5 +1,6 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Handler where
 
 import Control.Monad.Freer.Error
@@ -10,8 +11,11 @@ import Data.Maybe
 import Ensemble.Effects
 import Ensemble.Error
 import Ensemble.Schema (handleMessage)
+import Ensemble.Schema.TH
 import Ensemble.Schema.TaggedJSON (toTaggedJSON)
 import Ensemble.Server
+
+deriveJSON ''APIError
 
 handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
 handler server object = runEnsemble server $

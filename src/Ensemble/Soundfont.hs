@@ -1,11 +1,12 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
-
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Soundfont where
 
 import Clap.Interface.Events
 import Data.IORef
 import Control.Monad.Extra (whileM)
+import Ensemble.Schema.TH
 import Ensemble.Soundfont.FluidSynth.Library as FS
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
 import Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts
@@ -123,3 +124,5 @@ process library synth frameCount = do
         , soundfontOutput_dryChannelLeft = dryChannelLeft
         , soundfontOutput_dryChannelRight = dryChannelRight
         }
+
+deriveJSON ''SoundfontPreset

@@ -1,17 +1,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Ensemble.Sequencer where
 
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
-import Ensemble.Engine
-import Ensemble.Error
-import Ensemble.Event
+import Data.Aeson
 import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Ensemble.Engine
+import Ensemble.Error
+import Ensemble.Event
+import Ensemble.Schema.TH
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
@@ -36,13 +39,16 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: (LastMember IO effs, Members '[Writer String, Error APIError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
+playSequence :: (LastMember IO effs, Members '[Writer Value, Writer String, Error APIError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 playSequence sequencer engine startTick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- sendM $ getEndTick sequencer
+    tellEvent PlaybackEvent_Rendering
     audioOutput <- render sequencer engine startTick endTick
     sendM $ stopInstruments engine
+    tellEvent PlaybackEvent_Started
     playAudio engine audioOutput
+    tellEvent PlaybackEvent_Stopped
 
 getEndTick :: Sequencer -> IO Tick
 getEndTick sequencer = do
@@ -67,7 +73,7 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-render :: (Members '[Writer String, Error APIError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
+render :: (Members '[Writer Value, Writer String, Error APIError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
     renderEvents 0 (groupEvents events)
@@ -92,3 +98,8 @@ getEventsBetween sequencer startTick endTick = do
 groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
+
+tellEvent :: Member (Writer Value) effs => ToJSON a => a -> Eff effs ()
+tellEvent = tell . toJSON
+
+deriveJSON ''Tick

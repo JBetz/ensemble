@@ -7,68 +7,16 @@ module Ensemble.Schema where
 import Prelude hiding (FilePath)
 
 import qualified Clap.Host as Clap
-import qualified Clap.Interface.Id as Clap
 import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
-import qualified Data.Aeson as A
-import Data.Text (pack)
+import Ensemble.API
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Error
 import Ensemble.Event
-import Ensemble.Instrument
 import qualified Ensemble.Soundfont as Soundfont
-import Ensemble.Sequencer (Tick(..))
-import Ensemble.API
 import Ensemble.Schema.TH
-import Foreign.C.Types
-import Foreign.Ptr
-
-instance A.ToJSON (Ptr a) where 
-    toJSON ptr = A.String (pack $ show ptr)
-
-instance A.FromJSON (Ptr a) where
-    parseJSON _ = pure nullPtr
-
-deriveJSONs
-    [ ''Ok
-    , ''APIError
-    , ''AudioDevice
-    , ''CFloat
-    , ''AudioOutput
-    , ''Tick
-    , ''InstrumentId
-    , ''Soundfont.SoundfontPreset
-    , ''Clap.ClapId
-    , ''Clap.ParamId
-    , ''Clap.PluginId
-    , ''Clap.ClapVersion
-    , ''Clap.PluginDescriptor
-    , ''Clap.EventFlag
-    , ''Clap.NoteEvent
-    , ''Clap.NoteKillEvent
-    , ''Clap.NoteExpression
-    , ''Clap.NoteExpressionEvent
-    , ''Clap.ParamValueEvent
-    , ''Clap.ParamModEvent
-    , ''Clap.ParamGestureEvent
-    , ''Clap.TransportFlag
-    , ''Clap.TransportEvent
-    , ''Clap.MidiData
-    , ''Clap.MidiEvent
-    , ''Clap.MidiSysexEvent
-    , ''Clap.Midi2Data
-    , ''Clap.Midi2Event
-    , ''Clap.ClapEventConfig
-    ]
-
-deriveCustomJSONs
-    [ ''Clap.ClapEvent
-    ] 
-
-deriveJSONs
-    [ ''SequencerEvent 
-    ]
+import Ensemble.Type
 
 makeAPI
     -- types
@@ -86,6 +34,7 @@ makeAPI
     , ''Clap.Midi2Data
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
+    , ''PlaybackEvent
     , ''Soundfont.SoundfontPreset
     , ''SequencerEvent
     ]

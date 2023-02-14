@@ -1,5 +1,4 @@
-{-# LANGUAGE KindSignatures #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module Ensemble.API where
 
 import Clap.Host (PluginId (..))
@@ -16,15 +15,14 @@ import Ensemble.Engine (AudioDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Instrument
 import Ensemble.Event (SequencerEvent(..))
+import Ensemble.Schema.TH
 import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
 import Ensemble.Soundfont (SoundfontPreset)
-import GHC.TypeLits
+import Ensemble.Type
 
 data Ok = Ok
-
-data Argument (name :: Symbol) t = Argument t
 
 -- Audio
 getAudioDevices :: Ensemble [AudioDevice]
@@ -118,3 +116,5 @@ playAudio (Argument audioOutput) = do
     engine <- asks server_engine
     Engine.playAudio engine audioOutput
     pure Ok
+
+deriveJSON ''Ok

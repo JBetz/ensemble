@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -8,6 +9,7 @@ module Ensemble.Schema.TH where
 import Prelude hiding (break)
 
 import Control.Monad (join)
+import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
@@ -16,19 +18,19 @@ import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Aeson.TH as A
 import qualified Data.Aeson.Types as A
 import Data.Foldable (traverse_, foldlM, foldl')
-import Control.Monad.Freer
 import Data.Text (Text)
 import Data.Traversable (for)
-import Ensemble.Util
-import Ensemble.API
-import Ensemble.Effects
 import Ensemble.Error
+import Ensemble.Util
 import Ensemble.Schema.TaggedJSON
 import Foreign.Ptr
 import GHC.Generics (Generic)
 import GHC.Stack
+import GHC.TypeLits
 import Language.Haskell.TH
 import Language.Haskell.TH.Datatype
+
+data Argument (name :: Symbol) t = Argument t
 
 encodingOptions :: A.Options
 encodingOptions = 
@@ -174,7 +176,6 @@ showType resolve = \case
             itemTypeString <- showType resolve itemType
             pure $ "vector<" <> itemTypeString <> ">" 
     AppT (ConT name) innerType -> if
-        | name == ''Ensemble -> showType resolve innerType
         | name == ''Ptr -> pure "Void" 
         | name == ''Maybe -> showType resolve innerType
         | otherwise -> error $ "Unrepresentable higher order type: " <> show name
@@ -274,7 +275,7 @@ makeHandleMessage functionNames = do
     let objectName = mkName "object"
     cases <- traverse (makeCase objectName) functionNames
     let body = NormalB $ CaseE (VarE messageTypeName) cases
-    let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT ''Ensemble) (ConT ''A.Value)))
+    let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (ConT ''A.Value)))
     let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]
     pure [signature, function]
 
@@ -307,9 +308,9 @@ lookupField key object =
         Just value -> 
             case A.fromJSON value of
                 A.Success a -> pure a
-                A.Error parseError -> throwError $ APIError ("Parse error on '" <> show key <> "': "  <> parseError)
+                A.Error parseError -> throwError $ APIError $ "Parse error on '" <> show key <> "': "  <> parseError
         Nothing -> 
-            throwError $ APIError ("Missing argument: " <> show key)
+            throwError $ APIError $ "Missing argument: " <> show key
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase

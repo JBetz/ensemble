@@ -1,18 +1,21 @@
 module Ensemble.Effects where
 
+import Control.Concurrent.Chan
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import Control.Monad.Freer.Writer
+import Data.Aeson (Value)
 import Ensemble.Config
 import Ensemble.Error
 import Ensemble.Server
-
-type Ensemble = Eff '[Reader Server, Writer String, Error APIError, IO]
+import Ensemble.Type
 
 runEnsemble :: Server -> Ensemble a -> IO (Either APIError a)
-runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ action
+runEnsemble server action = runM $ runError $ runLogWriter $ runMessageWriter $ runReader server $ action
     where
+        config = server_config server
+
         runLogWriter :: LastMember IO effs => Eff (Writer String : effs) result -> Eff effs result
         runLogWriter = interpret $ \case
             Tell message -> 
@@ -21,4 +24,8 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runReader server $ 
                     Nothing -> case interface config of
                         Interface_Http -> sendM $ putStrLn message
                         Interface_Pipes -> pure ()
-        config = server_config server
+                        Interface_WebSocket -> pure ()
+        
+        runMessageWriter :: LastMember IO effs => Eff (Writer Value : effs) result -> Eff effs result
+        runMessageWriter = interpret $ \case
+            Tell message -> sendM $ writeChan (server_messageChannel server) message

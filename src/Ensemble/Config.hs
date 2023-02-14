@@ -7,11 +7,13 @@ import Text.Read
 data Interface 
     = Interface_Pipes
     | Interface_Http
+    | Interface_WebSocket
     deriving (Generic)
 
 instance Show Interface where
     show Interface_Pipes = "pipes"
     show Interface_Http = "http"
+    show Interface_WebSocket = "web-socket"
 
 instance Read Interface where
     readPrec = do
@@ -28,6 +30,10 @@ instance Read Interface where
             readString = \case       
                 "pipes" -> Interface_Pipes
                 "http" -> Interface_Http
+                "web-socket" -> Interface_WebSocket
+                "websocket" -> Interface_WebSocket
+                "webSocket" -> Interface_WebSocket
+                "ws" -> Interface_WebSocket
                 other -> error $ "Invalid interface argument: " <> show other
 
 instance ParseRecord Interface

@@ -1,7 +1,10 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Ensemble.Instrument where
 
 import Clap.Host
 import Ensemble.Soundfont
+import Ensemble.Schema.TH
 
 newtype InstrumentId = InstrumentId { instrumentId_id :: Int }
     deriving (Show, Ord, Eq)
@@ -31,3 +34,4 @@ data ClapInstrument = ClapInstrument
     { clapInstrument_pluginId :: PluginId
     } deriving (Show)
 
+deriveJSON ''InstrumentId

@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MonoLocalBinds #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
 
 import Clap.Interface.Events (defaultClapEventConfig)
@@ -12,6 +12,7 @@ import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
+import Data.Aeson (Value(..))
 import Data.Foldable (for_, traverse_)
 import Data.IORef
 import Data.Int
@@ -24,6 +25,7 @@ import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
+import Ensemble.Schema.TH
 import qualified Ensemble.Soundfont as SF
 import Ensemble.Soundfont.FluidSynth.Library (FluidSynthLibrary)
 import qualified Ensemble.Soundfont.FluidSynth.Library as FS
@@ -56,7 +58,7 @@ data EngineState
     | StateRunning
     | StateStopping
 
-type EngineEffects effs = (Members '[Writer String, Error APIError] effs, LastMember IO effs, HasCallStack)
+type EngineEffects effs = (Members '[Writer Value, Writer String, Error APIError] effs, LastMember IO effs, HasCallStack)
 
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
@@ -375,5 +377,10 @@ interleave xs ys = concat (transpose [xs, ys])
 
 throwAPIError :: (Members '[Writer String, Error APIError] effs, HasCallStack) => String -> Eff effs a
 throwAPIError message = do
-    tell $ prettyCallStack (fromList $ init $ toList callStack) 
+    tell $ message <> "\n" <> prettyCallStack (fromList $ init $ toList callStack) 
     throwError $ APIError { apiError_message = message }
+
+deriveJSONs
+    [ ''AudioDevice
+    , ''AudioOutput
+    ]

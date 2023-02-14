@@ -15,6 +15,7 @@ import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Schema.TH
+import Ensemble.Schema.TaggedJSON
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
@@ -99,7 +100,7 @@ groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
-tellEvent :: Member (Writer Value) effs => ToJSON a => a -> Eff effs ()
-tellEvent = tell . toJSON
+tellEvent :: Member (Writer Value) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
+tellEvent = tell . toTaggedJSON
 
 deriveJSON ''Tick

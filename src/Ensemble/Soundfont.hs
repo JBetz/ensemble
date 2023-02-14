@@ -20,7 +20,7 @@ newtype SoundfontId = SoundfontId { soundfontId_id :: Int }
 data SoundfontPreset = SoundfontPreset
     { soundfontPreset_name :: String
     , soundfontPreset_bankNumber :: Int
-    , soundfontPreset_instrumentNumber :: Int
+    , soundfontPreset_programNumber :: Int
     } deriving (Show)
 
 data Soundfont = Soundfont
@@ -71,7 +71,7 @@ loadSoundfontPresets library soundfontHandle = do
             pure $ SoundfontPreset
                 { soundfontPreset_name = name
                 , soundfontPreset_bankNumber = bankNumber
-                , soundfontPreset_instrumentNumber = instrumentNumber
+                , soundfontPreset_programNumber = instrumentNumber
                 }
 
 

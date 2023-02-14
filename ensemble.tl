@@ -80,7 +80,7 @@ clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
 
 clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
 
-soundfontPreset name:String bankNumber:Int instrumentNumber:Int = SoundfontPreset;
+soundfontPreset name:String bankNumber:Int programNumber:Int = SoundfontPreset;
 
 sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
 

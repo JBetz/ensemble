@@ -31,16 +31,16 @@ main = do
         Interface_WebSocket -> runWebSocketInterface server (fromMaybe 3000 $ port config)
   where              
     runPipesInterface server = do
-        void $ forkIO $ forever $ do
-            outgoingMessage <- readChan $ server_messageChannel server
-            putStrLn $ fromLazyByteString (A.encode outgoingMessage)
+        handleOutgoingMessages server
         forever $ BS.getLine >>= handleIncomingMessage server
     
-    runHttpInterface server port' = scotty port' $ do
-        post "/send" $ do
-            incomingMessage <- jsonData
-            outgoingMessage <- liftAndCatchIO $ receiveMessage server incomingMessage
-            json outgoingMessage
+    runHttpInterface server port' = do
+        handleOutgoingMessages server
+        scotty port' $ do
+            post "/send" $ do
+                incomingMessage <- jsonData
+                outgoingMessage <- liftAndCatchIO $ receiveMessage server incomingMessage
+                json outgoingMessage
 
     runWebSocketInterface server port' = do
         let warpSettings = Warp.setPort port' Warp.defaultSettings
@@ -60,4 +60,9 @@ main = do
                 outgoingMessage <- receiveMessage server incomingMessage
                 writeChan (server_messageChannel server) outgoingMessage
             Left parseError -> 
-                hPutStrLn stderr $ "Parse error: " <> parseError            
+                hPutStrLn stderr $ "Parse error: " <> parseError
+
+    handleOutgoingMessages server = 
+        void $ forkIO $ forever $ do
+            outgoingMessage <- readChan $ server_messageChannel server
+            putStrLn $ fromLazyByteString (A.encode outgoingMessage)

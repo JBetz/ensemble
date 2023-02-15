@@ -40,7 +40,7 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: (LastMember IO effs, Members '[Writer Value, Writer String, Error APIError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
+playSequence :: (LastMember IO effs, Members '[Writer Value, Writer String, Error ApiError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 playSequence sequencer engine startTick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- sendM $ getEndTick sequencer
@@ -74,7 +74,7 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-render :: (Members '[Writer Value, Writer String, Error APIError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
+render :: (Members '[Writer Value, Writer String, Error ApiError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
     renderEvents 0 (groupEvents events)

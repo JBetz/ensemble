@@ -302,15 +302,15 @@ makeCase objectName functionName = do
             pure $ Match (LitP $ StringL $ nameBase functionName) body []
         _ -> error $ "Invalid function: " <> show functionName
 
-lookupField :: (A.FromJSON a, Member (Error APIError) effs) => A.Key -> KeyMap A.Value -> Eff effs a
+lookupField :: (A.FromJSON a, Member (Error ApiError) effs) => A.Key -> KeyMap A.Value -> Eff effs a
 lookupField key object = 
     case KeyMap.lookup key object of
         Just value -> 
             case A.fromJSON value of
                 A.Success a -> pure a
-                A.Error parseError -> throwError $ APIError $ "Parse error on '" <> show key <> "': "  <> parseError
+                A.Error parseError -> throwError $ ApiError $ "Parse error on '" <> show key <> "': "  <> parseError
         Nothing -> 
-            throwError $ APIError $ "Missing argument: " <> show key
+            throwError $ ApiError $ "Missing argument: " <> show key
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase

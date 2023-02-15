@@ -1,5 +1,5 @@
 module Ensemble.Error where 
 
-data APIError = APIError 
+data ApiError = ApiError 
     { apiError_message :: String
     } deriving (Show)

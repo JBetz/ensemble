@@ -58,7 +58,7 @@ data EngineState
     | StateRunning
     | StateStopping
 
-type EngineEffects effs = (Members '[Writer Value, Writer String, Error APIError] effs, LastMember IO effs, HasCallStack)
+type EngineEffects effs = (Members '[Writer Value, Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
@@ -110,13 +110,13 @@ getAudioDevices = do
         pure $ Right $ catMaybes devices
     case eitherResult of
         Right devices -> pure devices
-        Left portAudioError -> throwAPIError $ "Error getting audio devices: " <> show portAudioError
+        Left portAudioError -> throwApiError $ "Error getting audio devices: " <> show portAudioError
 
 start :: EngineEffects effs => Engine -> Eff effs ()
 start engine = do
     initializeResult <- sendM PortAudio.initialize
     case initializeResult of
-        Just initializeError -> throwAPIError $ "Error when initializing audio driver: " <> show initializeError
+        Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
         Nothing -> do
             sendM $ allocateBuffers engine (32 * 1024)
             eitherStream <- sendM $ PortAudio.openDefaultStream 
@@ -128,7 +128,7 @@ start engine = do
                 Nothing -- Callback on completion
             case eitherStream of
                 Left portAudioError -> 
-                    throwAPIError $ "Error when opening audio stream: " <> show portAudioError
+                    throwApiError $ "Error when opening audio stream: " <> show portAudioError
                 Right stream -> do
                     maybeError <- sendM $ do
                         writeIORef (engine_audioStream engine) (Just stream)
@@ -137,7 +137,7 @@ start engine = do
                         CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
                         PortAudio.startStream stream
                     whenJust maybeError $ \startError ->
-                        throwAPIError $ "Error when starting audio stream: " <> show startError 
+                        throwApiError $ "Error when starting audio stream: " <> show startError 
 
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
@@ -153,7 +153,7 @@ lookupInstrument engine instrumentId = do
     instruments <- sendM $ readIORef $ engine_instruments engine
     case Map.lookup instrumentId instruments of
         Just instrument -> pure instrument
-        Nothing -> throwAPIError $ 
+        Nothing -> throwApiError $ 
             "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
             "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
 
@@ -162,7 +162,7 @@ lookupSoundfontInstrument engine instrumentId = do
     instrument <- lookupInstrument engine instrumentId
     case instrument of
         Instrument_Soundfont soundfontInstrument -> pure soundfontInstrument
-        Instrument_Clap _  -> throwAPIError $ "Expected Soundfont instrument id, received CLAP instrument id: " <> show instrumentId
+        Instrument_Clap _  -> throwApiError $ "Expected Soundfont instrument id, received CLAP instrument id: " <> show instrumentId
 
 getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
 getSoundfontInstruments engine = do
@@ -190,7 +190,7 @@ generateOutputs engine frameCount events = do
             Instrument_Soundfont soundfontInstrument -> 
                 case maybeSoundfontPlayer of
                     Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer (soundfontInstrument_synth soundfontInstrument) event
-                    Nothing -> throwAPIError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
+                    Nothing -> throwApiError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
     soundfontOutputs <- case maybeSoundfontPlayer of
@@ -232,7 +232,7 @@ playAudio engine audioOutput = do
                     unless (size remaining == 0) $ 
                         writeChunks stream remaining
                 Left audioPortError ->
-                    throwAPIError $ "Error getting available frames of audio stream: " <> show audioPortError
+                    throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
 
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
@@ -254,8 +254,8 @@ sendOutputs engine frameCount audioOutput  = do
                 outputForeignPtr <- newForeignPtr_ outputPtr
                 PortAudio.writeStream stream frameCount outputForeignPtr
             whenJust maybeError $ \writeError -> 
-                throwAPIError $ "Error writing to audio stream: " <> show writeError
-        Nothing -> throwAPIError "PortAudio not initialized"
+                throwApiError $ "Error writing to audio stream: " <> show writeError
+        Nothing -> throwApiError "PortAudio not initialized"
 
 stop :: EngineEffects effs => Engine -> Eff effs ()
 stop engine = do
@@ -271,7 +271,7 @@ stop engine = do
                 setState engine StateStopped
                 pure maybeError
             whenJust maybeError $ \stopError ->
-                throwAPIError $ "Error when stopping audio stream: " <> show stopError
+                throwApiError $ "Error when stopping audio stream: " <> show stopError
         Nothing -> pure () 
 
 deleteInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs ()
@@ -320,7 +320,7 @@ getFluidSynthLibrary engine = do
     maybeLibrary <- sendM $ readIORef $ ending_fluidSynthLibrary engine
     case maybeLibrary of 
         Just library -> pure library
-        Nothing -> throwAPIError "FluidSynth DLL not loaded"
+        Nothing -> throwApiError "FluidSynth DLL not loaded"
                         
 loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
 loadFluidSynthLibrary engine path = do
@@ -375,10 +375,10 @@ setState engine = writeIORef (engine_state engine)
 interleave :: [a] -> [a] -> [a]
 interleave xs ys = concat (transpose [xs, ys])
 
-throwAPIError :: (Members '[Writer String, Error APIError] effs, HasCallStack) => String -> Eff effs a
-throwAPIError message = do
+throwApiError :: (Members '[Writer String, Error ApiError] effs, HasCallStack) => String -> Eff effs a
+throwApiError message = do
     tell $ message <> "\n" <> prettyCallStack (fromList $ init $ toList callStack) 
-    throwError $ APIError { apiError_message = message }
+    throwError $ ApiError { apiError_message = message }
 
 deriveJSONs
     [ ''AudioDevice

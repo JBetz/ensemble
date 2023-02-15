@@ -2,7 +2,7 @@ vector {t:Type} # [ t ] = Vector t;
 
 ok = Ok;
 
-aPIError message:String = APIError;
+apiError message:String = ApiError;
 
 audioDevice index:Int name:String = AudioDevice;
 

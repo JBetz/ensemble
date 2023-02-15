@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -21,7 +20,7 @@ import Ensemble.Type
 makeAPI
     -- types
     [ ''Ok
-    , ''APIError
+    , ''ApiError
     , ''AudioDevice
     , ''AudioOutput
     , ''Clap.PluginId

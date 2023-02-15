@@ -15,17 +15,17 @@ import Ensemble.Schema.TH
 import Ensemble.Schema.TaggedJSON (toTaggedJSON)
 import Ensemble.Server
 
-deriveJSON ''APIError
+deriveJSON ''ApiError
 
-handler :: Server -> KeyMap A.Value -> IO (Either APIError A.Value)
+handler :: Server -> KeyMap A.Value -> IO (Either ApiError A.Value)
 handler server object = runEnsemble server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) -> 
             handleMessage messageType object
         Just _ -> 
-            throwError $ APIError "Invalid '@type' field"
+            throwError $ ApiError "Invalid '@type' field"
         Nothing -> 
-            throwError $ APIError "Message is missing '@type' field"
+            throwError $ ApiError "Message is missing '@type' field"
 
 receiveMessage :: Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage = 
@@ -37,10 +37,10 @@ receiveMessage server jsonMessage =
                 Right (A.Object outMessage) ->
                     A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
                 Right _ ->
-                    makeError extraValue $ APIError "Invalid JSON output, needs to be object"
+                    makeError extraValue $ ApiError "Invalid JSON output, needs to be object"
                 Left errorMessage ->
                     makeError extraValue errorMessage
-        _ -> pure $ makeError Nothing $ APIError "Invalid JSON input, needs to be object"
+        _ -> pure $ makeError Nothing $ ApiError "Invalid JSON input, needs to be object"
     where
         makeError extraValue apiError = 
             let A.Object errorJson = toTaggedJSON apiError

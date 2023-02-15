@@ -8,4 +8,4 @@ import Data.Aeson (Value)
 import Ensemble.Error
 import Ensemble.Server
 
-type Ensemble = Eff '[Reader Server, Writer Value, Writer String, Error APIError, IO]
+type Ensemble = Eff '[Reader Server, Writer Value, Writer String, Error ApiError, IO]

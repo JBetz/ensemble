@@ -222,16 +222,19 @@ mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight
 
 playAudio :: EngineEffects effs => Engine -> AudioOutput -> Eff effs ()
 playAudio engine audioOutput = do
+    sendM $ writeIORef (engine_steadyTime engine) 0
     maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
     where
         writeChunks stream output = do
-            eitherChunkSize <- sendM $ PortAudio.writeAvailable stream
-            case eitherChunkSize of
-                Right chunkSize -> do 
-                    let (chunk, remaining) = takeChunk chunkSize output
-                    sendOutputs engine (fromIntegral $ size chunk) chunk
+            eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream
+            case eitherAvailableChunkSize of
+                Right availableChunkSize -> do 
+                    let (chunk, remaining) = takeChunk availableChunkSize output
+                    let actualChunkSize = size chunk
+                    sendOutputs engine (fromIntegral actualChunkSize) chunk
+                    sendM $ modifyIORef' (engine_steadyTime engine) (+ fromIntegral actualChunkSize)
                     unless (size remaining == 0) $ 
                         writeChunks stream remaining
                 Left audioPortError ->

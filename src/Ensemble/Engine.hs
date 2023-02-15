@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
@@ -7,6 +8,7 @@ import Clap.Interface.Events (defaultClapEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
+import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
@@ -88,12 +90,6 @@ data AudioDevice = AudioDevice
     , audioDevice_name :: String
     } deriving (Show)
 
-instance Semigroup AudioOutput where
-    a <> b = AudioOutput
-        { audioOutput_left = audioOutput_left a <> audioOutput_left b
-        , audioOutput_right = audioOutput_right a <> audioOutput_right b
-        }
-
 getAudioDevices :: EngineEffects effs => Eff effs [AudioDevice]
 getAudioDevices = do
     eitherResult <- sendM $ PortAudio.withPortAudio $ do
@@ -130,12 +126,13 @@ start engine = do
                 Left portAudioError -> 
                     throwApiError $ "Error when opening audio stream: " <> show portAudioError
                 Right stream -> do
-                    maybeError <- sendM $ do
-                        writeIORef (engine_audioStream engine) (Just stream)
+                    maybeError <- do
+                        sendM $ writeIORef (engine_audioStream engine) (Just stream)
                         setState engine StateRunning
                         let pluginHost = engine_pluginHost engine
-                        CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                        PortAudio.startStream stream
+                        sendM $ do
+                            CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
+                            PortAudio.startStream stream
                     whenJust maybeError $ \startError ->
                         throwApiError $ "Error when starting audio stream: " <> show startError 
 
@@ -209,6 +206,12 @@ data AudioOutput = AudioOutput
     , audioOutput_right :: [CFloat] 
     } deriving (Eq, Ord)
 
+instance Semigroup AudioOutput where
+    a <> b = AudioOutput
+        { audioOutput_left = audioOutput_left a <> audioOutput_left b
+        , audioOutput_right = audioOutput_right a <> audioOutput_right b
+        }
+
 mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
     let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
@@ -267,11 +270,10 @@ stop engine = do
                 _ <- PortAudio.stopStream stream
                 _ <- PortAudio.closeStream stream
                 freeBuffers engine
-                maybeError <- PortAudio.terminate
-                setState engine StateStopped
-                pure maybeError
+                PortAudio.terminate
             whenJust maybeError $ \stopError ->
                 throwApiError $ "Error when stopping audio stream: " <> show stopError
+            setState engine StateStopped
         Nothing -> pure () 
 
 deleteInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs ()
@@ -291,12 +293,11 @@ createSoundfontInstrument engine filePath = do
     settings <- sendM $ FS.newFluidSettings library
     synth <- sendM $ FS.newFluidSynth library settings
     soundfont <- sendM $ SF.loadSoundfont library synth filePath True
-    let instrument = Instrument_Soundfont $ SoundfontInstrument 
-            { soundfontInstrument_soundfont = soundfont
-            , soundfontInstrument_settings = settings
-            , soundfontInstrument_synth = synth
-            }
-    sendM $ addInstrument engine instrument
+    sendM $ addInstrument engine $ Instrument_Soundfont $ SoundfontInstrument 
+        { soundfontInstrument_soundfont = soundfont
+        , soundfontInstrument_settings = settings
+        , soundfontInstrument_synth = synth
+        }
 
 selectSoundfontInstrumentPreset :: EngineEffects effs => Engine -> InstrumentId -> Int -> Int -> Eff effs ()
 selectSoundfontInstrumentPreset engine instrumentId bankNumber programNumber = do
@@ -369,8 +370,8 @@ freeBuffers engine = do
     pokeArray (engine_inputs engine) [nullPtr, nullPtr]
     pokeArray (engine_outputs engine) [nullPtr, nullPtr]
 
-setState :: Engine -> EngineState -> IO ()
-setState engine = writeIORef (engine_state engine)
+setState :: EngineEffects effs => Engine -> EngineState -> Eff effs ()
+setState engine = sendM . writeIORef (engine_state engine)
 
 interleave :: [a] -> [a] -> [a]
 interleave xs ys = concat (transpose [xs, ys])
@@ -384,3 +385,5 @@ deriveJSONs
     [ ''AudioDevice
     , ''AudioOutput
     ]
+
+deriving instance NFData AudioOutput

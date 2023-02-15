@@ -4,6 +4,8 @@
 
 module Ensemble.Sequencer where
 
+import Control.DeepSeq (force)
+import Control.Exception (evaluate)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
@@ -46,9 +48,10 @@ playSequence sequencer engine startTick = do
     endTick <- sendM $ getEndTick sequencer
     tellEvent PlaybackEvent_Rendering
     audioOutput <- render sequencer engine startTick endTick
+    evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
     sendM $ stopInstruments engine
     tellEvent PlaybackEvent_Started
-    playAudio engine audioOutput
+    playAudio engine evaluatedAudioOutput
     tellEvent PlaybackEvent_Stopped
 
 getEndTick :: Sequencer -> IO Tick

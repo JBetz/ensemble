@@ -50,6 +50,7 @@ library
                       bytestring,
                       clap,
                       containers,
+                      deepseq,
                       extra,
                       freer-simple,
                       optparse-generic,

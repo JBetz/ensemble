@@ -54,4 +54,5 @@ makeAPI
     , 'renderSequence
     , 'clearSequence
     , 'playAudio
+    , 'getCurrentTick
     ]

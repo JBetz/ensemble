@@ -1,5 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
@@ -59,6 +61,9 @@ data EngineState
     = StateStopped
     | StateRunning
     | StateStopping
+
+newtype Tick = Tick { tick_value :: Int }
+    deriving newtype (Eq, Ord, Show, Enum, Num, Real, Integral)
 
 type EngineEffects effs = (Members '[Writer Value, Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
@@ -263,6 +268,11 @@ sendOutputs engine frameCount audioOutput  = do
                 throwApiError $ "Error writing to audio stream: " <> show writeError
         Nothing -> throwApiError "PortAudio not initialized"
 
+getCurrentTick :: EngineEffects effs => Engine -> Eff effs Tick
+getCurrentTick engine = do
+    steadyTime <- sendM $ readIORef (engine_steadyTime engine)
+    pure $ Tick $ fromIntegral steadyTime * 1000 `div` floor (engine_sampleRate engine)
+
 stop :: EngineEffects effs => Engine -> Eff effs ()
 stop engine = do
     maybeStream <- sendM $ readIORef (engine_audioStream engine)
@@ -385,7 +395,8 @@ throwApiError message = do
     throwError $ ApiError { apiError_message = message }
 
 deriveJSONs
-    [ ''AudioDevice
+    [ ''Tick
+    , ''AudioDevice
     , ''AudioOutput
     ]
 

@@ -1,7 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MonoLocalBinds #-}
-{-# LANGUAGE TemplateHaskell #-}
-
 module Ensemble.Sequencer where
 
 import Control.DeepSeq (force)
@@ -16,7 +13,6 @@ import qualified Data.Map as Map
 import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
-import Ensemble.Schema.TH
 import Ensemble.Schema.TaggedJSON
 
 data Sequencer = Sequencer
@@ -25,9 +21,6 @@ data Sequencer = Sequencer
     , sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
     , sequencer_clients :: IORef (Map String EventCallback)
     }
-
-newtype Tick = Tick { tick_value :: Int }
-    deriving (Eq, Ord, Show, Enum, Num, Real, Integral)
 
 createSequencer :: IO Sequencer
 createSequencer = do
@@ -106,4 +99,3 @@ groupEvents eventList =
 tellEvent :: Member (Writer Value) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
 tellEvent = tell . toTaggedJSON
 
-deriveJSON ''Tick

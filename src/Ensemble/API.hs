@@ -11,12 +11,11 @@ import Control.Monad.Freer.Reader
 import Data.IORef
 import Data.Text (Text, unpack, pack)
 import Ensemble.Effects
-import Ensemble.Engine (AudioDevice, AudioOutput)
+import Ensemble.Engine (AudioDevice, AudioOutput, Tick)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Instrument
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Schema.TH
-import Ensemble.Sequencer (Tick(..))
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
 import Ensemble.Soundfont (SoundfontPreset)
@@ -116,5 +115,10 @@ playAudio (Argument audioOutput) = do
     engine <- asks server_engine
     Engine.playAudio engine audioOutput
     pure Ok
+
+getCurrentTick :: Ensemble Tick
+getCurrentTick = do
+    engine <- asks server_engine
+    Engine.getCurrentTick engine
 
 deriveJSON ''Ok

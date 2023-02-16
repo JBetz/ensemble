@@ -73,7 +73,7 @@ createEngine hostConfig = do
     pluginHost <- CLAP.createPluginHost hostConfig
     soundfontPlayer <- newIORef Nothing
     instruments <- newIORef mempty
-    steadyTime <- newIORef 0
+    steadyTime <- newIORef (-1)
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
     audioStream <- newIORef Nothing
@@ -231,6 +231,8 @@ playAudio engine audioOutput = do
     maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
+    sendM $ writeIORef (engine_steadyTime engine) (-1)
+       
     where
         writeChunks stream output = do
             eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream

@@ -85,7 +85,7 @@ render sequencer engine startTick endTick = do
                 -- One second of padding
                 let frameCount = engine_sampleRate engine
                 generateOutputs engine (floor frameCount) events
-            [] -> pure $ AudioOutput (repeat 0) (repeat 0)
+            [] -> pure $ AudioOutput [] []
 
 getEventsBetween :: Sequencer -> Tick -> Tick -> IO [(Tick, SequencerEvent)]
 getEventsBetween sequencer startTick endTick = do

@@ -127,3 +127,7 @@ clearSequence = Ok;
 playAudio audioOutput:AudioOutput = Ok;
 
 getCurrentTick = Int;
+
+ping = Ok;
+
+echo string:String = String;

@@ -121,4 +121,10 @@ getCurrentTick = do
     engine <- asks server_engine
     Engine.getCurrentTick engine
 
+ping :: Ensemble Ok
+ping = pure Ok
+
+echo :: Argument "string" Text -> Ensemble Text
+echo (Argument string) = pure string
+
 deriveJSON ''Ok

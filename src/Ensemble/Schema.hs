@@ -55,4 +55,6 @@ makeAPI
     , 'clearSequence
     , 'playAudio
     , 'getCurrentTick
+    , 'ping
+    , 'echo
     ]

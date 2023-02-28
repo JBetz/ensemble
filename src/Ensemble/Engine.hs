@@ -47,7 +47,7 @@ import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    , ending_fluidSynthLibrary :: IORef (Maybe FluidSynthLibrary)
+    , engine_fluidSynthLibrary :: IORef (Maybe FluidSynthLibrary)
     , engine_instruments :: IORef (Map InstrumentId Instrument)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
@@ -80,7 +80,7 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
-        , ending_fluidSynthLibrary = soundfontPlayer
+        , engine_fluidSynthLibrary = soundfontPlayer
         , engine_instruments = instruments
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
@@ -182,7 +182,7 @@ getSoundfontInstrumentPresets engine instrumentId = do
 
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
-    maybeSoundfontPlayer <- sendM $ readIORef $ ending_fluidSynthLibrary engine 
+    maybeSoundfontPlayer <- sendM $ readIORef $ engine_fluidSynthLibrary engine 
     let clapHost = engine_pluginHost engine
     steadyTime <- sendM $ readIORef (engine_steadyTime engine)
     sendM $ CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
@@ -333,7 +333,7 @@ addInstrument engine instrument =
 
 getFluidSynthLibrary :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary
 getFluidSynthLibrary engine = do
-    maybeLibrary <- sendM $ readIORef $ ending_fluidSynthLibrary engine
+    maybeLibrary <- sendM $ readIORef $ engine_fluidSynthLibrary engine
     case maybeLibrary of 
         Just library -> pure library
         Nothing -> throwApiError "FluidSynth DLL not loaded"
@@ -341,7 +341,7 @@ getFluidSynthLibrary engine = do
 loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
 loadFluidSynthLibrary engine path = do
     fluidSynthLibrary <- FS.openFluidSynthLibrary path
-    writeIORef (ending_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
+    writeIORef (engine_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 
 loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =
@@ -349,7 +349,7 @@ loadPlugin engine =
 
 stopInstruments :: Engine -> IO ()
 stopInstruments engine = do
-    maybeLibrary <- readIORef $ ending_fluidSynthLibrary engine
+    maybeLibrary <- readIORef $ engine_fluidSynthLibrary engine
     case maybeLibrary of
         Just library -> do
             soundfontInstruments <- getSoundfontInstruments engine

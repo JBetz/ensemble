@@ -343,9 +343,9 @@ getFluidSynthLibrary engine = do
 loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
 loadFluidSynthLibrary engine path = do
     maybeFluidSynthLibrary <- readIORef (engine_fluidSynthLibrary engine)
-    whenJust maybeFluidSynthLibrary FS.closeFluidSynthLibrary
-    fluidSynthLibrary <- FS.openFluidSynthLibrary path
-    writeIORef (engine_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
+    when (isNothing maybeFluidSynthLibrary) $ do 
+        fluidSynthLibrary <- FS.openFluidSynthLibrary path
+        writeIORef (engine_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 
 loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =

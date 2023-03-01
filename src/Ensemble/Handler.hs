@@ -16,10 +16,11 @@ import Ensemble.Schema (handleMessage)
 import Ensemble.Schema.TH
 import Ensemble.Schema.TaggedJSON (toTaggedJSON)
 import Ensemble.Server
+import GHC.Stack
 
 deriveJSON ''ApiError
 
-handler :: Server -> KeyMap A.Value -> IO (Either ApiError A.Value)
+handler :: HasCallStack => Server -> KeyMap A.Value -> IO (Either ApiError (KeyMap A.Value))
 handler server object = runEnsemble server $
     case KeyMap.lookup "@type" object of
         Just (A.String messageType) -> 
@@ -29,7 +30,7 @@ handler server object = runEnsemble server $
         Nothing -> 
             throwError $ ApiError "Message is missing '@type' field"
 
-receiveMessage :: Server -> A.Value -> IO A.Value
+receiveMessage :: HasCallStack => Server -> A.Value -> IO A.Value
 receiveMessage server jsonMessage =
     case jsonMessage of
         A.Object object -> do
@@ -37,14 +38,11 @@ receiveMessage server jsonMessage =
             result <- handler server object `catch` (\(exception :: SomeException) -> 
                 pure $ Left $ ApiError $ displayException exception)
             pure $ case result of
-                Right (A.Object outMessage) ->
+                Right outMessage ->
                     A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
-                Right _ ->
-                    makeError extraValue $ ApiError "Invalid JSON output, needs to be object"
                 Left errorMessage ->
                     makeError extraValue errorMessage
         _ -> pure $ makeError Nothing $ ApiError "Invalid JSON input, needs to be object"
     where
         makeError extraValue apiError = 
-            let A.Object errorJson = toTaggedJSON apiError
-            in A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) errorJson
+            A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) (toTaggedJSON apiError)

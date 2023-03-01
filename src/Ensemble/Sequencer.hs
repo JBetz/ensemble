@@ -7,6 +7,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
 import Data.Aeson
+import Data.Aeson.KeyMap (KeyMap)
 import Data.IORef
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -14,6 +15,7 @@ import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Schema.TaggedJSON
+import GHC.Stack
 
 data Sequencer = Sequencer
     { sequencer_currentTick :: IORef Tick
@@ -21,6 +23,8 @@ data Sequencer = Sequencer
     , sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
     , sequencer_clients :: IORef (Map String EventCallback)
     }
+
+type SequencerEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createSequencer :: IO Sequencer
 createSequencer = do
@@ -35,7 +39,7 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: (LastMember IO effs, Members '[Writer Value, Writer String, Error ApiError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
+playSequence :: (LastMember IO effs, Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
 playSequence sequencer engine startTick = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
     endTick <- sendM $ getEndTick sequencer
@@ -70,7 +74,7 @@ unregisterClient :: Sequencer -> String -> IO ()
 unregisterClient sequencer name =
     modifyIORef' (sequencer_clients sequencer) $ Map.delete name
 
-render :: (Members '[Writer Value, Writer String, Error ApiError] effs, LastMember IO effs) => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
+render :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
     renderEvents 0 (groupEvents events)
@@ -96,6 +100,6 @@ groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
 
-tellEvent :: Member (Writer Value) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
+tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
 tellEvent = tell . toTaggedJSON
 

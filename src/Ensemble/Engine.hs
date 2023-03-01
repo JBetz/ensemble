@@ -17,6 +17,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
 import Data.Aeson (Value(..))
+import Data.Aeson.KeyMap (KeyMap)
 import Data.Foldable (for_, traverse_)
 import Data.IORef
 import Data.Int
@@ -65,7 +66,7 @@ data EngineState
 newtype Tick = Tick { tick_value :: Int }
     deriving newtype (Eq, Ord, Show, Enum, Num, Real, Integral)
 
-type EngineEffects effs = (Members '[Writer Value, Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
+type EngineEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do

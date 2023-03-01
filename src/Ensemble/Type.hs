@@ -5,7 +5,8 @@ import Control.Monad.Freer.Error
 import Control.Monad.Freer.Reader
 import Control.Monad.Freer.Writer
 import Data.Aeson (Value)
+import Data.Aeson.KeyMap (KeyMap)
 import Ensemble.Error
 import Ensemble.Server
 
-type Ensemble = Eff '[Reader Server, Writer Value, Writer String, Error ApiError, IO]
+type Ensemble = Eff '[Reader Server, Writer (KeyMap Value), Writer String, Error ApiError, IO]

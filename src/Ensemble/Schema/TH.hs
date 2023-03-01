@@ -281,7 +281,7 @@ makeHandleMessage functionNames = do
     let objectName = mkName "object"
     cases <- traverse (makeCase objectName) functionNames
     let body = NormalB $ CaseE (VarE messageTypeName) (cases <> [failPattern])
-    let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (ConT ''A.Value)))
+    let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (AppT (ConT ''KeyMap) (ConT ''A.Value))))
     let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]
     pure [signature, function]
 

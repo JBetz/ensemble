@@ -115,31 +115,33 @@ getAudioDevices = do
 
 start :: EngineEffects effs => Engine -> Eff effs ()
 start engine = do
-    initializeResult <- sendM PortAudio.initialize
-    case initializeResult of
-        Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
-        Nothing -> do
-            sendM $ allocateBuffers engine (32 * 1024)
-            eitherStream <- sendM $ PortAudio.openDefaultStream 
-                0 -- Number of input channels 
-                2 -- Number of output channels
-                (engine_sampleRate engine) -- Sample rate
-                (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
-                Nothing -- Callback
-                Nothing -- Callback on completion
-            case eitherStream of
-                Left portAudioError -> 
-                    throwApiError $ "Error when opening audio stream: " <> show portAudioError
-                Right stream -> do
-                    maybeError <- do
-                        sendM $ writeIORef (engine_audioStream engine) (Just stream)
-                        setState engine StateRunning
-                        let pluginHost = engine_pluginHost engine
-                        sendM $ do
-                            CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                            PortAudio.startStream stream
-                    whenJust maybeError $ \startError ->
-                        throwApiError $ "Error when starting audio stream: " <> show startError 
+    maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
+    when (isNothing maybeAudioStream) $ do    
+        initializeResult <- sendM PortAudio.initialize
+        case initializeResult of
+            Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
+            Nothing -> do
+                sendM $ allocateBuffers engine (32 * 1024)
+                eitherStream <- sendM $ PortAudio.openDefaultStream 
+                    0 -- Number of input channels 
+                    2 -- Number of output channels
+                    (engine_sampleRate engine) -- Sample rate
+                    (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
+                    Nothing -- Callback
+                    Nothing -- Callback on completion
+                case eitherStream of
+                    Left portAudioError -> 
+                        throwApiError $ "Error when opening audio stream: " <> show portAudioError
+                    Right stream -> do
+                        maybeError <- do
+                            sendM $ writeIORef (engine_audioStream engine) (Just stream)
+                            setState engine StateRunning
+                            let pluginHost = engine_pluginHost engine
+                            sendM $ do
+                                CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
+                                PortAudio.startStream stream
+                        whenJust maybeError $ \startError ->
+                            throwApiError $ "Error when starting audio stream: " <> show startError 
 
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
@@ -340,6 +342,8 @@ getFluidSynthLibrary engine = do
                         
 loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
 loadFluidSynthLibrary engine path = do
+    maybeFluidSynthLibrary <- readIORef (engine_fluidSynthLibrary engine)
+    whenJust maybeFluidSynthLibrary FS.closeFluidSynthLibrary
     fluidSynthLibrary <- FS.openFluidSynthLibrary path
     writeIORef (engine_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
 

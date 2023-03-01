@@ -65,12 +65,13 @@ deriveHasTypeTag name = do
                         [FunD functionName [Clause [VarP (mkName "_")] body []]]
         multiple -> do
             let objectName = mkName "object"
-            let body = NormalB $ CaseE (VarE objectName) $
+            let matches =
                     (\constructor -> 
                         let pattern = ConP (constructorName constructor) [] $ VarP (mkName "_") <$ constructorFields constructor 
                             caseBody = NormalB $ LitE $ StringL $ toSubclassName (constructorName constructor)
                         in Match pattern caseBody []
                     ) <$> multiple
+            let body = NormalB $ CaseE (VarE objectName) (matches <> [failPattern])
             pure $ InstanceD Nothing [] (AppT classType forType)
                 [FunD functionName 
                     [Clause [VarP objectName] body []]]
@@ -85,20 +86,25 @@ deriveCustomJSONs names = do
         pure [fromJson, toJson, toTaggedJson]
     pure $ join decs
 
+failPattern :: Match
+failPattern = 
+    let otherName = mkName "other" 
+    in Match (VarP otherName) (NormalB $ AppE (VarE 'error) (AppE (VarE 'show) (VarE otherName))) []
+
 deriveCustomToJSON :: HasCallStack => Name -> DecQ
 deriveCustomToJSON name = do
     constructors <- datatypeCons <$> reifyDatatype name
     let objectName = mkName "object"
-    let body = NormalB $ CaseE (VarE objectName) $  
-            (\constructor -> 
-                let valueName = mkName "value"
-                    pattern = ConP (constructorName constructor) [] [VarP valueName]
-                    caseBody = NormalB $ multiAppE (VarE 'toTaggedCustomJSON) 
-                        [ LitE $ StringL $ toSubclassName $ constructorName constructor
-                        , VarE valueName
-                        ]
-                in Match pattern caseBody []
-                ) <$> constructors
+    let matches = (\constructor -> 
+            let valueName = mkName "value"
+                pattern = ConP (constructorName constructor) [] [VarP valueName]
+                caseBody = NormalB $ multiAppE (VarE 'toTaggedCustomJSON) 
+                    [ LitE $ StringL $ toSubclassName $ constructorName constructor
+                    , VarE valueName
+                    ]
+            in Match pattern caseBody []
+            ) <$> constructors
+    let body = NormalB $ CaseE (VarE objectName) (matches <> [failPattern])
     pure $ InstanceD Nothing [] (AppT (ConT ''A.ToJSON) (ConT name))
         [FunD 'A.toJSON [Clause [VarP objectName] body []]]
 
@@ -274,7 +280,7 @@ makeHandleMessage functionNames = do
     let messageTypeName = mkName "messageType"
     let objectName = mkName "object"
     cases <- traverse (makeCase objectName) functionNames
-    let body = NormalB $ CaseE (VarE messageTypeName) cases
+    let body = NormalB $ CaseE (VarE messageTypeName) (cases <> [failPattern])
     let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (ConT ''A.Value)))
     let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]
     pure [signature, function]

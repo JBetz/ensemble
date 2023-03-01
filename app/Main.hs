@@ -59,9 +59,16 @@ main = do
                             killThread sendThread
                             writeIORef isOpen False
                             pure Nothing
-                        WS.ConnectionClosed -> pure Nothing
-                        WS.ParseException _ -> pure Nothing
-                        WS.UnicodeException _ -> pure Nothing)
+                        WS.ConnectionClosed -> do
+                            killThread sendThread
+                            writeIORef isOpen False
+                            pure Nothing
+                        WS.ParseException message -> do
+                            putStrLn $ "PARSE EXCEPTION: " <> message
+                            pure Nothing
+                        WS.UnicodeException message -> do
+                            putStrLn $ "UNICODE EXCEPTION: " <> message
+                            pure Nothing)
                     whenJust incomingMessage $ handleIncomingMessage server
                     readIORef isOpen
         let backupApp _ respond = respond $ responseLBS status400 [] "Not a WebSocket request"

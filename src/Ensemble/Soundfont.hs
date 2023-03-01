@@ -80,6 +80,9 @@ processEvent :: FluidSynthLibrary -> FluidSynth -> ClapEvent -> IO ()
 processEvent library synth = \case
     ClapEvent_NoteOn event -> noteOn library synth (noteEvent_channel event) (noteEvent_key event) (noteEvent_velocity event)
     ClapEvent_NoteOff event -> noteOff library synth (noteEvent_channel event) (noteEvent_key event)
+    ClapEvent_NoteChoke event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
+    ClapEvent_NoteEnd event -> noteOff library synth (noteKillEvent_channel event) (noteKillEvent_key event)
+    other -> error $ "Unsupported CLAP event: " <> show other
 
 data SoundfontOutput = SoundfontOutput
     { soundfontOutput_wetChannelLeft :: [CFloat]

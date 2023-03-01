@@ -1,8 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Handler where
 
+import Control.Exception
 import Control.Monad.Freer.Error
 import qualified Data.Aeson as A
 import Data.Aeson.KeyMap (KeyMap)
@@ -28,11 +30,12 @@ handler server object = runEnsemble server $
             throwError $ ApiError "Message is missing '@type' field"
 
 receiveMessage :: Server -> A.Value -> IO A.Value
-receiveMessage server jsonMessage = 
+receiveMessage server jsonMessage =
     case jsonMessage of
         A.Object object -> do
             let extraValue = KeyMap.lookup "@extra" object
-            result <- handler server object
+            result <- handler server object `catch` (\(exception :: SomeException) -> 
+                pure $ Left $ ApiError $ displayException exception)
             pure $ case result of
                 Right (A.Object outMessage) ->
                     A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage

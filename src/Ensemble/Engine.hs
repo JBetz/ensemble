@@ -288,8 +288,11 @@ stop engine = do
                 _ <- PortAudio.closeStream stream
                 freeBuffers engine
                 PortAudio.terminate
-            whenJust maybeError $ \stopError ->
-                throwApiError $ "Error when stopping audio stream: " <> show stopError
+            case maybeError  of
+                Just stopError ->
+                    throwApiError $ "Error when stopping audio stream: " <> show stopError
+                Nothing -> 
+                    sendM $ writeIORef (engine_audioStream engine) Nothing
             setState engine StateStopped
         Nothing -> pure () 
 

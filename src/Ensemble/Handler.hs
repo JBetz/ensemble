@@ -31,18 +31,17 @@ handler server object = runEnsemble server $
             throwError $ ApiError "Message is missing '@type' field"
 
 receiveMessage :: HasCallStack => Server -> A.Value -> IO A.Value
-receiveMessage server jsonMessage =
-    case jsonMessage of
-        A.Object object -> do
-            let extraValue = KeyMap.lookup "@extra" object
-            result <- handler server object `catch` (\(exception :: SomeException) -> 
-                pure $ Left $ ApiError $ displayException exception)
-            pure $ case result of
-                Right outMessage ->
-                    A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
-                Left errorMessage ->
-                    makeError extraValue errorMessage
-        _ -> pure $ makeError Nothing $ ApiError "Invalid JSON input, needs to be object"
+receiveMessage server = \case
+    A.Object object -> do
+        let extraValue = KeyMap.lookup "@extra" object
+        result <- handler server object `catch` (\(exception :: SomeException) -> 
+            pure $ Left $ ApiError $ displayException exception)
+        pure $ case result of
+            Right outMessage ->
+                A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) outMessage
+            Left errorMessage ->
+                makeError extraValue errorMessage
+    _ -> pure $ makeError Nothing $ ApiError "Invalid JSON input, needs to be object"
     where
         makeError extraValue apiError = 
             A.Object $ KeyMap.insert "@extra" (fromMaybe A.Null extraValue) (toTaggedJSON apiError)

@@ -18,7 +18,7 @@ import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.Aeson.TH as A
 import qualified Data.Aeson.Types as A
 import Data.Foldable (traverse_, foldlM, foldl')
-import Data.Text (Text)
+import Data.Text (Text, unpack)
 import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Util
@@ -71,7 +71,7 @@ deriveHasTypeTag name = do
                             caseBody = NormalB $ LitE $ StringL $ toSubclassName (constructorName constructor)
                         in Match pattern caseBody []
                     ) <$> multiple
-            let body = NormalB $ CaseE (VarE objectName) (matches <> [failPattern])
+            let body = NormalB $ CaseE (VarE objectName) matches
             pure $ InstanceD Nothing [] (AppT classType forType)
                 [FunD functionName 
                     [Clause [VarP objectName] body []]]
@@ -89,7 +89,7 @@ deriveCustomJSONs names = do
 failPattern :: Match
 failPattern = 
     let otherName = mkName "other" 
-    in Match (VarP otherName) (NormalB $ AppE (VarE 'error) (AppE (VarE 'show) (VarE otherName))) []
+    in Match (VarP otherName) (NormalB $ AppE (VarE 'throwError) (AppE (ConE 'ApiError) (AppE (VarE 'unpack) (VarE otherName)))) []
 
 deriveCustomToJSON :: HasCallStack => Name -> DecQ
 deriveCustomToJSON name = do
@@ -104,7 +104,7 @@ deriveCustomToJSON name = do
                     ]
             in Match pattern caseBody []
             ) <$> constructors
-    let body = NormalB $ CaseE (VarE objectName) (matches <> [failPattern])
+    let body = NormalB $ CaseE (VarE objectName) matches
     pure $ InstanceD Nothing [] (AppT (ConT ''A.ToJSON) (ConT name))
         [FunD 'A.toJSON [Clause [VarP objectName] body []]]
 

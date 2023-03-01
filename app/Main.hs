@@ -3,9 +3,12 @@
 module Main where
 
 import Control.Concurrent
+import Control.Exception
 import Control.Monad
+import Control.Monad.Extra
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
+import Data.IORef
 import Data.Maybe
 import Data.String.Class (fromLazyByteString)
 import Ensemble.Config
@@ -46,11 +49,21 @@ main = do
         let warpSettings = Warp.setPort port' Warp.defaultSettings
         let websocketApp pendingConnection = do
                 connection <- WS.acceptRequest pendingConnection
-                void $ forkIO $ forever $ do
+                sendThread <- forkIO $ forever $ do
                     outgoingMessage <- readChan $ server_messageChannel server
                     WS.sendTextData connection (A.encode outgoingMessage)
-                forever $ WS.receiveData connection >>= handleIncomingMessage server
-                      
+                isOpen <- newIORef True 
+                whileM $ do
+                    incomingMessage <- fmap Just (WS.receiveData connection) `catch` (\case
+                        WS.CloseRequest _ _ -> do
+                            killThread sendThread
+                            writeIORef isOpen False
+                            pure Nothing
+                        WS.ConnectionClosed -> pure Nothing
+                        WS.ParseException _ -> pure Nothing
+                        WS.UnicodeException _ -> pure Nothing)
+                    whenJust incomingMessage $ handleIncomingMessage server
+                    readIORef isOpen
         let backupApp _ respond = respond $ responseLBS status400 [] "Not a WebSocket request"
         Warp.runSettings warpSettings $ WaiWs.websocketsOr WS.defaultConnectionOptions websocketApp backupApp
 

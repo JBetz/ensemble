@@ -86,11 +86,6 @@ deriveCustomJSONs names = do
         pure [fromJson, toJson, toTaggedJson]
     pure $ join decs
 
-failPattern :: Match
-failPattern = 
-    let otherName = mkName "other" 
-    in Match (VarP otherName) (NormalB $ AppE (VarE 'throwError) (AppE (ConE 'ApiError) (AppE (VarE 'unpack) (VarE otherName)))) []
-
 deriveCustomToJSON :: HasCallStack => Name -> DecQ
 deriveCustomToJSON name = do
     constructors <- datatypeCons <$> reifyDatatype name
@@ -280,6 +275,10 @@ makeHandleMessage functionNames = do
     let messageTypeName = mkName "messageType"
     let objectName = mkName "object"
     cases <- traverse (makeCase objectName) functionNames
+    let failPattern = 
+            let otherName = mkName "other" 
+                body = AppE (VarE 'throwError) (AppE (ConE 'ApiError) (multiAppE (VarE 'mappend) [LitE $ StringL "Unknown function name: ", AppE (VarE 'unpack) (VarE otherName)])) 
+            in Match (VarP otherName) (NormalB body) []
     let body = NormalB $ CaseE (VarE messageTypeName) (cases <> [failPattern])
     let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (AppT (ConT ''KeyMap) (ConT ''A.Value))))
     let function = FunD functionName [Clause [VarP messageTypeName, VarP objectName] body []]

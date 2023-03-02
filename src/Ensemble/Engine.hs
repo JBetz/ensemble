@@ -312,6 +312,7 @@ createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff eff
 createSoundfontInstrument engine filePath = do
     library <- getFluidSynthLibrary engine
     settings <- sendM $ FS.newFluidSettings library
+    sendM $ FS.setNumSetting library settings "synth.sample-rate" (engine_sampleRate engine)
     synth <- sendM $ FS.newFluidSynth library settings
     soundfont <- sendM $ SF.loadSoundfont library synth filePath True
     sendM $ addInstrument engine $ Instrument_Soundfont $ SoundfontInstrument 

@@ -22,6 +22,8 @@ module Ensemble.Soundfont.FluidSynth.Library
     , presetGetBankNum
     , presetGetNum
     , process
+    , setIntSetting
+    , setNumSetting
     ) where
 
 import Data.Int
@@ -50,6 +52,20 @@ newFluidSettings :: FluidSynthLibrary -> IO (Ptr C'fluid_settings_t)
 newFluidSettings library = do
     f <- lookupProcedure library "new_fluid_settings"
     mK'new_fluid_settings f
+
+setIntSetting :: FluidSynthLibrary -> Ptr C'fluid_settings_t -> String -> Int -> IO ()
+setIntSetting library settings name value = do
+    f <- lookupProcedure library "fluid_settings_setint"
+    withCString name $ \cName -> do
+        _result <- mK'fluid_settings_setint f settings cName (fromIntegral value)
+        pure ()
+
+setNumSetting :: FluidSynthLibrary -> Ptr C'fluid_settings_t -> String -> Double -> IO ()
+setNumSetting library settings name value = do
+    f <- lookupProcedure library "fluid_settings_setnum"
+    withCString name $ \cName -> do
+        _result <- mK'fluid_settings_setnum f settings cName (CDouble value)
+        pure ()
 
 newFluidSynth :: FluidSynthLibrary -> Ptr C'fluid_settings_t -> IO (Ptr C'fluid_synth_t)
 newFluidSynth library settings = do

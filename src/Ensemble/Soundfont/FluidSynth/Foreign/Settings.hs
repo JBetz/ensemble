@@ -1,6 +1,8 @@
 module Ensemble.Soundfont.FluidSynth.Foreign.Settings where
 
 import Foreign.Ptr
+import Foreign.C.String
+import Foreign.C.Types
 
 data C'fluid_settings_t = C'fluid_settings_t
 
@@ -9,6 +11,12 @@ foreign import ccall "dynamic" mK'new_fluid_settings :: FunPtr (IO (Ptr C'fluid_
 
 foreign import ccall "wrapper" mk'delete_fluid_settings :: (Ptr C'fluid_settings_t -> IO ()) -> IO (FunPtr (Ptr C'fluid_settings_t -> IO ()))
 foreign import ccall "dynamic" mK'delete_fluid_settings :: FunPtr (Ptr C'fluid_settings_t -> IO ()) -> (Ptr C'fluid_settings_t -> IO ())
+
+foreign import ccall "wrapper" mk'fluid_settings_setint :: (Ptr C'fluid_settings_t -> CString -> CInt -> IO CInt) -> IO (FunPtr (Ptr C'fluid_settings_t -> CString -> CInt -> IO CInt))
+foreign import ccall "dynamic" mK'fluid_settings_setint :: FunPtr (Ptr C'fluid_settings_t -> CString -> CInt -> IO CInt) -> (Ptr C'fluid_settings_t -> CString -> CInt -> IO CInt)
+
+foreign import ccall "wrapper" mk'fluid_settings_setnum :: (Ptr C'fluid_settings_t -> CString -> CDouble -> IO CInt) -> IO (FunPtr (Ptr C'fluid_settings_t -> CString -> CDouble -> IO CInt))
+foreign import ccall "dynamic" mK'fluid_settings_setnum :: FunPtr (Ptr C'fluid_settings_t -> CString -> CDouble -> IO CInt) -> (Ptr C'fluid_settings_t -> CString -> CDouble -> IO CInt)
 
 
 -- {-# LINE 13 "src/Ensemble/Soundfont/FluidSynth/Foreign/Settings.hsc" #-}

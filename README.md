@@ -33,7 +33,7 @@ Short term goals are to support MIDI sequencing of Soundfonts and CLAP instrumen
 
 See [ensemble.tl](./ensemble.tl) for a [Type Language](https://core.telegram.org/mtproto/TL) specification of the API.
 
-There are two ways to interface with an ensemble server, via http or pipes.
+There are three ways to interface with an ensemble server, via stdin and stdout pipes, a WebSocket, or HTTP.
 
 <b>For pipes:</b> 
 ```bash 
@@ -50,7 +50,14 @@ $ ./ensemble --interface pipes
 { "@type":"AudioDevices", "@extra": 855818240, "audioDevices": [{"name": "Microsoft Sound Mapper - Input", "index": 0}, { "name": "Speakers (Realtek (R) Audio)","index": 1}]}
 ```
 
-<b>For http:</b> 
+<b>For WebSocket:</b>
+```bash
+./ensemble --interface websocket --port 3000
+```
+
+The WebSocket endpoint will be available at `localhost:<port>`, and the same rules for message tagging apply.
+
+<b>For HTTP:</b> 
 ```bash
 ./ensemble --interface http --port 3000
 ```

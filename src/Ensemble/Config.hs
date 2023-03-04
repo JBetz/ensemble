@@ -1,5 +1,6 @@
 module Ensemble.Config where
 
+import Data.Char (toLower)
 import GHC.Generics
 import Options.Generic
 import Text.Read
@@ -27,12 +28,11 @@ instance Read Interface where
           Number number -> readString $ show number
           EOF -> error $ "Invalid interface argument: " <> show lexeme
         where
-            readString = \case       
+            readString string = case toLower <$> string of       
                 "pipes" -> Interface_Pipes
                 "http" -> Interface_Http
                 "web-socket" -> Interface_WebSocket
                 "websocket" -> Interface_WebSocket
-                "webSocket" -> Interface_WebSocket
                 "ws" -> Interface_WebSocket
                 other -> error $ "Invalid interface argument: " <> show other
 

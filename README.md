@@ -22,11 +22,11 @@ Short term goals are to support MIDI sequencing of Soundfonts and CLAP instrumen
 
 ## Modules
 
-- [ ] sequencer
-- [ ] Soundfont player (via [fluidsynth](https://www.fluidsynth.org/))
+- [x] sequencer
+- [x] Soundfont player (via [fluidsynth](https://www.fluidsynth.org/))
 - [ ] CLAP plugin host (via [clap-hs](https://github.com/JBetz/clap-hs))
 - [ ] VST plugin host
-- [ ] audio I/O (via [portaudio](http://www.portaudio.com/))
+- [x] audio I/O (via [portaudio](http://www.portaudio.com/))
 - [ ] MIDI device routing
 
 ## API

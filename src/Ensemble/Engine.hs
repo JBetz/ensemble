@@ -10,6 +10,7 @@ import Clap.Interface.Events (defaultClapEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
+import Control.Concurrent
 import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.Extra (whenJust)
@@ -56,6 +57,7 @@ data Engine = Engine
     , engine_inputs :: Ptr (Ptr CFloat)
     , engine_outputs :: Ptr (Ptr CFloat)
     , engine_audioStream :: IORef (Maybe (Stream CFloat CFloat))
+    , engine_audioThread :: IORef (Maybe ThreadId)
     }
 
 data EngineState
@@ -78,6 +80,7 @@ createEngine hostConfig = do
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
     audioStream <- newIORef Nothing
+    audioThread <- newIORef Nothing
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
@@ -89,6 +92,7 @@ createEngine hostConfig = do
         , engine_inputs = inputs   
         , engine_outputs = outputs
         , engine_audioStream = audioStream
+        , engine_audioThread = audioThread
         }
 
 data AudioDevice = AudioDevice
@@ -235,7 +239,7 @@ playAudio engine audioOutput = do
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
     sendM $ writeIORef (engine_steadyTime engine) (-1)
-       
+
     where
         writeChunks stream output = do
             eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream

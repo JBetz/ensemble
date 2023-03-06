@@ -5,10 +5,12 @@ import Clap.Host (PluginId (..))
 import qualified Clap.Library as CLAP
 import Clap.Interface.Plugin
 import Control.Concurrent
-import Control.Monad (void)
+import Control.Monad (void, unless)
+import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
+import Data.Maybe (isJust)
 import Data.Text (Text, unpack, pack)
 import Ensemble.Effects
 import Ensemble.Engine (AudioDevice, AudioOutput, Tick)
@@ -95,7 +97,13 @@ playSequence (Argument startTick) = do
     server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    void $ sendM $ forkIO $ void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick
+    void $ sendM $ do
+        maybeThreadId <- readIORef (Engine.engine_audioThread engine)
+        unless (isJust maybeThreadId) $ do
+            threadId <- forkFinally 
+                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick)
+                (\_ -> writeIORef (Engine.engine_audioThread engine) Nothing)
+            writeIORef (Engine.engine_audioThread engine) (Just threadId)
     pure Ok
 
 renderSequence :: Argument "startTick" Tick -> Argument "endTick" Tick -> Ensemble AudioOutput
@@ -114,6 +122,15 @@ playAudio :: Argument "audioOutput" AudioOutput -> Ensemble Ok
 playAudio (Argument audioOutput) = do
     engine <- asks server_engine
     Engine.playAudio engine audioOutput
+    pure Ok
+
+stopPlayback :: Ensemble Ok
+stopPlayback = do
+    engine <- asks server_engine
+    sendM $ do
+        Engine.stopInstruments engine
+        maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
+        whenJust maybeAudioThreadId killThread
     pure Ok
 
 getCurrentTick :: Ensemble Tick

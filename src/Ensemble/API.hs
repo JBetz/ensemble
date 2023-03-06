@@ -118,12 +118,6 @@ clearSequence = do
     sendM $ writeIORef events []
     pure Ok
 
-playAudio :: Argument "audioOutput" AudioOutput -> Ensemble Ok
-playAudio (Argument audioOutput) = do
-    engine <- asks server_engine
-    Engine.playAudio engine audioOutput
-    pure Ok
-
 stopPlayback :: Ensemble Ok
 stopPlayback = do
     engine <- asks server_engine

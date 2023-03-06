@@ -53,7 +53,6 @@ makeAPI
     , 'playSequence
     , 'renderSequence
     , 'clearSequence
-    , 'playAudio
     , 'stopPlayback
     , 'getCurrentTick
     , 'ping

@@ -125,6 +125,7 @@ stopPlayback = do
         Engine.stopInstruments engine
         maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
         whenJust maybeAudioThreadId killThread
+        writeIORef (Engine.engine_steadyTime engine) (-1)
     pure Ok
 
 getCurrentTick :: Ensemble Tick

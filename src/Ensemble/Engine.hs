@@ -224,6 +224,9 @@ instance Semigroup AudioOutput where
         , audioOutput_right = audioOutput_right a <> audioOutput_right b
         }
 
+instance Monoid AudioOutput where
+    mempty = AudioOutput [] []
+
 mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
     let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)

@@ -39,16 +39,20 @@ createSequencer = do
         , sequencer_clients = clients
         }
 
-playSequence :: (LastMember IO effs, Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs) => Sequencer -> Engine -> Tick -> Eff effs ()
-playSequence sequencer engine startTick = do
+playSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
+playSequence sequencer engine startTick maybeEndTick loop = do
     sendM $ writeIORef (sequencer_currentTick sequencer) startTick
-    endTick <- sendM $ getEndTick sequencer
+    endTick <- case maybeEndTick of
+        Just endTick -> pure endTick
+        Nothing -> sendM $ getEndTick sequencer
     tellEvent PlaybackEvent_Rendering
     audioOutput <- render sequencer engine startTick endTick
     evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
     sendM $ stopInstruments engine
     tellEvent PlaybackEvent_Started
-    playAudio engine evaluatedAudioOutput
+    playAudio engine $ if loop 
+        then mconcat (repeat evaluatedAudioOutput)
+        else evaluatedAudioOutput
     tellEvent PlaybackEvent_Stopped
 
 getEndTick :: Sequencer -> IO Tick

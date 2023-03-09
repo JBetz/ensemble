@@ -92,8 +92,8 @@ scheduleEvent (Argument tick) (Argument event) = do
     sendM $ Sequencer.sendAt sequencer tick event
     pure Ok
 
-playSequence :: Argument "startTick" Tick -> Ensemble Ok
-playSequence (Argument startTick) = do
+playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Argument "loop" Bool -> Ensemble Ok
+playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
     server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
@@ -101,7 +101,7 @@ playSequence (Argument startTick) = do
         maybeThreadId <- readIORef (Engine.engine_audioThread engine)
         unless (isJust maybeThreadId) $ do
             threadId <- forkFinally 
-                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick)
+                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick maybeEndTick loop)
                 (\_ -> writeIORef (Engine.engine_audioThread engine) Nothing)
             writeIORef (Engine.engine_audioThread engine) (Just threadId)
     pure Ok

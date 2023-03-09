@@ -50,9 +50,7 @@ playSequence sequencer engine startTick maybeEndTick loop = do
     evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
     sendM $ stopInstruments engine
     tellEvent PlaybackEvent_Started
-    playAudio engine $ if loop 
-        then mconcat (repeat evaluatedAudioOutput)
-        else evaluatedAudioOutput
+    playAudio engine startTick loop evaluatedAudioOutput
     tellEvent PlaybackEvent_Stopped
 
 getEndTick :: Sequencer -> IO Tick
@@ -90,8 +88,8 @@ render sequencer engine startTick endTick = do
                 remaining <- renderEvents (frameNumber + frameCount) (next:rest)
                 pure $ chunk <> remaining
             (_lastTick,events):[] -> do
-                -- One second of padding
-                let frameCount = engine_sampleRate engine
+                -- One tick of padding
+                let frameCount = engine_sampleRate engine / 1000
                 generateOutputs engine (floor frameCount) events
             [] -> pure $ AudioOutput [] []
 

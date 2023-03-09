@@ -235,13 +235,16 @@ mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight
         , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
         }
 
-playAudio :: EngineEffects effs => Engine -> AudioOutput -> Eff effs ()
-playAudio engine audioOutput = do
-    sendM $ writeIORef (engine_steadyTime engine) 0
-    maybeAudioStream <- sendM $ readIORef $ engine_audioStream engine
+playAudio :: EngineEffects effs => Engine -> Tick -> Bool -> AudioOutput -> Eff effs ()
+playAudio engine startTick loop audioOutput = do
+    maybeAudioStream <- sendM $ do 
+        writeIORef (engine_steadyTime engine) (tickToSteadyTime (engine_sampleRate engine) startTick)
+        readIORef (engine_audioStream engine)
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
-    sendM $ writeIORef (engine_steadyTime engine) (-1)
+    if loop 
+        then playAudio engine startTick loop audioOutput
+        else sendM $ writeIORef (engine_steadyTime engine) (-1)
 
     where
         writeChunks stream output = do
@@ -283,7 +286,15 @@ sendOutputs engine frameCount audioOutput  = do
 getCurrentTick :: EngineEffects effs => Engine -> Eff effs Tick
 getCurrentTick engine = do
     steadyTime <- sendM $ readIORef (engine_steadyTime engine)
-    pure $ Tick $ fromIntegral steadyTime * 1000 `div` floor (engine_sampleRate engine)
+    pure $ steadyTimeToTick (engine_sampleRate engine) steadyTime
+
+steadyTimeToTick :: Double -> Int64 -> Tick
+steadyTimeToTick sampleRate steadyTime = 
+    Tick $ fromIntegral steadyTime * 1000 `div` floor sampleRate
+
+tickToSteadyTime :: Double -> Tick -> Int64
+tickToSteadyTime sampleRate (Tick tick) =
+    (fromIntegral tick `div` 1000) * floor sampleRate
 
 stop :: EngineEffects effs => Engine -> Eff effs ()
 stop engine = do

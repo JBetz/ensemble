@@ -118,7 +118,7 @@ selectSoundfontInstrumentPreset instrumentId:Int bankNumber:Int programNumber:In
 
 scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 
-playSequence startTick:Int = Ok;
+playSequence startTick:Int endTick:Int loop:Bool = Ok;
 
 renderSequence startTick:Int endTick:Int = AudioOutput;
 

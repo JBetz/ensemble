@@ -41,7 +41,8 @@ library
                       Ensemble.Soundfont,
                       Ensemble.Type,
                       Ensemble.Util
-    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.Settings,
+    other-modules:    Ensemble.Soundfont.FluidSynth.Foreign.MidiDriver,
+                      Ensemble.Soundfont.FluidSynth.Foreign.Settings,
                       Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts,
                       Ensemble.Soundfont.FluidSynth.Foreign.Synth,
                       Ensemble.Soundfont.FluidSynth.Library,

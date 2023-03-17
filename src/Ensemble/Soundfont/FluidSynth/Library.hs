@@ -24,6 +24,8 @@ module Ensemble.Soundfont.FluidSynth.Library
     , process
     , setIntSetting
     , setNumSetting
+    , newFluidMidiDriver
+    , deleteFluidMidiDriver
     ) where
 
 import Data.Int
@@ -32,6 +34,7 @@ import Ensemble.Soundfont.FluidSynth.Library.Windows
 #else
 import Ensemble.Soundfont.FluidSynth.Library.POSIX
 #endif
+import Ensemble.Soundfont.FluidSynth.Foreign.MidiDriver
 import Ensemble.Soundfont.FluidSynth.Foreign.Settings
 import Ensemble.Soundfont.FluidSynth.Foreign.SoundFonts
 import Ensemble.Soundfont.FluidSynth.Foreign.Synth
@@ -151,8 +154,17 @@ presetGetNum library preset = do
     f <- lookupProcedure library "fluid_preset_get_num"
     fromIntegral <$> mK'fluid_preset_get_num f preset
 
-
 process ::  FluidSynthLibrary -> Ptr C'fluid_synth_t -> CInt -> CInt -> Ptr (Ptr CFloat) -> CInt -> Ptr (Ptr CFloat) -> IO CInt
 process library synth frameCount wetChannelCount wetBuffers dryChannelCount dryBuffers = do
     f <- lookupProcedure library "fluid_synth_process"
     mK'fluid_synth_process f synth frameCount wetChannelCount wetBuffers dryChannelCount dryBuffers
+
+newFluidMidiDriver :: FluidSynthLibrary -> Ptr C'fluid_settings_t -> C'handle_midi_event_func_t -> Ptr () -> IO (Ptr C'fluid_midi_driver_t)
+newFluidMidiDriver library settings callback data' = do
+    f <- lookupProcedure library "new_fluid_midi_driver"
+    mK'new_fluid_midi_driver f settings callback data'
+
+deleteFluidMidiDriver :: FluidSynthLibrary -> Ptr C'fluid_midi_driver_t -> IO ()
+deleteFluidMidiDriver library midiDriver = do
+    f <- lookupProcedure library "delete_fluid_midi_driver"
+    mK'delete_fluid_midi_driver f midiDriver

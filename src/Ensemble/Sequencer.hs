@@ -79,21 +79,16 @@ unregisterClient sequencer name =
 render :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
-    let groupedEvents = groupEvents startTick endTick events
-    renderEvents (fromIntegral startTick / 1000 * engine_sampleRate engine) groupedEvents 
+    renderEvents $ groupEvents startTick endTick events
     where 
-        renderEvents frameNumber = \case
+        renderEvents = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 chunk <- generateOutputs engine (floor frameCount) events
-                remaining <- renderEvents (frameNumber + frameCount) (next:rest)
+                remaining <- renderEvents (next:rest)
                 pure $ chunk <> remaining
-            (lastTick,events):[] -> do
-                let Tick tickCount = 
-                        if lastTick < endTick
-                        then endTick - lastTick
-                        else 1    
-                let frameCount = floor (engine_sampleRate engine / 1000) * tickCount
+            (_lastTick,events):[] -> do   
+                let frameCount = floor (engine_sampleRate engine / 1000)
                 generateOutputs engine frameCount events
             [] -> pure $ AudioOutput [] []
 

@@ -79,7 +79,8 @@ unregisterClient sequencer name =
 render :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
-    renderEvents 0 $ groupEvents $ events <> [(startTick, []), (endTick, [])]
+    let groupedEvents = groupEvents startTick endTick events
+    renderEvents (fromIntegral startTick / 1000 * engine_sampleRate engine) groupedEvents 
     where 
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
@@ -101,9 +102,9 @@ getEventsBetween sequencer startTick endTick = do
     events <- readIORef (sequencer_eventQueue sequencer)
     pure $ filter (\(tick, _) -> tick >= startTick && tick <= endTick) events
 
-groupEvents :: [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
-groupEvents eventList =
-    Map.toAscList $ Map.fromListWith (<>) $ (\(a, b) -> (a, [b])) <$> eventList
+groupEvents :: Tick -> Tick -> [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
+groupEvents startTick endTick eventList =
+    Map.toAscList $ Map.fromListWith (<>) $ (startTick,[]):(endTick,[]):((\(a, b) -> (a, [b])) <$> eventList)
 
 tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
 tellEvent = tell . toTaggedJSON

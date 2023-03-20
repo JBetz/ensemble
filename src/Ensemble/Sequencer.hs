@@ -79,7 +79,7 @@ unregisterClient sequencer name =
 render :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
 render sequencer engine startTick endTick = do
     events <- sendM $ getEventsBetween sequencer startTick endTick
-    renderEvents 0 (groupEvents events)
+    renderEvents 0 $ groupEvents $ events <> [(startTick, []), (endTick, [])]
     where 
         renderEvents frameNumber = \case
             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do

@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Ensemble.Sequencer where
 
@@ -92,6 +93,10 @@ render sequencer engine startTick endTick = do
                 generateOutputs engine frameCount events
             [] -> pure $ AudioOutput [] []
 
+getEvents :: Sequencer -> IO [SequencerEvent]
+getEvents sequencer =
+    fmap snd <$> readIORef (sequencer_eventQueue sequencer)
+    
 getEventsBetween :: Sequencer -> Tick -> Tick -> IO [(Tick, SequencerEvent)]
 getEventsBetween sequencer startTick endTick = do
     events <- readIORef (sequencer_eventQueue sequencer)

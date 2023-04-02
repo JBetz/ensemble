@@ -144,9 +144,10 @@ start engine = do
                             let pluginHost = engine_pluginHost engine
                             sendM $ do
                                 CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                                PortAudio.startStream stream
+                                PortAudio.startStream stream                                
                         whenJust maybeError $ \startError ->
                             throwApiError $ "Error when starting audio stream: " <> show startError 
+                        sendM $ startAudioThread engine stream
 
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
@@ -189,10 +190,31 @@ getSoundfontInstrumentPresets engine instrumentId = do
 
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
-    maybeSoundfontPlayer <- sendM $ readIORef $ engine_fluidSynthLibrary engine 
+    sendEvents engine events
+    sendM $ receiveOutputs engine frameCount
+
+receiveOutputs :: Engine -> Int -> IO AudioOutput
+receiveOutputs engine frameCount = do
     let clapHost = engine_pluginHost engine
-    steadyTime <- sendM $ readIORef (engine_steadyTime engine)
-    sendM $ CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
+    maybeSoundfontPlayer <- readIORef $ engine_fluidSynthLibrary engine 
+    steadyTime <- readIORef (engine_steadyTime engine)
+    CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
+    soundfontOutputs <- case maybeSoundfontPlayer of
+        Just soundfontPlayer -> do
+            soundfonts <- getSoundfontInstruments engine 
+            for soundfonts $ \soundfont -> do
+                let synth = soundfontInstrument_synth soundfont
+                SF.process soundfontPlayer synth (fromIntegral frameCount)
+        Nothing -> pure mempty
+    let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
+    pluginOutputs <- CLAP.processAll clapHost
+    pure $ mixSoundfontAndClapOutputs soundfontOutput pluginOutputs
+
+
+sendEvents :: EngineEffects effs => Engine -> [SequencerEvent] -> Eff effs ()
+sendEvents engine events = do
+    let clapHost = engine_pluginHost engine
+    maybeSoundfontPlayer <- sendM $ readIORef $ engine_fluidSynthLibrary engine 
     for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
         instrument <- lookupInstrument engine instrumentId
         case instrument of
@@ -202,16 +224,6 @@ generateOutputs engine frameCount events = do
                     Nothing -> throwApiError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
             Instrument_Clap (ClapInstrument pluginId) -> 
                 sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
-    soundfontOutputs <- case maybeSoundfontPlayer of
-        Just soundfontPlayer -> do
-            soundfonts <- sendM $ getSoundfontInstruments engine 
-            for soundfonts $ \soundfont -> do
-                let synth = soundfontInstrument_synth soundfont
-                sendM $ SF.process soundfontPlayer synth (fromIntegral frameCount)
-        Nothing -> pure mempty
-    let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
-    pluginOutputs <- sendM $ CLAP.processAll clapHost
-    pure $ mixSoundfontAndClapOutputs soundfontOutput  pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -260,6 +272,24 @@ playAudio engine startTick loop audioOutput = do
                 Left audioPortError ->
                     throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
 
+
+startAudioThread :: Engine -> Stream CFloat CFloat -> IO ()
+startAudioThread engine stream = do
+    threadId <- forkFinally threadBlock (\_ -> writeIORef (engine_audioThread engine) Nothing)
+    writeIORef (engine_audioThread engine) (Just threadId)
+    where 
+        threadBlock = forever $ do 
+            eitherAvailableChunkSize <- PortAudio.writeAvailable stream
+            case eitherAvailableChunkSize of
+                Right availableChunkSize -> do 
+                    audioOutput <- receiveOutputs engine (fromIntegral availableChunkSize)
+                    let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
+                    void $ withArray output $ \outputPtr -> do
+                        outputForeignPtr <- newForeignPtr_ outputPtr
+                        PortAudio.writeStream stream (fromIntegral availableChunkSize) outputForeignPtr
+                    modifyIORef' (engine_steadyTime engine) (+ fromIntegral availableChunkSize)
+                Left audioPortError ->
+                    error $ "Error getting available frames of audio stream: " <> show audioPortError
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
 takeChunk chunkSize (AudioOutput left right) = 

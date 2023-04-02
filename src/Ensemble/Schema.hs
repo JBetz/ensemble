@@ -50,6 +50,7 @@ makeAPI
     , 'getSoundfontInstrumentPresets
     , 'selectSoundfontInstrumentPreset
     , 'scheduleEvent
+    , 'sendEvents
     , 'playSequence
     , 'renderSequence
     , 'clearSequence

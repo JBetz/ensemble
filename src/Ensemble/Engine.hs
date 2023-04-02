@@ -239,6 +239,12 @@ instance Semigroup AudioOutput where
 instance Monoid AudioOutput where
     mempty = AudioOutput [] []
 
+size :: AudioOutput -> Int
+size (AudioOutput left right) = min (length left) (length right) 
+
+isEmpty :: AudioOutput -> Bool
+isEmpty audioOutput = size audioOutput == 0
+
 mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
 mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
     let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
@@ -283,11 +289,10 @@ startAudioThread engine stream = do
             case eitherAvailableChunkSize of
                 Right availableChunkSize -> do 
                     audioOutput <- receiveOutputs engine (fromIntegral availableChunkSize)
-                    let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-                    void $ withArray output $ \outputPtr -> do
+                    let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
+                    withArray output $ \outputPtr -> do
                         outputForeignPtr <- newForeignPtr_ outputPtr
-                        PortAudio.writeStream stream (fromIntegral availableChunkSize) outputForeignPtr
-                    modifyIORef' (engine_steadyTime engine) (+ fromIntegral availableChunkSize)
+                        void $ PortAudio.writeStream stream (fromIntegral availableChunkSize) outputForeignPtr
                 Left audioPortError ->
                     error $ "Error getting available frames of audio stream: " <> show audioPortError
 
@@ -296,9 +301,6 @@ takeChunk chunkSize (AudioOutput left right) =
     let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
         remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
     in (chunk, remaining)
-
-size :: AudioOutput -> Int
-size (AudioOutput left right) = min (length left) (length right) 
 
 sendOutputs :: EngineEffects effs => Engine -> CULong -> AudioOutput -> Eff effs () 
 sendOutputs engine frameCount audioOutput  = do

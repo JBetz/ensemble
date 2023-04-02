@@ -41,6 +41,22 @@ stopEngine = do
     Engine.stop engine
     pure Ok
 
+activateEngine :: Ensemble Ok
+activateEngine = do
+    engine <- asks server_engine 
+    Engine.startAudioThread engine
+    pure Ok
+
+deactivateEngine :: Ensemble Ok
+deactivateEngine = do
+    engine <- asks server_engine
+    sendM $ do
+        Engine.stopInstruments engine
+        maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
+        whenJust maybeAudioThreadId killThread
+        writeIORef (Engine.engine_steadyTime engine) (-1)
+    pure Ok
+
 deleteInstrument :: Argument "instrumentId" InstrumentId -> Ensemble Ok
 deleteInstrument (Argument instrumentId) = do
     engine <- asks server_engine
@@ -122,16 +138,6 @@ clearSequence :: Ensemble Ok
 clearSequence = do
     events <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
     sendM $ writeIORef events []
-    pure Ok
-
-stopPlayback :: Ensemble Ok
-stopPlayback = do
-    engine <- asks server_engine
-    sendM $ do
-        Engine.stopInstruments engine
-        maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
-        whenJust maybeAudioThreadId killThread
-        writeIORef (Engine.engine_steadyTime engine) (-1)
     pure Ok
 
 getCurrentTick :: Ensemble Tick

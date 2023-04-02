@@ -41,6 +41,8 @@ makeAPI
     [ 'getAudioDevices
     , 'startEngine
     , 'stopEngine
+    , 'activateEngine
+    , 'deactivateEngine
     , 'deleteInstrument
     , 'getClapPluginLocations
     , 'scanForClapPlugins
@@ -54,7 +56,6 @@ makeAPI
     , 'playSequence
     , 'renderSequence
     , 'clearSequence
-    , 'stopPlayback
     , 'getCurrentTick
     , 'ping
     , 'echo

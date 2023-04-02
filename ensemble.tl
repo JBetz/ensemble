@@ -100,6 +100,10 @@ startEngine = Ok;
 
 stopEngine = Ok;
 
+activateEngine = Ok;
+
+deactivateEngine = Ok;
+
 deleteInstrument instrumentId:Int = Ok;
 
 getClapPluginLocations = vector<String>;
@@ -125,8 +129,6 @@ playSequence startTick:Int endTick:Int loop:Bool = Ok;
 renderSequence startTick:Int endTick:Int = AudioOutput;
 
 clearSequence = Ok;
-
-stopPlayback = Ok;
 
 getCurrentTick = Int;
 

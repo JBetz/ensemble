@@ -146,8 +146,7 @@ start engine = do
                                 CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
                                 PortAudio.startStream stream                                
                         whenJust maybeError $ \startError ->
-                            throwApiError $ "Error when starting audio stream: " <> show startError 
-                        sendM $ startAudioThread engine stream
+                            throwApiError $ "Error when starting audio stream: " <> show startError
 
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
@@ -279,22 +278,28 @@ playAudio engine startTick loop audioOutput = do
                     throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
 
 
-startAudioThread :: Engine -> Stream CFloat CFloat -> IO ()
-startAudioThread engine stream = do
-    threadId <- forkFinally threadBlock (\_ -> writeIORef (engine_audioThread engine) Nothing)
-    writeIORef (engine_audioThread engine) (Just threadId)
-    where 
-        threadBlock = forever $ do 
-            eitherAvailableChunkSize <- PortAudio.writeAvailable stream
-            case eitherAvailableChunkSize of
-                Right availableChunkSize -> do 
-                    audioOutput <- receiveOutputs engine (fromIntegral availableChunkSize)
-                    let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-                    withArray output $ \outputPtr -> do
-                        outputForeignPtr <- newForeignPtr_ outputPtr
-                        void $ PortAudio.writeStream stream (fromIntegral availableChunkSize) outputForeignPtr
-                Left audioPortError ->
-                    error $ "Error getting available frames of audio stream: " <> show audioPortError
+startAudioThread :: EngineEffects effs => Engine -> Eff effs ()
+startAudioThread engine = do
+    maybeStream <- sendM $ readIORef (engine_audioStream engine)
+    case maybeStream of
+        Just stream -> sendM $ do
+            maybeThreadId <- readIORef (engine_audioThread engine)
+            unless (isJust maybeThreadId) $ do
+                threadId <- forkFinally threadBlock (\_ -> writeIORef (engine_audioThread engine) Nothing)
+                writeIORef (engine_audioThread engine) (Just threadId)
+            where 
+                threadBlock = forever $ do 
+                    eitherAvailableChunkSize <- PortAudio.writeAvailable stream
+                    case eitherAvailableChunkSize of
+                        Right availableChunkSize -> do 
+                            audioOutput <- receiveOutputs engine (fromIntegral availableChunkSize)
+                            let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
+                            withArray output $ \outputPtr -> do
+                                outputForeignPtr <- newForeignPtr_ outputPtr
+                                void $ PortAudio.writeStream stream (fromIntegral availableChunkSize) outputForeignPtr
+                        Left audioPortError ->
+                            error $ "Error getting available frames of audio stream: " <> show audioPortError
+        Nothing -> throwApiError "Audio stream not available"
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
 takeChunk chunkSize (AudioOutput left right) = 

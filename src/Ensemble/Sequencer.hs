@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Ensemble.Sequencer where
 
@@ -63,8 +62,8 @@ sendAt sequencer time event =
     modifyIORef' (sequencer_eventQueue sequencer) $ (<>) [(time, event)]
 
 setTimeScale :: Sequencer -> Double -> IO ()
-setTimeScale sequencer scale =
-    writeIORef (sequencer_scale sequencer) scale
+setTimeScale sequencer =
+    writeIORef (sequencer_scale sequencer)
 
 type EventCallback = Tick -> SequencerEvent -> IO ()
 
@@ -87,7 +86,7 @@ render sequencer engine startTick endTick = do
                 chunk <- generateOutputs engine (floor frameCount) events
                 remaining <- renderEvents (next:rest)
                 pure $ chunk <> remaining
-            (_lastTick,events):[] -> do   
+            [(_lastTick,events)] -> do   
                 let frameCount = floor (engine_sampleRate engine / 1000)
                 generateOutputs engine frameCount events
             [] -> pure $ AudioOutput [] []

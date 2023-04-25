@@ -13,7 +13,7 @@ import Ensemble.Server
 import Ensemble.Type
 
 runEnsemble :: Server -> Ensemble a -> IO (Either ApiError a)
-runEnsemble server action = runM $ runError $ runLogWriter $ runMessageWriter $ runReader server $ action
+runEnsemble server action = runM $ runError $ runLogWriter $ runMessageWriter $ runReader server action
     where
         config = server_config server
 

@@ -52,33 +52,33 @@ midiData first:Word8 second:Word8 third:Word8 = MidiData;
 
 midi2Data first:Word32 second:Word32 third:Word32 fourth:Word32 = Midi2Data;
 
-clapEventConfig time:Word32 spaceId:Word16 flags:vector<EventFlag> = ClapEventConfig;
+eventConfig time:Word32 spaceId:Word16 flags:vector<EventFlag> = EventConfig;
 
-clapEventNoteOn noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = ClapEvent;
+eventNoteOn noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = Event;
 
-clapEventNoteOff noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = ClapEvent;
+eventNoteOff noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 velocity:Double  = Event;
 
-clapEventNoteChoke noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = ClapEvent;
+eventNoteChoke noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = Event;
 
-clapEventNoteEnd noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = ClapEvent;
+eventNoteEnd noteId:Int32 portIndex:Int16 channel:Int16 key:Int16  = Event;
 
-clapEventNoteExpression noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression  = ClapEvent;
+eventNoteExpression noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:NoteExpression  = Event;
 
-clapEventParamValue paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = ClapEvent;
+eventParamValue paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 value:Double  = Event;
 
-clapEventParamMod paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = ClapEvent;
+eventParamMod paramId:Int cookie:Void noteId:Int32 portIndex:Int16 channel:Int16 key:Int16 amount:Double  = Event;
 
-clapEventParamGestureBegin paramId:Int  = ClapEvent;
+eventParamGestureBegin paramId:Int  = Event;
 
-clapEventParamGestureEnd paramId:Int  = ClapEvent;
+eventParamGestureEnd paramId:Int  = Event;
 
-clapEventTransport flags:vector<TransportFlag> songPositionBeats:Word64 songPositionSeconds:Word64 tempo:Double tempoIncrement:Double loopStartBeats:Word64 loopEndBeats:Word64 loopStartSeconds:Word64 loopEndSeconds:Word64 barStart:Word64 barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = ClapEvent;
+eventTransport flags:vector<TransportFlag> songPositionBeats:Word64 songPositionSeconds:Word64 tempo:Double tempoIncrement:Double loopStartBeats:Word64 loopEndBeats:Word64 loopStartSeconds:Word64 loopEndSeconds:Word64 barStart:Word64 barNumber:Int32 timeSignatureNumerator:Word16 timeSignatureDenominator:Word16  = Event;
 
-clapEventMidi portIndex:Word16 data:MidiData  = ClapEvent;
+eventMidi portIndex:Word16 data:MidiData  = Event;
 
-clapEventMidiSysex portIndex:Word16 buffer:vector<Word8>  = ClapEvent;
+eventMidiSysex portIndex:Word16 buffer:vector<Word8>  = Event;
 
-clapEventMidi2 portIndex:Word16 data:Midi2Data  = ClapEvent;
+eventMidi2 portIndex:Word16 data:Midi2Data  = Event;
 
 playbackEventRendering = PlaybackEvent;
 
@@ -88,7 +88,7 @@ playbackEventStopped = PlaybackEvent;
 
 playbackEventLooped = PlaybackEvent;
 
-sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
+sequencerEvent instrumentId:Int eventConfig:EventConfig event:Event = SequencerEvent;
 
 ---functions---
 

@@ -30,8 +30,8 @@ makeAPI
     , ''Clap.TransportFlag
     , ''Clap.MidiData
     , ''Clap.Midi2Data
-    , ''Clap.ClapEventConfig
-    , ''Clap.ClapEvent
+    , ''Clap.EventConfig
+    , ''Clap.Event
     , ''PlaybackEvent
     , ''SequencerEvent
     ]

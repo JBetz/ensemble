@@ -24,8 +24,8 @@ instance A.FromJSON (Ptr a) where
 
 data SequencerEvent = SequencerEvent
     { sequencerEvent_instrumentId :: InstrumentId
-    , sequencerEvent_eventConfig :: Maybe Clap.ClapEventConfig
-    , sequencerEvent_event :: Clap.ClapEvent
+    , sequencerEvent_eventConfig :: Maybe Clap.EventConfig
+    , sequencerEvent_event :: Clap.Event
     } deriving (Show)
 
 data PlaybackEvent 
@@ -57,11 +57,11 @@ deriveJSONs
     , ''Clap.MidiSysexEvent
     , ''Clap.Midi2Data
     , ''Clap.Midi2Event
-    , ''Clap.ClapEventConfig
+    , ''Clap.EventConfig
     ]
 
 deriveCustomJSONs
-    [ ''Clap.ClapEvent
+    [ ''Clap.Event
     ] 
 
 deriveJSONs

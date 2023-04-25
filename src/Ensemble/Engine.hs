@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
 
-import Clap.Interface.Events (defaultClapEventConfig)
+import Clap.Interface.Events (defaultEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
@@ -179,7 +179,7 @@ sendEvents engine events = do
     let clapHost = engine_pluginHost engine
     for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
         Instrument _ pluginId <- lookupInstrument engine instrumentId
-        sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
+        sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 

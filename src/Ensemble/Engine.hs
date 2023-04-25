@@ -19,7 +19,7 @@ import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
 import Data.Aeson (Value(..))
 import Data.Aeson.KeyMap (KeyMap)
-import Data.Foldable (for_, traverse_)
+import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
 import Data.List
@@ -32,9 +32,6 @@ import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Instrument
 import Ensemble.Schema.TH
-import qualified Ensemble.Soundfont as SF
-import Ensemble.Soundfont.FluidSynth.Library (FluidSynthLibrary)
-import qualified Ensemble.Soundfont.FluidSynth.Library as FS
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -49,7 +46,6 @@ import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    , engine_fluidSynthLibrary :: IORef (Maybe FluidSynthLibrary)
     , engine_instruments :: IORef (Map InstrumentId Instrument)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
@@ -74,7 +70,6 @@ createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
-    soundfontPlayer <- newIORef Nothing
     instruments <- newIORef mempty
     steadyTime <- newIORef (-1)
     inputs <- newArray [nullPtr, nullPtr]
@@ -84,7 +79,6 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
-        , engine_fluidSynthLibrary = soundfontPlayer
         , engine_instruments = instruments
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
@@ -166,27 +160,6 @@ lookupInstrument engine instrumentId = do
             "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
             "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
 
-lookupSoundfontInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs SoundfontInstrument
-lookupSoundfontInstrument engine instrumentId = do
-    instrument <- lookupInstrument engine instrumentId
-    case instrument of
-        Instrument_Soundfont soundfontInstrument -> pure soundfontInstrument
-        Instrument_Clap _  -> throwApiError $ "Expected Soundfont instrument id, received CLAP instrument id: " <> show instrumentId
-
-getSoundfontInstruments :: Engine -> IO [SoundfontInstrument]
-getSoundfontInstruments engine = do
-    instruments <- readIORef $ engine_instruments engine
-    pure $ mapMaybe (\case
-        Instrument_Soundfont soundfont -> Just soundfont
-        _ -> Nothing
-        ) (Map.elems instruments)
-
-getSoundfontInstrumentPresets :: EngineEffects effs => Engine -> InstrumentId -> Eff effs [SF.SoundfontPreset]
-getSoundfontInstrumentPresets engine instrumentId = do
-    library <- getFluidSynthLibrary engine
-    soundfontInstrument <- lookupSoundfontInstrument engine instrumentId
-    sendM $ SF.loadSoundfontPresets library (SF.soundfont_handle $ soundfontInstrument_soundfont soundfontInstrument)
-
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
     sendEvents engine events
@@ -195,34 +168,18 @@ generateOutputs engine frameCount events = do
 receiveOutputs :: Engine -> Int -> IO AudioOutput
 receiveOutputs engine frameCount = do
     let clapHost = engine_pluginHost engine
-    maybeSoundfontPlayer <- readIORef $ engine_fluidSynthLibrary engine 
     steadyTime <- readIORef (engine_steadyTime engine)
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
-    soundfontOutputs <- case maybeSoundfontPlayer of
-        Just soundfontPlayer -> do
-            soundfonts <- getSoundfontInstruments engine 
-            for soundfonts $ \soundfont -> do
-                let synth = soundfontInstrument_synth soundfont
-                SF.process soundfontPlayer synth (fromIntegral frameCount)
-        Nothing -> pure mempty
-    let soundfontOutput = SF.mixSoundfontOutputs frameCount soundfontOutputs
     pluginOutputs <- CLAP.processAll clapHost
-    pure $ mixSoundfontAndClapOutputs soundfontOutput pluginOutputs
+    pure $ mixOutputs pluginOutputs
 
 
 sendEvents :: EngineEffects effs => Engine -> [SequencerEvent] -> Eff effs ()
 sendEvents engine events = do
     let clapHost = engine_pluginHost engine
-    maybeSoundfontPlayer <- sendM $ readIORef $ engine_fluidSynthLibrary engine 
     for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
-        instrument <- lookupInstrument engine instrumentId
-        case instrument of
-            Instrument_Soundfont soundfontInstrument -> 
-                case maybeSoundfontPlayer of
-                    Just soundfontPlayer -> sendM $ SF.processEvent soundfontPlayer (soundfontInstrument_synth soundfontInstrument) event
-                    Nothing -> throwApiError "Attempting to play Soundfont instrument before loading FluidSynth DLL"
-            Instrument_Clap (ClapInstrument pluginId) -> 
-                sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
+        Instrument _ pluginId <- lookupInstrument engine instrumentId
+        sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultClapEventConfig eventConfig) event
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -244,13 +201,11 @@ size (AudioOutput left right) = min (length left) (length right)
 isEmpty :: AudioOutput -> Bool
 isEmpty audioOutput = size audioOutput == 0
 
-mixSoundfontAndClapOutputs :: SF.SoundfontOutput -> [CLAP.PluginOutput] -> AudioOutput
-mixSoundfontAndClapOutputs (SF.SoundfontOutput wetLeft wetRight dryLeft dryRight) pluginOutputs =
-    let (mixedSoundfontLeft, mixedSoundfontRight) = (zipWith (+) wetLeft dryLeft , zipWith (+) wetRight dryRight)
-    in AudioOutput    
-        { audioOutput_left = foldl (zipWith (+)) mixedSoundfontLeft (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
-        , audioOutput_right = foldl (zipWith (+)) mixedSoundfontRight (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
-        }
+mixOutputs :: [CLAP.PluginOutput] -> AudioOutput
+mixOutputs pluginOutputs = AudioOutput    
+    { audioOutput_left = foldl1 (zipWith (+)) (CLAP.pluginOutput_leftChannel <$> pluginOutputs)
+    , audioOutput_right = foldl1 (zipWith (+)) (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
+    }
 
 playAudio :: EngineEffects effs => Engine -> Tick -> Bool -> AudioOutput -> Eff effs ()
 playAudio engine startTick loop audioOutput = do
@@ -353,37 +308,8 @@ stop engine = do
         Nothing -> pure () 
 
 deleteInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs ()
-deleteInstrument engine instrumentId = do
-    instrument <- lookupInstrument engine instrumentId
-    case instrument of
-        Instrument_Clap _ -> pure ()
-        Instrument_Soundfont soundfontInstrument -> do
-            library <- getFluidSynthLibrary engine
-            sendM $ FS.deleteFluidSynth library (soundfontInstrument_synth soundfontInstrument)
-            sendM $ FS.deleteFluidSettings library (soundfontInstrument_settings soundfontInstrument)
+deleteInstrument engine instrumentId =
     sendM $ modifyIORef' (engine_instruments engine) $ Map.delete instrumentId
-
-createSoundfontInstrument :: EngineEffects effs => Engine -> FilePath -> Eff effs InstrumentId
-createSoundfontInstrument engine filePath = do
-    library <- getFluidSynthLibrary engine
-    settings <- sendM $ FS.newFluidSettings library
-    sendM $ FS.setNumSetting library settings "synth.sample-rate" (engine_sampleRate engine)
-    synth <- sendM $ FS.newFluidSynth library settings
-    soundfont <- sendM $ SF.loadSoundfont library synth filePath True
-    sendM $ addInstrument engine $ Instrument_Soundfont $ SoundfontInstrument 
-        { soundfontInstrument_soundfont = soundfont
-        , soundfontInstrument_settings = settings
-        , soundfontInstrument_synth = synth
-        }
-
-selectSoundfontInstrumentPreset :: EngineEffects effs => Engine -> InstrumentId -> Int -> Int -> Eff effs ()
-selectSoundfontInstrumentPreset engine instrumentId bankNumber programNumber = do
-    soundfontInstrument <- lookupSoundfontInstrument engine instrumentId
-    library <- getFluidSynthLibrary engine
-    let soundfont = soundfontInstrument_soundfont soundfontInstrument
-    sendM $ FS.programSelect library (soundfontInstrument_synth soundfontInstrument) 0 
-        (fromIntegral $ SF.soundfontId_id $ SF.soundfont_id soundfont) 
-        (fromIntegral bankNumber) (fromIntegral programNumber)
 
 addInstrument :: Engine -> Instrument -> IO InstrumentId
 addInstrument engine instrument =
@@ -391,34 +317,11 @@ addInstrument engine instrument =
         let newId = InstrumentId $ case Map.keys instruments of
                         [] -> 1
                         ids -> succ $ maximum $ instrumentId_id <$> ids 
-        in (Map.insert newId instrument instruments, newId)
-
-getFluidSynthLibrary :: EngineEffects effs => Engine -> Eff effs FluidSynthLibrary
-getFluidSynthLibrary engine = do
-    maybeLibrary <- sendM $ readIORef $ engine_fluidSynthLibrary engine
-    case maybeLibrary of 
-        Just library -> pure library
-        Nothing -> throwApiError "FluidSynth DLL not loaded"
-                        
-loadFluidSynthLibrary :: Engine -> FilePath -> IO ()
-loadFluidSynthLibrary engine path = do
-    maybeFluidSynthLibrary <- readIORef (engine_fluidSynthLibrary engine)
-    when (isNothing maybeFluidSynthLibrary) $ do 
-        fluidSynthLibrary <- FS.openFluidSynthLibrary path
-        writeIORef (engine_fluidSynthLibrary engine) (Just fluidSynthLibrary)    
+        in (Map.insert newId instrument instruments, newId) 
 
 loadPlugin :: Engine -> PluginId -> IO ()
 loadPlugin engine =
     CLAP.load (engine_pluginHost engine)
-
-stopInstruments :: Engine -> IO ()
-stopInstruments engine = do
-    maybeLibrary <- readIORef $ engine_fluidSynthLibrary engine
-    case maybeLibrary of
-        Just library -> do
-            soundfontInstruments <- getSoundfontInstruments engine
-            traverse_ (\synth -> FS.allSoundsOff library synth (-1)) (soundfontInstrument_synth <$> soundfontInstruments)
-        Nothing -> pure ()
 
 -- unloadPlugin :: Engine -> PluginId -> IO ()
 

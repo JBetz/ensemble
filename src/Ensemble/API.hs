@@ -20,7 +20,6 @@ import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Schema.TH
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
-import Ensemble.Soundfont (SoundfontPreset)
 import Ensemble.Type
 
 data Ok = Ok
@@ -51,7 +50,6 @@ deactivateEngine :: Ensemble Ok
 deactivateEngine = do
     engine <- asks server_engine
     sendM $ do
-        Engine.stopInstruments engine
         maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
         whenJust maybeAudioThreadId killThread
         writeIORef (Engine.engine_steadyTime engine) (-1)
@@ -64,42 +62,19 @@ deleteInstrument (Argument instrumentId) = do
     pure Ok 
 
 -- CLAP
-getClapPluginLocations :: Ensemble [Text]
-getClapPluginLocations = 
+getPluginLocations :: Ensemble [Text]
+getPluginLocations = 
     sendM $ fmap pack <$> CLAP.pluginLibraryPaths 
 
-scanForClapPlugins :: Argument "filePaths" [Text] -> Ensemble [PluginDescriptor]
-scanForClapPlugins (Argument filePaths) = 
+scanForPlugins :: Argument "filePaths" [Text] -> Ensemble [PluginDescriptor]
+scanForPlugins (Argument filePaths) = 
     sendM $ CLAP.scanForPluginsIn $ unpack <$> filePaths
 
-loadClapPlugin :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble Ok
-loadClapPlugin (Argument filePath) (Argument pluginIndex) = do
+loadPlugin :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble Ok
+loadPlugin (Argument filePath) (Argument pluginIndex) = do
     engine <- asks server_engine
     sendM $ Engine.loadPlugin engine $ PluginId (unpack filePath) pluginIndex
     pure Ok
-
--- Soundfont
-loadFluidSynthLibrary :: Argument "filePath" Text -> Ensemble Ok
-loadFluidSynthLibrary (Argument filePath) = do
-   engine <- asks server_engine
-   sendM $ Engine.loadFluidSynthLibrary engine (unpack filePath)
-   pure Ok
-
-createSoundfontInstrument :: Argument "filePath" Text -> Ensemble InstrumentId
-createSoundfontInstrument (Argument filePath) = do
-    engine <- asks server_engine
-    Engine.createSoundfontInstrument engine (unpack filePath)
-
-selectSoundfontInstrumentPreset :: Argument "instrumentId" InstrumentId  -> Argument "bankNumber" Int -> Argument "programNumber" Int -> Ensemble Ok
-selectSoundfontInstrumentPreset (Argument instrumentId) (Argument bank) (Argument program) = do
-    engine <- asks server_engine
-    Engine.selectSoundfontInstrumentPreset engine instrumentId bank program
-    pure Ok
-
-getSoundfontInstrumentPresets :: Argument "instrumentId" InstrumentId -> Ensemble [SoundfontPreset]
-getSoundfontInstrumentPresets (Argument instrumentId) = do
-    engine <- asks server_engine
-    Engine.getSoundfontInstrumentPresets engine instrumentId
 
 -- Sequencer
 scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok

@@ -49,7 +49,6 @@ playSequence sequencer engine startTick maybeEndTick loop = do
     tellEvent PlaybackEvent_Rendering
     audioOutput <- render sequencer engine startTick endTick
     evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
-    sendM $ stopInstruments engine
     tellEvent PlaybackEvent_Started
     playAudio engine startTick loop evaluatedAudioOutput
     tellEvent PlaybackEvent_Stopped

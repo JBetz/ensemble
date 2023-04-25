@@ -13,7 +13,6 @@ import Ensemble.API
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
 import Ensemble.Error
 import Ensemble.Event
-import qualified Ensemble.Soundfont as Soundfont
 import Ensemble.Schema.TH
 import Ensemble.Type
 
@@ -34,7 +33,6 @@ makeAPI
     , ''Clap.ClapEventConfig
     , ''Clap.ClapEvent
     , ''PlaybackEvent
-    , ''Soundfont.SoundfontPreset
     , ''SequencerEvent
     ]
     -- functions
@@ -44,13 +42,9 @@ makeAPI
     , 'activateEngine
     , 'deactivateEngine
     , 'deleteInstrument
-    , 'getClapPluginLocations
-    , 'scanForClapPlugins
-    , 'loadClapPlugin
-    , 'loadFluidSynthLibrary
-    , 'createSoundfontInstrument    
-    , 'getSoundfontInstrumentPresets
-    , 'selectSoundfontInstrumentPreset
+    , 'getPluginLocations
+    , 'scanForPlugins
+    , 'loadPlugin
     , 'scheduleEvent
     , 'sendEvents
     , 'playSequence

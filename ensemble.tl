@@ -88,8 +88,6 @@ playbackEventStopped = PlaybackEvent;
 
 playbackEventLooped = PlaybackEvent;
 
-soundfontPreset name:String bankNumber:Int programNumber:Int = SoundfontPreset;
-
 sequencerEvent instrumentId:Int eventConfig:ClapEventConfig event:ClapEvent = SequencerEvent;
 
 ---functions---
@@ -106,19 +104,11 @@ deactivateEngine = Ok;
 
 deleteInstrument instrumentId:Int = Ok;
 
-getClapPluginLocations = vector<String>;
+getPluginLocations = vector<String>;
 
-scanForClapPlugins filePaths:vector<String> = vector<PluginDescriptor>;
+scanForPlugins filePaths:vector<String> = vector<PluginDescriptor>;
 
-loadClapPlugin filePath:String pluginIndex:Int = Ok;
-
-loadFluidSynthLibrary filePath:String = Ok;
-
-createSoundfontInstrument filePath:String = Int;
-
-getSoundfontInstrumentPresets instrumentId:Int = vector<SoundfontPreset>;
-
-selectSoundfontInstrumentPreset instrumentId:Int bankNumber:Int programNumber:Int = Ok;
+loadPlugin filePath:String pluginIndex:Int = Ok;
 
 scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 

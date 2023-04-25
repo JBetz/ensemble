@@ -10,8 +10,6 @@ let
       customHaskellPackages = pkgs.haskellPackages.override {
         overrides = new: old: rec {
           clap = new.callCabal2nix "clap" ../clap-hs {};
-          # Need to null this so nix doesn't try to install the Haskell package instead of or in addition to the system library.
-          fluidsynth = null;
         };
       };
     };

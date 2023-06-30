@@ -88,11 +88,13 @@ playbackEventStopped = PlaybackEvent;
 
 playbackEventLooped = PlaybackEvent;
 
-sequencerEvent instrumentId:Int eventConfig:EventConfig event:Event = SequencerEvent;
+sequencerEvent nodeId:Int eventConfig:EventConfig event:Event = SequencerEvent;
 
 ---functions---
 
 getAudioDevices = vector<AudioDevice>;
+
+getMidiDevices = vector<MidiDevice>;
 
 startEngine = Ok;
 
@@ -102,7 +104,7 @@ activateEngine = Ok;
 
 deactivateEngine = Ok;
 
-deleteInstrument instrumentId:Int = Ok;
+deleteNode nodeId:Int = Ok;
 
 getPluginLocations = vector<String>;
 

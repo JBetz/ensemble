@@ -12,7 +12,7 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import Data.Text (pack)
-import Ensemble.Instrument
+import Ensemble.Node
 import Foreign.Ptr
 import Foreign.C.Types
 
@@ -23,7 +23,7 @@ instance A.FromJSON (Ptr a) where
     parseJSON _ = pure nullPtr
 
 data SequencerEvent = SequencerEvent
-    { sequencerEvent_instrumentId :: InstrumentId
+    { sequencerEvent_nodeId :: NodeId
     , sequencerEvent_eventConfig :: Maybe Clap.EventConfig
     , sequencerEvent_event :: Clap.Event
     } deriving (Show)

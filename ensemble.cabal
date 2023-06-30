@@ -32,7 +32,7 @@ library
                       Ensemble.Error,
                       Ensemble.Event,
                       Ensemble.Handler,
-                      Ensemble.Instrument,
+                      Ensemble.Node,
                       Ensemble.Schema,
                       Ensemble.Schema.TaggedJSON,
                       Ensemble.Schema.TH,
@@ -51,11 +51,13 @@ library
                       hashable,
                       optparse-generic,
                       portaudio,
+                      PortMidi,
                       stm,
                       string-class,
                       template-haskell,
                       text,
                       th-abstraction
+    extra-libraries:  portaudio
     hs-source-dirs:   src
     
 executable ensemble
@@ -92,4 +94,5 @@ test-suite ensemble-test
     hs-source-dirs:   test
     main-is:          Main.hs
     build-depends:    base,
+                      clap,
                       ensemble

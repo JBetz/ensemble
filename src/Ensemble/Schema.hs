@@ -37,11 +37,12 @@ makeAPI
     ]
     -- functions
     [ 'getAudioDevices
+    , 'getMidiDevices
     , 'startEngine
     , 'stopEngine
     , 'activateEngine
     , 'deactivateEngine
-    , 'deleteInstrument
+    , 'deleteNode
     , 'getPluginLocations
     , 'scanForPlugins
     , 'loadPlugin

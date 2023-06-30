@@ -30,7 +30,7 @@ import Data.Word
 import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Event
-import Ensemble.Instrument
+import Ensemble.Node
 import Ensemble.Schema.TH
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
@@ -42,11 +42,12 @@ import GHC.Stack
 import qualified Sound.PortAudio as PortAudio
 import Sound.PortAudio (Stream)
 import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
+import qualified Sound.PortMidi as PortMidi
 
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
-    , engine_instruments :: IORef (Map InstrumentId Instrument)
+    , engine_nodes :: IORef (Map NodeId Node)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
     , engine_numberOfFrames :: Word32
@@ -70,7 +71,7 @@ createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
-    instruments <- newIORef mempty
+    nodes <- newIORef mempty
     steadyTime <- newIORef (-1)
     inputs <- newArray [nullPtr, nullPtr]
     outputs <- newArray [nullPtr, nullPtr]
@@ -79,7 +80,7 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
-        , engine_instruments = instruments
+        , engine_nodes = nodes
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
         , engine_numberOfFrames = 1024
@@ -92,6 +93,15 @@ createEngine hostConfig = do
 data AudioDevice = AudioDevice
     { audioDevice_index :: Int
     , audioDevice_name :: String
+    } deriving (Show)
+
+data MidiDevice = MidiDevice 
+    { midiDevice_index :: Int
+    , midiDevice_interface :: String
+    , midiDevice_name :: String
+    , midiDevice_input :: Bool
+    , midiDevice_output :: Bool 
+    , midiDevice_opened :: Bool 
     } deriving (Show)
 
 getAudioDevices :: EngineEffects effs => Eff effs [AudioDevice]
@@ -112,35 +122,61 @@ getAudioDevices = do
         Right devices -> pure devices
         Left portAudioError -> throwApiError $ "Error getting audio devices: " <> show portAudioError
 
+getMidiDevices :: EngineEffects effs => Eff effs [MidiDevice]
+getMidiDevices = sendM $ do
+    deviceCount <- PortMidi.countDevices
+    for [0 .. deviceCount - 1] $ \index -> do 
+        deviceInfo <- PortMidi.getDeviceInfo index
+        pure $ toMidiDevice index deviceInfo
+    where
+        toMidiDevice deviceId deviceInfo = MidiDevice 
+            { midiDevice_index = deviceId
+            , midiDevice_interface = PortMidi.interface deviceInfo 
+            , midiDevice_name = PortMidi.name deviceInfo 
+            , midiDevice_input = PortMidi.input deviceInfo
+            , midiDevice_output = PortMidi.output deviceInfo
+            , midiDevice_opened = PortMidi.opened deviceInfo
+            }
+
 start :: EngineEffects effs => Engine -> Eff effs ()
-start engine = do
-    maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
-    when (isNothing maybeAudioStream) $ do    
-        initializeResult <- sendM PortAudio.initialize
-        case initializeResult of
-            Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
-            Nothing -> do
-                sendM $ allocateBuffers engine (32 * 1024)
-                eitherStream <- sendM $ PortAudio.openDefaultStream 
-                    0 -- Number of input channels 
-                    2 -- Number of output channels
-                    (engine_sampleRate engine) -- Sample rate
-                    (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
-                    Nothing -- Callback
-                    Nothing -- Callback on completion
-                case eitherStream of
-                    Left portAudioError -> 
-                        throwApiError $ "Error when opening audio stream: " <> show portAudioError
-                    Right stream -> do
-                        maybeError <- do
-                            sendM $ writeIORef (engine_audioStream engine) (Just stream)
-                            setState engine StateRunning
-                            let pluginHost = engine_pluginHost engine
-                            sendM $ do
-                                CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                                PortAudio.startStream stream                                
-                        whenJust maybeError $ \startError ->
-                            throwApiError $ "Error when starting audio stream: " <> show startError
+start engine = startAudio >> startMidi
+    where
+        startAudio = do
+            maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
+            when (isNothing maybeAudioStream) $ do    
+                initializeResult <- sendM PortAudio.initialize
+                case initializeResult of
+                    Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
+                    Nothing -> do
+                        sendM $ allocateBuffers engine (32 * 1024)
+                        eitherStream <- sendM $ PortAudio.openDefaultStream 
+                            0 -- Number of input channels 
+                            2 -- Number of output channels
+                            (engine_sampleRate engine) -- Sample rate
+                            (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
+                            Nothing -- Callback
+                            Nothing -- Callback on completion
+                        case eitherStream of
+                            Left portAudioError -> 
+                                throwApiError $ "Error when opening audio stream: " <> show portAudioError
+                            Right stream -> do
+                                maybeError <- do
+                                    sendM $ writeIORef (engine_audioStream engine) (Just stream)
+                                    setState engine StateRunning
+                                    let pluginHost = engine_pluginHost engine
+                                    sendM $ do
+                                        CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
+                                        PortAudio.startStream stream                                
+                                whenJust maybeError $ \startError ->
+                                    throwApiError $ "Error when starting audio stream: " <> show startError
+
+        startMidi = do 
+            initializeResult <- sendM PortMidi.initialize
+            case initializeResult of
+                Right _success -> pure ()
+                Left portMidiError -> do
+                    errorText <- sendM $ PortMidi.getErrorText portMidiError
+                    throwApiError $ "Error when initializing PortMidi: " <> errorText
 
 receiveInputs :: Engine -> CULong -> Ptr CFloat -> IO ()
 receiveInputs engine numberOfInputSamples inputPtr = 
@@ -151,14 +187,14 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
-lookupInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs Instrument
-lookupInstrument engine instrumentId = do
-    instruments <- sendM $ readIORef $ engine_instruments engine
-    case Map.lookup instrumentId instruments of
-        Just instrument -> pure instrument
+lookupNode :: EngineEffects effs => Engine -> NodeId -> Eff effs Node
+lookupNode engine nodeId = do
+    nodes <- sendM $ readIORef $ engine_nodes engine
+    case Map.lookup nodeId nodes of
+        Just node -> pure node
         Nothing -> throwApiError $ 
-            "Invalid instrument id: " <> show (instrumentId_id instrumentId) <> ". " <>
-            "Valid instrument ids are: " <> show (instrumentId_id <$> Map.keys instruments)
+            "Invalid node id: " <> show (nodeId_id nodeId) <> ". " <>
+            "Valid node ids are: " <> show (nodeId_id <$> Map.keys nodes)
 
 generateOutputs ::  EngineEffects effs => Engine -> Int -> [SequencerEvent] -> Eff effs AudioOutput
 generateOutputs engine frameCount events = do
@@ -177,9 +213,11 @@ receiveOutputs engine frameCount = do
 sendEvents :: EngineEffects effs => Engine -> [SequencerEvent] -> Eff effs ()
 sendEvents engine events = do
     let clapHost = engine_pluginHost engine
-    for_ events $ \(SequencerEvent instrumentId eventConfig event) -> do
-        Instrument _ pluginId <- lookupInstrument engine instrumentId
-        sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
+    for_ events $ \(SequencerEvent nodeId eventConfig event) -> do
+        node <- lookupNode engine nodeId
+        case node of
+            PluginNode pluginId _ -> 
+                sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -295,8 +333,8 @@ stop engine = do
         Just stream -> do
             maybeError <- sendM $ do
                 CLAP.deactivateAll (engine_pluginHost engine)
-                _ <- PortAudio.stopStream stream
-                _ <- PortAudio.closeStream stream
+                void $ PortAudio.stopStream stream
+                void $ PortAudio.closeStream stream
                 freeBuffers engine
                 PortAudio.terminate
             case maybeError  of
@@ -307,21 +345,20 @@ stop engine = do
             setState engine StateStopped
         Nothing -> pure () 
 
-deleteInstrument :: EngineEffects effs => Engine -> InstrumentId -> Eff effs ()
-deleteInstrument engine instrumentId =
-    sendM $ modifyIORef' (engine_instruments engine) $ Map.delete instrumentId
+deleteNode :: EngineEffects effs => Engine -> NodeId -> Eff effs ()
+deleteNode engine nodeId =
+    sendM $ modifyIORef' (engine_nodes engine) $ Map.delete nodeId
 
-addInstrument :: Engine -> Instrument -> IO InstrumentId
-addInstrument engine instrument =
-    atomicModifyIORef' (engine_instruments engine) $ \instruments ->
-        let newId = InstrumentId $ case Map.keys instruments of
+createNode :: Engine -> Node -> IO NodeId
+createNode engine node =
+    atomicModifyIORef' (engine_nodes engine) $ \nodes ->
+        let newId = NodeId $ case Map.keys nodes of
                         [] -> 1
-                        ids -> succ $ maximum $ instrumentId_id <$> ids 
-        in (Map.insert newId instrument instruments, newId) 
+                        ids -> succ $ maximum $ nodeId_id <$> ids 
+        in (Map.insert newId node nodes, newId) 
 
 loadPlugin :: Engine -> PluginId -> IO ()
-loadPlugin engine =
-    CLAP.load (engine_pluginHost engine)
+loadPlugin engine pluginId = void $ CLAP.load (engine_pluginHost engine) pluginId
 
 -- unloadPlugin :: Engine -> PluginId -> IO ()
 
@@ -367,6 +404,7 @@ deriveJSONs
     [ ''Tick
     , ''AudioDevice
     , ''AudioOutput
+    , ''MidiDevice
     ]
 
 deriving instance NFData AudioOutput

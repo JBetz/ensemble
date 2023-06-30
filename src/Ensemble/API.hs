@@ -13,9 +13,9 @@ import Data.IORef
 import Data.Maybe (isJust)
 import Data.Text (Text, unpack, pack)
 import Ensemble.Effects
-import Ensemble.Engine (AudioDevice, AudioOutput, Tick)
+import Ensemble.Engine (AudioDevice, AudioOutput, Tick, MidiDevice)
 import qualified Ensemble.Engine as Engine
-import Ensemble.Instrument
+import Ensemble.Node
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Schema.TH
 import qualified Ensemble.Sequencer as Sequencer
@@ -27,6 +27,9 @@ data Ok = Ok
 -- Audio
 getAudioDevices :: Ensemble [AudioDevice]
 getAudioDevices = Engine.getAudioDevices
+
+getMidiDevices :: Ensemble [MidiDevice]
+getMidiDevices = Engine.getMidiDevices
 
 startEngine :: Ensemble Ok
 startEngine = do
@@ -55,10 +58,10 @@ deactivateEngine = do
         writeIORef (Engine.engine_steadyTime engine) (-1)
     pure Ok
 
-deleteInstrument :: Argument "instrumentId" InstrumentId -> Ensemble Ok
-deleteInstrument (Argument instrumentId) = do
+deleteNode :: Argument "nodeId" NodeId -> Ensemble Ok
+deleteNode (Argument nodeId) = do
     engine <- asks server_engine
-    Engine.deleteInstrument engine instrumentId
+    Engine.deleteNode engine nodeId
     pure Ok 
 
 -- CLAP
@@ -74,6 +77,14 @@ loadPlugin :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble
 loadPlugin (Argument filePath) (Argument pluginIndex) = do
     engine <- asks server_engine
     sendM $ Engine.loadPlugin engine $ PluginId (unpack filePath) pluginIndex
+    pure Ok
+
+createEmbeddedWindow :: Argument "pluginId" PluginId -> Argument "parentWindow" Text -> Argument "scale" Int -> Argument "canResize" Bool -> Argument "size" (Int, Int) -> Ensemble Ok
+createEmbeddedWindow (Argument _pluginId) (Argument _parentWindow) (Argument _scale) (Argument _canResize) (Argument _size) = do
+    pure Ok
+
+createFloatingWindow :: Argument "pluginId" PluginId -> Argument "transient" Int -> Argument "title" Text -> Ensemble Ok
+createFloatingWindow (Argument _pluginId) (Argument _transient) (Argument _title) = do
     pure Ok
 
 -- Sequencer

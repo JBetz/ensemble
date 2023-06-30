@@ -343,7 +343,13 @@ stop engine = do
                 Nothing -> 
                     sendM $ writeIORef (engine_audioStream engine) Nothing
             setState engine StateStopped
-        Nothing -> pure () 
+        Nothing -> pure ()
+    terminateResult <- sendM PortMidi.terminate
+    case terminateResult of
+        Right _success -> pure ()
+        Left portMidiError -> do
+            errorText <- sendM $ PortMidi.getErrorText portMidiError
+            throwApiError $ "Error when terminating PortMidi: " <> errorText
 
 deleteNode :: EngineEffects effs => Engine -> NodeId -> Eff effs ()
 deleteNode engine nodeId =

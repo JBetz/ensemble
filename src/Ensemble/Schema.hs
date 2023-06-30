@@ -10,7 +10,7 @@ import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import Ensemble.API
-import Ensemble.Engine (AudioDevice(..), AudioOutput(..))
+import Ensemble.Engine (AudioDevice(..), AudioOutput(..), MidiDevice(..))
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Schema.TH
@@ -22,6 +22,7 @@ makeAPI
     , ''ApiError
     , ''AudioDevice
     , ''AudioOutput
+    , ''MidiDevice
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor

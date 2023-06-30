@@ -8,6 +8,8 @@ audioDevice index:Int name:String = AudioDevice;
 
 audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
+midiDevice index:Int interface:String name:String input:Bool output:Bool opened:Bool = MidiDevice;
+
 pluginId filePath:String index:Int = PluginId;
 
 clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;

@@ -4,16 +4,11 @@ module Ensemble.API where
 import Clap.Host (PluginId (..))
 import qualified Clap.Library as CLAP
 import Clap.Interface.Plugin
-import Control.Concurrent
-import Control.Monad (void, unless)
-import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
-import Data.Maybe (isJust)
 import Data.Text (Text, unpack, pack)
-import Ensemble.Effects
-import Ensemble.Engine (AudioDevice, AudioOutput, Tick, MidiDevice)
+import Ensemble.Engine (AudioDevice, Tick, MidiDevice)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Node
 import Ensemble.Event (SequencerEvent(..))
@@ -41,21 +36,6 @@ stopEngine :: Ensemble Ok
 stopEngine = do
     engine <- asks server_engine
     Engine.stop engine
-    pure Ok
-
-activateEngine :: Ensemble Ok
-activateEngine = do
-    engine <- asks server_engine 
-    Engine.startAudioThread engine
-    pure Ok
-
-deactivateEngine :: Ensemble Ok
-deactivateEngine = do
-    engine <- asks server_engine
-    sendM $ do
-        maybeAudioThreadId <- readIORef (Engine.engine_audioThread engine)
-        whenJust maybeAudioThreadId killThread
-        writeIORef (Engine.engine_steadyTime engine) (-1)
     pure Ok
 
 createMidiDeviceNode :: Argument "deviceId" Int -> Ensemble NodeId
@@ -102,28 +82,15 @@ scheduleEvent (Argument tick) (Argument event) = do
 sendEvents :: Argument "sequencerEvents" [SequencerEvent] -> Ensemble Ok
 sendEvents (Argument events) = do
     engine <- asks server_engine
-    Engine.sendEvents engine events
+    sendM $ Engine.sendEvents engine events
     pure Ok
 
 playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Argument "loop" Bool -> Ensemble Ok
 playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
-    server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    void $ sendM $ do
-        maybeThreadId <- readIORef (Engine.engine_audioThread engine)
-        unless (isJust maybeThreadId) $ do
-            threadId <- forkFinally 
-                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick maybeEndTick loop)
-                (\_ -> writeIORef (Engine.engine_audioThread engine) Nothing)
-            writeIORef (Engine.engine_audioThread engine) (Just threadId)
+    Sequencer.playSequence sequencer engine startTick maybeEndTick loop
     pure Ok
-
-renderSequence :: Argument "startTick" Tick -> Argument "endTick" Tick -> Ensemble AudioOutput
-renderSequence (Argument startTick) (Argument endTick) = do
-    sequencer <- asks server_sequencer
-    engine <- asks server_engine
-    Sequencer.render sequencer engine startTick endTick
 
 clearSequence :: Ensemble Ok
 clearSequence = do

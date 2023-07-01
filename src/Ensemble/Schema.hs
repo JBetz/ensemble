@@ -42,8 +42,6 @@ makeAPI
     , 'createMidiDeviceNode
     , 'startEngine
     , 'stopEngine
-    , 'activateEngine
-    , 'deactivateEngine
     , 'deleteNode
     , 'getPluginLocations
     , 'scanForPlugins
@@ -51,7 +49,6 @@ makeAPI
     , 'scheduleEvent
     , 'sendEvents
     , 'playSequence
-    , 'renderSequence
     , 'clearSequence
     , 'getCurrentTick
     , 'ping

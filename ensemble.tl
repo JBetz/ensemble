@@ -104,10 +104,6 @@ startEngine = Ok;
 
 stopEngine = Ok;
 
-activateEngine = Ok;
-
-deactivateEngine = Ok;
-
 deleteNode nodeId:Int = Ok;
 
 getPluginLocations = vector<String>;
@@ -121,8 +117,6 @@ scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
 sendEvents sequencerEvents:vector<SequencerEvent> = Ok;
 
 playSequence startTick:Int endTick:Int loop:Bool = Ok;
-
-renderSequence startTick:Int endTick:Int = AudioOutput;
 
 clearSequence = Ok;
 

@@ -1,15 +1,13 @@
 {-# LANGUAGE MonoLocalBinds #-}
 module Ensemble.Sequencer where
 
-import Control.DeepSeq (force)
-import Control.Exception (evaluate)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
 import Data.Aeson
 import Data.Aeson.KeyMap (KeyMap)
 import Data.IORef
-import Data.Map (Map)
+import Data.List (sortBy)
 import qualified Data.Map as Map
 import Ensemble.Engine
 import Ensemble.Error
@@ -18,39 +16,33 @@ import Ensemble.Schema.TaggedJSON
 import GHC.Stack
 
 data Sequencer = Sequencer
-    { sequencer_currentTick :: IORef Tick
-    , sequencer_scale :: IORef Double
-    , sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
-    , sequencer_clients :: IORef (Map String EventCallback)
+    { sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
     }
 
 type SequencerEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createSequencer :: IO Sequencer
 createSequencer = do
-    currentTick <- newIORef (Tick 0)
-    scale <- newIORef 1000
     eventQueue <- newIORef mempty
-    clients <- newIORef mempty
-    pure $ Sequencer
-        { sequencer_currentTick = currentTick
-        , sequencer_scale = scale
-        , sequencer_eventQueue = eventQueue
-        , sequencer_clients = clients
-        }
+    pure $ Sequencer { sequencer_eventQueue = eventQueue }
 
 playSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
-playSequence sequencer engine startTick maybeEndTick loop = do
-    sendM $ writeIORef (sequencer_currentTick sequencer) startTick
+playSequence sequencer engine startTick maybeEndTick _loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
-    tellEvent PlaybackEvent_Rendering
-    audioOutput <- render sequencer engine startTick endTick
-    evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
+    events <- sendM $ getEventsBetween sequencer startTick endTick
     tellEvent PlaybackEvent_Started
-    playAudio engine startTick loop evaluatedAudioOutput
+    runSequence $ sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events
     tellEvent PlaybackEvent_Stopped
+    sendM $ writeIORef (engine_steadyTime engine) (-1)
+    where 
+        runSequence [] = pure () 
+        runSequence events = do 
+            currentTick <- getCurrentTick engine
+            let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
+            sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
+            runSequence $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick
 getEndTick sequencer = do
@@ -61,35 +53,23 @@ sendAt :: Sequencer -> Tick -> SequencerEvent -> IO ()
 sendAt sequencer time event =
     modifyIORef' (sequencer_eventQueue sequencer) $ (<>) [(time, event)]
 
-setTimeScale :: Sequencer -> Double -> IO ()
-setTimeScale sequencer =
-    writeIORef (sequencer_scale sequencer)
-
 type EventCallback = Tick -> SequencerEvent -> IO ()
 
-registerClient :: Sequencer -> String -> EventCallback -> IO ()
-registerClient sequencer name callback =
-    modifyIORef' (sequencer_clients sequencer) $ Map.insert name callback
-
-unregisterClient :: Sequencer -> String -> IO ()
-unregisterClient sequencer name =
-    modifyIORef' (sequencer_clients sequencer) $ Map.delete name
-
-render :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
-render sequencer engine startTick endTick = do
-    events <- sendM $ getEventsBetween sequencer startTick endTick
-    renderEvents $ groupEvents startTick endTick events
-    where 
-        renderEvents = \case
-            (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
-                let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
-                chunk <- generateOutputs engine (floor frameCount) events
-                remaining <- renderEvents (next:rest)
-                pure $ chunk <> remaining
-            [(_lastTick,events)] -> do   
-                let frameCount = floor (engine_sampleRate engine / 1000)
-                generateOutputs engine frameCount events
-            [] -> pure $ AudioOutput [] []
+-- renderSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
+-- renderSequence sequencer engine startTick endTick = do
+--     events <- sendM $ getEventsBetween sequencer startTick endTick
+--     renderEvents $ groupEvents startTick endTick events
+--     where 
+--         renderEvents = \case
+--             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
+--                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
+--                 chunk <- sendM $ generateOutputs engine (floor frameCount)
+--                 remaining <- renderEvents (next:rest)
+--                 pure $ chunk <> remaining
+--             [(_lastTick,events)] -> do   
+--                 let frameCount = floor (engine_sampleRate engine / 1000)
+--                 sendM $ generateOutputs engine frameCount
+--             [] -> pure $ AudioOutput [] []
 
 getEvents :: Sequencer -> IO [SequencerEvent]
 getEvents sequencer =

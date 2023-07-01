@@ -39,6 +39,7 @@ makeAPI
     -- functions
     [ 'getAudioDevices
     , 'getMidiDevices
+    , 'createMidiDeviceNode
     , 'startEngine
     , 'stopEngine
     , 'activateEngine

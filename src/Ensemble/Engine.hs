@@ -6,7 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
 
-import Clap.Interface.Events (defaultEventConfig)
+import Clap.Interface.Events (Event (..), MidiEvent(..), MidiData(..), defaultEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
@@ -43,10 +43,12 @@ import qualified Sound.PortAudio as PortAudio
 import Sound.PortAudio (Stream)
 import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..))
 import qualified Sound.PortMidi as PortMidi
+import Sound.PortMidi (PMEvent(..), PMMsg(..))
 
 data Engine = Engine
     { engine_state :: IORef EngineState
     , engine_pluginHost :: PluginHost
+    , engine_nodeCounter :: IORef Int
     , engine_nodes :: IORef (Map NodeId Node)
     , engine_steadyTime :: IORef Int64
     , engine_sampleRate :: Double
@@ -71,6 +73,7 @@ createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
+    nodeCounter <- newIORef 0
     nodes <- newIORef mempty
     steadyTime <- newIORef (-1)
     inputs <- newArray [nullPtr, nullPtr]
@@ -80,6 +83,7 @@ createEngine hostConfig = do
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
+        , engine_nodeCounter = nodeCounter
         , engine_nodes = nodes
         , engine_steadyTime = steadyTime
         , engine_sampleRate = 44100
@@ -187,6 +191,28 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
 
+createMidiDeviceNode :: EngineEffects effs => Engine -> Int -> Eff effs NodeId
+createMidiDeviceNode engine deviceId = do
+    deviceInfo <- sendM $ PortMidi.getDeviceInfo deviceId 
+    if PortMidi.output deviceInfo 
+        then do
+            openOutputResult <- sendM $ PortMidi.openOutput deviceId 0
+            case openOutputResult of
+                Right outputStream -> do 
+                    let node = MidiDeviceNode outputStream
+                    nodeId <- createNodeId engine
+                    sendM $ modifyIORef' (engine_nodes engine) $ \nodeMap ->
+                        Map.insert nodeId node nodeMap
+                    pure nodeId
+                Left portMidiError -> do
+                    errorText <- sendM $ PortMidi.getErrorText portMidiError
+                    throwApiError $ "Error when initializing PortMidi: " <> errorText
+        else throwApiError $ PortMidi.name deviceInfo <> " is not an output device"
+
+createNodeId :: EngineEffects effs => Engine -> Eff effs NodeId
+createNodeId engine = sendM $ atomicModifyIORef' (engine_nodeCounter engine) $ \nodeCounter ->
+    (nodeCounter + 1, NodeId nodeCounter)
+
 lookupNode :: EngineEffects effs => Engine -> NodeId -> Eff effs Node
 lookupNode engine nodeId = do
     nodes <- sendM $ readIORef $ engine_nodes engine
@@ -215,9 +241,34 @@ sendEvents engine events = do
     let clapHost = engine_pluginHost engine
     for_ events $ \(SequencerEvent nodeId eventConfig event) -> do
         node <- lookupNode engine nodeId
-        case node of
+        sendM $ case node of
+            MidiDeviceNode outputStream -> do
+                maybePortMidiEvent <- toPortMidiEvent event
+                whenJust maybePortMidiEvent $ \portMidiEvent -> 
+                    void $ PortMidi.writeShort outputStream portMidiEvent
             PluginNode pluginId _ -> 
-                sendM $ CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
+                CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
+    where
+        toPortMidiEvent :: Event -> IO (Maybe PMEvent)
+        toPortMidiEvent event = 
+            case toMidiData event of
+                Just midiData -> do
+                    timeNow <- PortMidi.time
+                    pure $ Just $ PMEvent
+                        { message = PortMidi.encodeMsg $ PMMsg
+                            { status = fromIntegral $ midiData_first midiData 
+                            , data1 = fromIntegral $ midiData_second midiData
+                            , data2 = fromIntegral $ midiData_third midiData
+                            }
+                        , timestamp = timeNow 
+                        }
+                Nothing -> pure Nothing
+        
+        toMidiData :: Event -> Maybe MidiData
+        toMidiData = \case
+            Event_Midi midiEvent -> Just (midiEvent_data midiEvent)
+            _ -> Nothing 
+
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 

@@ -98,6 +98,8 @@ getAudioDevices = vector<AudioDevice>;
 
 getMidiDevices = vector<MidiDevice>;
 
+createMidiDeviceNode deviceId:Int = Int;
+
 startEngine = Ok;
 
 stopEngine = Ok;

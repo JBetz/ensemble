@@ -58,6 +58,11 @@ deactivateEngine = do
         writeIORef (Engine.engine_steadyTime engine) (-1)
     pure Ok
 
+createMidiDeviceNode :: Argument "deviceId" Int -> Ensemble NodeId
+createMidiDeviceNode (Argument deviceId) = do
+    engine <- asks server_engine
+    Engine.createMidiDeviceNode engine deviceId
+
 deleteNode :: Argument "nodeId" NodeId -> Ensemble Ok
 deleteNode (Argument nodeId) = do
     engine <- asks server_engine

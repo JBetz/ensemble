@@ -5,7 +5,6 @@
 module Ensemble.Event where
 
 import qualified Data.Aeson as A
-import Ensemble.Schema.TH
 import qualified Clap.Host as Clap
 import qualified Clap.Interface.Id as Clap
 import qualified Clap.Interface.Events as Clap
@@ -13,6 +12,8 @@ import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import Data.Text (pack)
 import Ensemble.Node
+import Ensemble.Schema.TH
+import Ensemble.Tick
 import Foreign.Ptr
 import Foreign.C.Types
 
@@ -33,6 +34,7 @@ data PlaybackEvent
     | PlaybackEvent_Started
     | PlaybackEvent_Stopped
     | PlaybackEvent_Looped
+    | PlaybackEvent_CurrentTick Tick
     deriving (Show)
 
 deriveJSONs

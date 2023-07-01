@@ -8,13 +8,14 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
 import Data.Text (Text, unpack, pack)
-import Ensemble.Engine (AudioDevice, Tick, MidiDevice)
+import Ensemble.Engine (AudioDevice, MidiDevice)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Node
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Schema.TH
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
+import Ensemble.Tick
 import Ensemble.Type
 
 data Ok = Ok
@@ -46,7 +47,7 @@ createMidiDeviceNode (Argument deviceId) = do
 deleteNode :: Argument "nodeId" NodeId -> Ensemble Ok
 deleteNode (Argument nodeId) = do
     engine <- asks server_engine
-    Engine.deleteNode engine nodeId
+    sendM $ Engine.deleteNode engine nodeId
     pure Ok 
 
 -- CLAP
@@ -94,14 +95,14 @@ playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
 
 clearSequence :: Ensemble Ok
 clearSequence = do
-    events <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
-    sendM $ writeIORef events []
+    eventQueue <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
+    sendM $ atomicModifyIORef' eventQueue $ \_eventQueue -> ([], ())
     pure Ok
 
 getCurrentTick :: Ensemble Tick
 getCurrentTick = do
     engine <- asks server_engine
-    Engine.getCurrentTick engine
+    sendM $ Engine.getCurrentTick engine
 
 ping :: Ensemble Ok
 ping = pure Ok

@@ -38,6 +38,7 @@ library
                       Ensemble.Schema.TH,
                       Ensemble.Sequencer,
                       Ensemble.Server,
+                      Ensemble.Tick,
                       Ensemble.Type,
                       Ensemble.Util
     build-depends:    base,

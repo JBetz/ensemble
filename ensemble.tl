@@ -90,6 +90,8 @@ playbackEventStopped = PlaybackEvent;
 
 playbackEventLooped = PlaybackEvent;
 
+playbackEventCurrentTick value:Int  = PlaybackEvent;
+
 sequencerEvent nodeId:Int eventConfig:EventConfig event:Event = SequencerEvent;
 
 ---functions---

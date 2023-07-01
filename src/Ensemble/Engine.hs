@@ -31,6 +31,7 @@ import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Node
 import Ensemble.Schema.TH
+import Ensemble.Tick
 import Foreign.C.Types
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
@@ -63,16 +64,13 @@ data EngineState
     | StateRunning
     | StateStopping
 
-newtype Tick = Tick { tick_value :: Int }
-    deriving newtype (Eq, Ord, Show, Enum, Num, Real, Integral)
-
 type EngineEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
     state <- newIORef StateStopped
     pluginHost <- CLAP.createPluginHost hostConfig
-    nodeCounter <- newIORef 0
+    nodeCounter <- newIORef 1
     nodes <- newIORef mempty
     steadyTime <- newIORef (-1)
     inputs <- newArray [nullPtr, nullPtr]
@@ -188,7 +186,8 @@ audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = 
     unless (outputPtr == nullPtr) $ do 
         let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
         pokeArray outputPtr output
-    modifyIORef' (engine_steadyTime engine) (+ fromIntegral numberOfInputSamples)
+    atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime -> 
+        (steadyTime + fromIntegral numberOfInputSamples, ())
     state <- readIORef (engine_state engine)
     pure $ case state of
         StateRunning -> PortAudio.Continue
@@ -224,7 +223,7 @@ sendEvents engine events = do
     for_ events $ \(SequencerEvent nodeId eventConfig event) -> do
         maybeNode <- lookupNode engine nodeId
         whenJust maybeNode $ \case
-            MidiDeviceNode outputStream -> do
+            MidiDeviceNode _ outputStream -> do
                 maybePortMidiEvent <- toPortMidiEvent event
                 whenJust maybePortMidiEvent $ \portMidiEvent ->
                     void $ PortMidi.writeShort outputStream portMidiEvent
@@ -323,9 +322,9 @@ sendOutputs engine frameCount audioOutput  = do
                 throwApiError $ "Error writing to audio stream: " <> show writeError
         Nothing -> throwApiError "PortAudio not initialized"
 
-getCurrentTick :: EngineEffects effs => Engine -> Eff effs Tick
+getCurrentTick :: Engine -> IO Tick
 getCurrentTick engine = do
-    steadyTime <- sendM $ readIORef (engine_steadyTime engine)
+    steadyTime <- readIORef (engine_steadyTime engine)
     pure $ steadyTimeToTick (engine_sampleRate engine) steadyTime
 
 steadyTimeToTick :: Double -> Int64 -> Tick
@@ -363,28 +362,36 @@ stop engine = do
 
 createMidiDeviceNode :: EngineEffects effs => Engine -> Int -> Eff effs NodeId
 createMidiDeviceNode engine deviceId = do
-    deviceInfo <- sendM $ PortMidi.getDeviceInfo deviceId 
-    if PortMidi.output deviceInfo 
-        then do
-            openOutputResult <- sendM $ PortMidi.openOutput deviceId 0
-            case openOutputResult of
-                Right outputStream -> do 
-                    let node = MidiDeviceNode outputStream
-                    nodeId <- createNodeId engine
-                    sendM $ modifyIORef' (engine_nodes engine) $ \nodeMap ->
-                        Map.insert nodeId node nodeMap
-                    pure nodeId
-                Left portMidiError -> do
-                    errorText <- sendM $ PortMidi.getErrorText portMidiError
-                    throwApiError $ "Error when initializing PortMidi: " <> errorText
-        else throwApiError $ PortMidi.name deviceInfo <> " is not an output device"
+    nodes <- sendM $ readIORef (engine_nodes engine)
+    let existingNode = find (\(_, node) -> case node of
+            MidiDeviceNode (DeviceId existingDeviceId) _ -> deviceId == existingDeviceId
+            _ -> False
+            ) (Map.assocs nodes)
+    case existingNode of
+        Just (nodeId, _) -> pure nodeId
+        Nothing -> do 
+            deviceInfo <- sendM $ PortMidi.getDeviceInfo deviceId 
+            if PortMidi.output deviceInfo 
+                then do
+                    openOutputResult <- sendM $ PortMidi.openOutput deviceId 0
+                    case openOutputResult of
+                        Right outputStream -> do 
+                            let node = MidiDeviceNode (DeviceId deviceId) outputStream
+                            nodeId <- sendM $ createNodeId engine
+                            sendM $ modifyIORef' (engine_nodes engine) $ \nodeMap ->
+                                Map.insert nodeId node nodeMap
+                            pure nodeId
+                        Left portMidiError -> do
+                            errorText <- sendM $ PortMidi.getErrorText portMidiError
+                            throwApiError $ "Error when initializing PortMidi: " <> errorText
+                else throwApiError $ PortMidi.name deviceInfo <> " is not an output device"
 
-deleteNode :: EngineEffects effs => Engine -> NodeId -> Eff effs ()
+deleteNode :: Engine -> NodeId -> IO ()
 deleteNode engine nodeId =
-    sendM $ modifyIORef' (engine_nodes engine) $ Map.delete nodeId
+    modifyIORef' (engine_nodes engine) $ Map.delete nodeId
 
-createNodeId :: EngineEffects effs => Engine -> Eff effs NodeId
-createNodeId engine = sendM $ atomicModifyIORef' (engine_nodeCounter engine) $ \nodeCounter ->
+createNodeId :: Engine -> IO NodeId
+createNodeId engine = atomicModifyIORef' (engine_nodeCounter engine) $ \nodeCounter ->
     (nodeCounter + 1, NodeId nodeCounter)
 
 lookupNode :: Engine -> NodeId -> IO (Maybe Node)
@@ -438,8 +445,7 @@ throwApiError message = do
     throwError $ ApiError { apiError_message = message }
 
 deriveJSONs
-    [ ''Tick
-    , ''AudioDevice
+    [ ''AudioDevice
     , ''AudioOutput
     , ''MidiDevice
     ]

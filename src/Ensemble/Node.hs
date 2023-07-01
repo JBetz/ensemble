@@ -9,8 +9,11 @@ import Sound.PortMidi (PMStream)
 newtype NodeId = NodeId { nodeId_id :: Int }
     deriving (Show, Ord, Eq)
 
+newtype DeviceId = DeviceId { deviceId_id :: Int }
+    deriving (Show, Ord, Eq)
+
 data Node 
-    = MidiDeviceNode PMStream
+    = MidiDeviceNode DeviceId PMStream
     | PluginNode PluginId Plugin
 
 deriveJSON ''NodeId

@@ -1,6 +1,7 @@
 {-# LANGUAGE MonoLocalBinds #-}
 module Ensemble.Sequencer where
 
+import Control.Concurrent
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
@@ -13,6 +14,7 @@ import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Schema.TaggedJSON
+import Ensemble.Tick
 import GHC.Stack
 
 data Sequencer = Sequencer
@@ -32,6 +34,7 @@ playSequence sequencer engine startTick maybeEndTick _loop = do
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
     events <- sendM $ getEventsBetween sequencer startTick endTick
+    sendM $ writeIORef (engine_steadyTime engine) 0
     tellEvent PlaybackEvent_Started
     runSequence $ sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events
     tellEvent PlaybackEvent_Stopped
@@ -39,9 +42,12 @@ playSequence sequencer engine startTick maybeEndTick _loop = do
     where 
         runSequence [] = pure () 
         runSequence events = do 
-            currentTick <- getCurrentTick engine
+            currentTick <- sendM $ getCurrentTick engine
             let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
-            sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
+            sendM $ do
+                modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
+                threadDelay 100
+            tellEvent $ PlaybackEvent_CurrentTick currentTick
             runSequence $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick

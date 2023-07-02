@@ -10,6 +10,7 @@ import qualified Clap.Interface.Id as Clap
 import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
+import qualified Clap.Library as Clap
 import Data.Text (pack)
 import Ensemble.Node
 import Ensemble.Schema.TH
@@ -44,6 +45,7 @@ deriveJSONs
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
+    , ''Clap.PluginInfo
     , ''Clap.EventFlag
     , ''Clap.NoteEvent
     , ''Clap.NoteKillEvent

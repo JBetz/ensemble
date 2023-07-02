@@ -429,8 +429,14 @@ lookupNode engine nodeId = do
     nodes <- readIORef $ engine_nodes engine
     pure $ Map.lookup nodeId nodes
 
-loadPlugin :: Engine -> PluginId -> IO ()
-loadPlugin engine pluginId = void $ CLAP.load (engine_pluginHost engine) pluginId
+createPluginNode :: EngineEffects effs => Engine -> PluginId -> Eff effs NodeId
+createPluginNode engine pluginId = sendM $ do
+    plugin <- CLAP.load (engine_pluginHost engine) pluginId
+    nodeId <- createNodeId engine
+    let node = Node_Plugin pluginId plugin
+    modifyIORef' (engine_nodes engine) $ \nodeMap ->
+        Map.insert nodeId node nodeMap
+    pure nodeId
 
 -- unloadPlugin :: Engine -> PluginId -> IO ()
 

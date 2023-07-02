@@ -16,6 +16,8 @@ clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
 
 pluginDescriptor clapVersion:ClapVersion id:String name:String vendor:String url:String manualUrl:String supportUrl:String version:String description:String features:vector<String> = PluginDescriptor;
 
+pluginInfo filePath:String index:Int descriptor:PluginDescriptor = PluginInfo;
+
 eventFlagIsLive = EventFlag;
 
 eventFlagDoNotRecord = EventFlag;
@@ -100,23 +102,21 @@ getAudioDevices = vector<AudioDevice>;
 
 getMidiDevices = vector<MidiDevice>;
 
-createMidiDeviceNode deviceId:Int = Int;
+getPluginLocations = vector<String>;
+
+scanForPlugins filePaths:vector<String> = vector<PluginInfo>;
 
 startEngine = Ok;
 
 stopEngine = Ok;
 
+createMidiDeviceNode deviceId:Int = Int;
+
+createPluginNode filePath:String pluginIndex:Int = Int;
+
 deleteNode nodeId:Int = Ok;
 
-getPluginLocations = vector<String>;
-
-scanForPlugins filePaths:vector<String> = vector<PluginDescriptor>;
-
-loadPlugin filePath:String pluginIndex:Int = Ok;
-
 scheduleEvent tick:Int sequencerEvent:SequencerEvent = Ok;
-
-sendEvents sequencerEvents:vector<SequencerEvent> = Ok;
 
 playSequence startTick:Int endTick:Int loop:Bool = Ok;
 

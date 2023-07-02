@@ -2,8 +2,8 @@
 module Ensemble.API where
 
 import Clap.Host (PluginId (..))
+import Clap.Library (PluginInfo (..))
 import qualified Clap.Library as CLAP
-import Clap.Interface.Plugin
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
@@ -55,15 +55,14 @@ getPluginLocations :: Ensemble [Text]
 getPluginLocations = 
     sendM $ fmap pack <$> CLAP.pluginLibraryPaths 
 
-scanForPlugins :: Argument "filePaths" [Text] -> Ensemble [PluginDescriptor]
-scanForPlugins (Argument filePaths) = 
+scanForPlugins :: Argument "filePaths" [Text] -> Ensemble [PluginInfo]
+scanForPlugins (Argument filePaths) =
     sendM $ CLAP.scanForPluginsIn $ unpack <$> filePaths
-
-loadPlugin :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble Ok
-loadPlugin (Argument filePath) (Argument pluginIndex) = do
+    
+createPluginNode :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble NodeId
+createPluginNode (Argument filePath) (Argument pluginIndex) = do
     engine <- asks server_engine
-    sendM $ Engine.loadPlugin engine $ PluginId (unpack filePath) pluginIndex
-    pure Ok
+    Engine.createPluginNode engine $ PluginId (unpack filePath) pluginIndex
 
 createEmbeddedWindow :: Argument "pluginId" PluginId -> Argument "parentWindow" Text -> Argument "scale" Int -> Argument "canResize" Bool -> Argument "size" (Int, Int) -> Ensemble Ok
 createEmbeddedWindow (Argument _pluginId) (Argument _parentWindow) (Argument _scale) (Argument _canResize) (Argument _size) = do

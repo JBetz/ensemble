@@ -9,6 +9,7 @@ import qualified Clap.Host as Clap
 import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
+import qualified Clap.Library as Clap
 import Ensemble.API
 import Ensemble.Engine (AudioDevice(..), AudioOutput(..), MidiDevice(..))
 import Ensemble.Error
@@ -26,6 +27,7 @@ makeAPI
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
+    , ''Clap.PluginInfo
     , ''Clap.EventFlag
     , ''Clap.NoteExpression
     , ''Clap.TransportFlag
@@ -39,13 +41,13 @@ makeAPI
     -- functions
     [ 'getAudioDevices
     , 'getMidiDevices
-    , 'createMidiDeviceNode
-    , 'startEngine
-    , 'stopEngine
-    , 'deleteNode
     , 'getPluginLocations
     , 'scanForPlugins
-    , 'loadPlugin
+    , 'startEngine
+    , 'stopEngine
+    , 'createMidiDeviceNode
+    , 'createPluginNode
+    , 'deleteNode
     , 'scheduleEvent
     , 'playSequence
     , 'clearSequence

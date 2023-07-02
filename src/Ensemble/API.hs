@@ -80,12 +80,6 @@ scheduleEvent (Argument tick) (Argument event) = do
     sendM $ Sequencer.sendAt sequencer tick event
     pure Ok
 
-sendEvents :: Argument "sequencerEvents" [SequencerEvent] -> Ensemble Ok
-sendEvents (Argument events) = do
-    engine <- asks server_engine
-    sendM $ Engine.sendEvents engine events
-    pure Ok
-
 playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Argument "loop" Bool -> Ensemble Ok
 playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
     sequencer <- asks server_sequencer

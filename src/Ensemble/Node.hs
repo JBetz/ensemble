@@ -3,6 +3,7 @@
 module Ensemble.Node where
 
 import Clap.Host
+import Data.IORef
 import Ensemble.Schema.TH
 import Sound.PortMidi (PMStream)
 
@@ -13,7 +14,14 @@ newtype DeviceId = DeviceId { deviceId_id :: Int }
     deriving (Show, Ord, Eq)
 
 data Node 
-    = MidiDeviceNode DeviceId PMStream
-    | PluginNode PluginId Plugin
+    = Node_MidiDevice MidiDeviceNode
+    | Node_Plugin PluginId Plugin
+
+data MidiDeviceNode = MidiDeviceNode
+    { midiDeviceNode_deviceId :: DeviceId
+    , midiDeviceNode_latency :: Int
+    , midiDeviceNode_startTime :: IORef (Maybe Int)
+    , midiDeviceNode_stream :: PMStream
+    }
 
 deriveJSON ''NodeId

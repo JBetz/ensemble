@@ -44,10 +44,9 @@ playSequence sequencer engine startTick maybeEndTick _loop = do
         runSequence events = do 
             currentTick <- sendM $ getCurrentTick engine
             let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
-            sendM $ do
-                modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
-                threadDelay 100
+            sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
             tellEvent $ PlaybackEvent_CurrentTick currentTick
+            sendM $ threadDelay 1000
             runSequence $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick

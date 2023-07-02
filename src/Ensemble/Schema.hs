@@ -47,7 +47,6 @@ makeAPI
     , 'scanForPlugins
     , 'loadPlugin
     , 'scheduleEvent
-    , 'sendEvents
     , 'playSequence
     , 'clearSequence
     , 'getCurrentTick

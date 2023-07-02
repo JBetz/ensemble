@@ -54,7 +54,7 @@ main = do
                     WS.sendTextData connection (A.encode outgoingMessage)
                 isOpen <- newIORef True 
                 whileM $ do
-                    incomingMessage <- fmap Just (WS.receiveData connection) `catch` (\case
+                    incomingMessage <- fmap Just (WS.receiveData connection) `catch` \case
                         WS.CloseRequest _ _ -> do
                             killThread sendThread
                             writeIORef isOpen False
@@ -68,7 +68,7 @@ main = do
                             pure Nothing
                         WS.UnicodeException message -> do
                             putStrLn $ "UNICODE EXCEPTION: " <> message
-                            pure Nothing)
+                            pure Nothing
                     whenJust incomingMessage $ handleIncomingMessage server
                     readIORef isOpen
         let backupApp _ respond = respond $ responseLBS status400 [] "Not a WebSocket request"

@@ -15,13 +15,18 @@ newtype DeviceId = DeviceId { deviceId_id :: Int }
 
 data Node 
     = Node_MidiDevice MidiDeviceNode
-    | Node_Plugin PluginId Plugin
+    | Node_Plugin PluginNode 
 
 data MidiDeviceNode = MidiDeviceNode
     { midiDeviceNode_deviceId :: DeviceId
     , midiDeviceNode_latency :: Int
     , midiDeviceNode_startTime :: IORef (Maybe Int)
     , midiDeviceNode_stream :: PMStream
+    }
+
+data PluginNode = PluginNode
+    { pluginNode_id :: PluginId
+    , pluginNode_plugin :: Plugin 
     }
 
 deriveJSON ''NodeId

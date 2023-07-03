@@ -44,7 +44,7 @@ import qualified Sound.PortAudio.Base as PortAudio
 import Sound.PortAudio (Stream, StreamResult, StreamCallbackFlag)
 import Sound.PortAudio.Base (PaDeviceIndex(..), PaDeviceInfo(..), PaStreamCallbackTimeInfo, PaStreamInfo(..), PaTime(..))
 import qualified Sound.PortMidi as PortMidi
-import Sound.PortMidi (PMEvent(..), PMMsg(..))
+import Sound.PortMidi (PMEvent)
 
 data Engine = Engine
     { engine_state :: IORef EngineState
@@ -237,20 +237,20 @@ sendEvents engine timeInfo events = do
                 let maybePortMidiEvent = toPortMidiEvent event startTime (steadyTimeToTick (engine_sampleRate engine) steadyTime)
                 whenJust maybePortMidiEvent $ \portMidiEvent -> do
                     void $ PortMidi.writeShort (midiDeviceNode_stream midiDeviceNode) portMidiEvent
-            Node_Plugin pluginId _ -> 
-                CLAP.processEvent clapHost pluginId (fromMaybe defaultEventConfig eventConfig) event
+            Node_Plugin pluginNode -> 
+                CLAP.processEvent clapHost (pluginNode_id pluginNode) (fromMaybe defaultEventConfig eventConfig) event
     where
         toPortMidiEvent :: Event -> Int -> Tick -> Maybe PMEvent
         toPortMidiEvent event startTime (Tick currentTick) = 
             case toMidiData event of
                 Just midiData ->
-                    Just $ PMEvent
-                        { message = PortMidi.encodeMsg $ PMMsg
-                            { status = fromIntegral $ midiData_first midiData 
-                            , data1 = fromIntegral $ midiData_second midiData
-                            , data2 = fromIntegral $ midiData_third midiData
+                    Just $ PortMidi.PMEvent
+                        { PortMidi.message = PortMidi.encodeMsg $ PortMidi.PMMsg
+                            { PortMidi.status = fromIntegral $ midiData_first midiData 
+                            , PortMidi.data1 = fromIntegral $ midiData_second midiData
+                            , PortMidi.data2 = fromIntegral $ midiData_third midiData
                             }
-                        , timestamp = fromIntegral $ startTime + currentTick
+                        , PortMidi.timestamp = fromIntegral $ startTime + currentTick
                         }
                 Nothing -> Nothing
         
@@ -433,7 +433,10 @@ createPluginNode :: EngineEffects effs => Engine -> PluginId -> Eff effs NodeId
 createPluginNode engine pluginId = sendM $ do
     plugin <- CLAP.load (engine_pluginHost engine) pluginId
     nodeId <- createNodeId engine
-    let node = Node_Plugin pluginId plugin
+    let node = Node_Plugin $ PluginNode
+            { pluginNode_id = pluginId
+            , pluginNode_plugin = plugin
+            }
     modifyIORef' (engine_nodes engine) $ \nodeMap ->
         Map.insert nodeId node nodeMap
     pure nodeId

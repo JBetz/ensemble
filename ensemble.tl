@@ -2,6 +2,8 @@ vector {t:Type} # [ t ] = Vector t;
 
 ok = Ok;
 
+size width:Int height:Int = Size;
+
 apiError message:String = ApiError;
 
 audioDevice index:Int name:String = AudioDevice;
@@ -105,6 +107,10 @@ getMidiDevices = vector<MidiDevice>;
 getPluginLocations = vector<String>;
 
 scanForPlugins filePaths:vector<String> = vector<PluginInfo>;
+
+createEmbeddedWindow nodeId:Int parentWindow:Int scale:Double size:Size = Size;
+
+createFloatingWindow nodeId:Int transientWindow:Int title:String = Ok;
 
 startEngine = Ok;
 

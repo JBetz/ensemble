@@ -20,6 +20,7 @@ import Ensemble.Type
 makeAPI
     -- types
     [ ''Ok
+    , ''Size
     , ''ApiError
     , ''AudioDevice
     , ''AudioOutput
@@ -43,6 +44,8 @@ makeAPI
     , 'getMidiDevices
     , 'getPluginLocations
     , 'scanForPlugins
+    , 'createEmbeddedWindow
+    , 'createFloatingWindow
     , 'startEngine
     , 'stopEngine
     , 'createMidiDeviceNode

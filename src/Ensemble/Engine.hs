@@ -165,10 +165,7 @@ start engine = startAudio >> startMidi
                                 maybeError <- do
                                     sendM $ writeIORef (engine_audioStream engine) (Just stream)
                                     setState engine StateRunning
-                                    let pluginHost = engine_pluginHost engine
-                                    sendM $ do
-                                        CLAP.activateAll pluginHost (engine_sampleRate engine) (engine_numberOfFrames engine)
-                                        PortAudio.startStream stream                                
+                                    sendM $ PortAudio.startStream stream                                
                                 whenJust maybeError $ \startError ->
                                     throwApiError $ "Error when starting audio stream: " <> show startError
 
@@ -224,7 +221,14 @@ sendEvents engine timeInfo events = do
     for_ events $ \(SequencerEvent nodeId eventConfig event) -> do
         maybeNode <- lookupNode engine nodeId
         whenJust maybeNode $ \case
-            Node_MidiDevice midiDeviceNode -> do
+            Node_MidiDevice midiDeviceNode -> 
+                sendMidiDevice midiDeviceNode event
+            Node_Plugin pluginNode -> do
+                print event
+                CLAP.processEvent clapHost (pluginNode_id pluginNode) (fromMaybe defaultEventConfig eventConfig) event
+    where
+        sendMidiDevice :: MidiDeviceNode -> Event -> IO ()
+        sendMidiDevice midiDeviceNode event = do
                 maybeStartTime <- readIORef (midiDeviceNode_startTime midiDeviceNode)
                 startTime <- case maybeStartTime of
                     Just startTime -> pure startTime
@@ -237,9 +241,7 @@ sendEvents engine timeInfo events = do
                 let maybePortMidiEvent = toPortMidiEvent event startTime (steadyTimeToTick (engine_sampleRate engine) steadyTime)
                 whenJust maybePortMidiEvent $ \portMidiEvent -> do
                     void $ PortMidi.writeShort (midiDeviceNode_stream midiDeviceNode) portMidiEvent
-            Node_Plugin pluginNode -> 
-                CLAP.processEvent clapHost (pluginNode_id pluginNode) (fromMaybe defaultEventConfig eventConfig) event
-    where
+
         toPortMidiEvent :: Event -> Int -> Tick -> Maybe PMEvent
         toPortMidiEvent event startTime (Tick currentTick) = 
             case toMidiData event of
@@ -478,8 +480,9 @@ interleave [] _ = []
 interleave _ [] = []
 interleave xs ys = concat (transpose [xs, ys])
 
-throwApiError :: (Members '[Writer String, Error ApiError] effs, HasCallStack) => String -> Eff effs a
+throwApiError :: (Members '[Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack) => String -> Eff effs a
 throwApiError message = do
+    sendM $ putStrLn message
     tell $ message <> "\n" <> prettyCallStack (fromList $ init $ toList callStack) 
     throwError $ ApiError { apiError_message = message }
 

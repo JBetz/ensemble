@@ -489,7 +489,6 @@ interleave xs ys = concat (transpose [xs, ys])
 
 throwApiError :: (Members '[Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack) => String -> Eff effs a
 throwApiError message = do
-    sendM $ putStrLn message
     tell $ message <> "\n" <> prettyCallStack (fromList $ init $ toList callStack) 
     throwError $ ApiError { apiError_message = message }
 

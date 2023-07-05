@@ -62,7 +62,6 @@ main = do
         sendM $ putStrLn "stopEngine"
         Ok <- stopEngine
         pure ()
-    print result
     hspec $ describe "result" $ 
         it "should not have an error" $ 
             result `shouldSatisfy` isRight

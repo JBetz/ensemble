@@ -46,4 +46,11 @@ data Config = Config
     , logFile :: Maybe FilePath
     } deriving (Show, Generic)
 
+defaultConfig :: Config
+defaultConfig = Config
+    { interface = Interface_Http
+    , port = Nothing
+    , logFile = Nothing
+    }
+
 instance ParseRecord Config

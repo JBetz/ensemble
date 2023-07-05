@@ -96,4 +96,6 @@ test-suite ensemble-test
     main-is:          Main.hs
     build-depends:    base,
                       clap,
-                      ensemble
+                      freer-simple,
+                      ensemble,
+                      hspec

@@ -5,8 +5,10 @@ source-repository-package
   type: git
   location: https://github.com/JBetz/clap-hs.git
   tag: 0fb91dd4c71ade643b2efdc3b1dc690e8fe34325
+  --sha256: sha256-KfP3HH/EpuFL+2TlN+Uo2RWev5m/xbZd+KKEj0i/nCI=
 
 source-repository-package
   type: git
   location: https://github.com/JBetz/PortMidi-haskell.git
   tag: a465a02a14f1c7b931bd1ad8ba0efa8599ceae11
+  --sha256: sha256-d8Q3M5I4k2IqMojuuxQ9TVRNnnsCB5bzJtltQV/UleI=

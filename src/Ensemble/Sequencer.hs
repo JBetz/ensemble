@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Ensemble.Sequencer where
 
@@ -13,7 +14,6 @@ import qualified Data.Map as Map
 import Ensemble.Engine
 import Ensemble.Error
 import Ensemble.Event
-import Ensemble.Schema.TaggedJSON
 import Ensemble.Tick
 import GHC.Stack
 
@@ -27,9 +27,19 @@ createSequencer :: IO Sequencer
 createSequencer = do
     eventQueue <- newIORef mempty
     pure $ Sequencer { sequencer_eventQueue = eventQueue }
-
+ 
 playSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
-playSequence sequencer engine startTick maybeEndTick _loop = do
+playSequence sequencer engine startTick maybeEndTick loop = do
+    endTick <- case maybeEndTick of
+        Just endTick -> pure endTick
+        Nothing -> sendM $ getEndTick sequencer
+    sendM $ allocateBuffers engine (32 * 1024)
+    audioOutput <- sendM $ renderSequence sequencer engine startTick endTick
+    playAudio engine startTick loop audioOutput
+    sendM $ freeBuffers engine
+
+playSequenceRealtime :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
+playSequenceRealtime sequencer engine startTick maybeEndTick _loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
@@ -60,21 +70,23 @@ sendAt sequencer time event =
 
 type EventCallback = Tick -> SequencerEvent -> IO ()
 
--- renderSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Tick -> Eff effs AudioOutput
--- renderSequence sequencer engine startTick endTick = do
---     events <- sendM $ getEventsBetween sequencer startTick endTick
---     renderEvents $ groupEvents startTick endTick events
---     where 
---         renderEvents = \case
---             (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
---                 let frameCount = fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
---                 chunk <- sendM $ generateOutputs engine (floor frameCount)
---                 remaining <- renderEvents (next:rest)
---                 pure $ chunk <> remaining
---             [(_lastTick,events)] -> do   
---                 let frameCount = floor (engine_sampleRate engine / 1000)
---                 sendM $ generateOutputs engine frameCount
---             [] -> pure $ AudioOutput [] []
+renderSequence :: Sequencer -> Engine -> Tick -> Tick -> IO AudioOutput
+renderSequence sequencer engine startTick endTick = do
+    events <- getEventsBetween sequencer startTick endTick
+    renderEvents $ groupEvents startTick endTick events
+    where 
+        renderEvents = \case
+            (Tick currentTick,events):next@(Tick nextTick,_):rest -> do
+                let frameCount = floor $ fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
+                sendEvents engine events
+                chunk <- receiveOutputs engine frameCount
+                remaining <- renderEvents (next:rest)
+                pure $ chunk <> remaining
+            [(_lastTick,events)] -> do   
+                let frameCount = floor $ engine_sampleRate engine / 1000
+                sendEvents engine events
+                receiveOutputs engine frameCount
+            [] -> pure $ AudioOutput [] []
 
 getEvents :: Sequencer -> IO [SequencerEvent]
 getEvents sequencer =
@@ -88,7 +100,3 @@ getEventsBetween sequencer startTick endTick = do
 groupEvents :: Tick -> Tick -> [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents startTick endTick eventList =
     Map.toAscList $ Map.fromListWith (<>) $ (startTick,[]):(endTick,[]):((\(a, b) -> (a, [b])) <$> eventList)
-
-tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
-tellEvent = tell . toTaggedJSON
-

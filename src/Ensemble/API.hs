@@ -14,7 +14,7 @@ import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
 import Data.Text (Text, unpack, pack)
-import Ensemble.Engine (AudioDevice, MidiDevice)
+import Ensemble.Engine (AudioDevice, MidiDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Node
 import Ensemble.Event (SequencerEvent(..))
@@ -156,15 +156,22 @@ playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> 
 playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    sendM $ Clap.activateAll (Engine.engine_pluginHost engine) (Engine.engine_sampleRate engine) (Engine.engine_numberOfFrames engine)                                    
     Sequencer.playSequence sequencer engine startTick maybeEndTick loop
-    sendM $ Clap.deactivateAll (Engine.engine_pluginHost engine)                              
     pure Ok
 
+renderSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Ensemble AudioOutput
+renderSequence (Argument startTick) (Argument maybeEndTick) = do
+    sequencer <- asks server_sequencer
+    engine <- asks server_engine
+    endTick <- case maybeEndTick of
+        Just endTick -> pure endTick
+        Nothing -> sendM $ Sequencer.getEndTick sequencer
+    sendM $ Sequencer.renderSequence sequencer engine startTick endTick
+    
 clearSequence :: Ensemble Ok
 clearSequence = do
     eventQueue <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
-    sendM $ atomicModifyIORef' eventQueue $ \_eventQueue -> ([], ())
+    sendM $ writeIORef eventQueue []
     pure Ok
 
 getCurrentTick :: Ensemble Tick

@@ -6,6 +6,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.Engine where
 
+import Clap.Interface.AudioBuffer (BufferData (..))
 import Clap.Interface.Events (Event (..), MidiEvent(..), MidiData(..), defaultEventConfig)
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
@@ -16,7 +17,7 @@ import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
-import Data.Aeson (Value(..))
+import Data.Aeson (Value(..), ToJSON)
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Foldable (for_)
 import Data.IORef
@@ -30,6 +31,7 @@ import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Node
+import Ensemble.Schema.TaggedJSON
 import Ensemble.Schema.TH
 import Ensemble.Tick
 import Foreign.C.Types
@@ -147,27 +149,25 @@ start engine = startAudio >> startMidi
             maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
             when (isNothing maybeAudioStream) $ do    
                 initializeResult <- sendM PortAudio.initialize
-                case initializeResult of
-                    Just initializeError -> throwApiError $ "Error when initializing audio driver: " <> show initializeError
-                    Nothing -> do
-                        sendM $ allocateBuffers engine (32 * 1024)
-                        eitherStream <- sendM $ PortAudio.openDefaultStream 
-                            0 -- Number of input channels 
-                            2 -- Number of output channels
-                            (engine_sampleRate engine) -- Sample rate
-                            (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
-                            (Just $ audioCallback engine) -- Callback
-                            Nothing -- Callback on completion
-                        case eitherStream of
-                            Left portAudioError -> 
-                                throwApiError $ "Error when opening audio stream: " <> show portAudioError
-                            Right stream -> do
-                                maybeError <- do
-                                    sendM $ writeIORef (engine_audioStream engine) (Just stream)
-                                    setState engine StateRunning
-                                    sendM $ PortAudio.startStream stream                                
-                                whenJust maybeError $ \startError ->
-                                    throwApiError $ "Error when starting audio stream: " <> show startError
+                whenJust initializeResult $ \initializeError ->
+                    throwApiError $ "Error when initializing audio driver: " <> show initializeError
+                eitherStream <- sendM $ PortAudio.openDefaultStream 
+                    0 -- Number of input channels 
+                    2 -- Number of output channels
+                    (engine_sampleRate engine) -- Sample rate
+                    (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
+                    Nothing -- Callback
+                    Nothing -- Callback on completion
+                case eitherStream of
+                    Left portAudioError -> 
+                        throwApiError $ "Error when opening audio stream: " <> show portAudioError
+                    Right stream -> do
+                        maybeError <- do
+                            sendM $ writeIORef (engine_audioStream engine) (Just stream)
+                            setState engine StateRunning
+                            sendM $ PortAudio.startStream stream                                
+                        whenJust maybeError $ \startError ->
+                            throwApiError $ "Error when starting audio stream: " <> show startError
 
         startMidi = do 
             initializeResult <- sendM PortMidi.initialize
@@ -178,9 +178,9 @@ start engine = startAudio >> startMidi
                     throwApiError $ "Error when initializing PortMidi: " <> errorText
 
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
-audioCallback engine timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
+audioCallback engine _timeInfo _flags numberOfInputSamples inputPtr outputPtr = do
     receiveInputs engine numberOfInputSamples inputPtr
-    audioOutput <- generateOutputs engine timeInfo (fromIntegral numberOfInputSamples)
+    audioOutput <- generateOutputs engine (fromIntegral numberOfInputSamples)
     unless (outputPtr == nullPtr) $ do 
         let !output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
         pokeArray outputPtr output
@@ -201,46 +201,37 @@ receiveInputs engine numberOfInputSamples inputPtr =
         pokeArray leftInputBuffer (snd <$> leftInput)
         pokeArray rightInputBuffer (snd <$> rightInput) 
         
-generateOutputs ::  Engine -> PaStreamCallbackTimeInfo -> Int -> IO AudioOutput
-generateOutputs engine timeInfo frameCount = do
+generateOutputs ::  Engine -> Int -> IO AudioOutput
+generateOutputs engine frameCount = do
     events <- atomicModifyIORef' (engine_eventBuffer engine) $ \eventBuffer -> ([], eventBuffer)
-    sendEvents engine timeInfo events
+    sendEvents engine events
     receiveOutputs engine frameCount
 
-receiveOutputs :: Engine -> Int -> IO AudioOutput
-receiveOutputs engine frameCount = do
-    let clapHost = engine_pluginHost engine
-    steadyTime <- readIORef (engine_steadyTime engine)
-    CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
-    pluginOutputs <- CLAP.processAll clapHost
-    pure $ mixOutputs pluginOutputs
-
-sendEvents :: Engine -> PaStreamCallbackTimeInfo -> [SequencerEvent] -> IO ()
-sendEvents engine timeInfo events = do
+sendEvents :: Engine -> [SequencerEvent] -> IO ()
+sendEvents engine events = do
     let clapHost = engine_pluginHost engine
     for_ events $ \(SequencerEvent nodeId eventConfig event) -> do
         maybeNode <- lookupNode engine nodeId
         whenJust maybeNode $ \case
             Node_MidiDevice midiDeviceNode -> 
                 sendMidiDevice midiDeviceNode event
-            Node_Plugin pluginNode -> do
-                print event
+            Node_Plugin pluginNode ->
                 CLAP.processEvent clapHost (pluginNode_id pluginNode) (fromMaybe defaultEventConfig eventConfig) event
     where
         sendMidiDevice :: MidiDeviceNode -> Event -> IO ()
         sendMidiDevice midiDeviceNode event = do
-                maybeStartTime <- readIORef (midiDeviceNode_startTime midiDeviceNode)
-                startTime <- case maybeStartTime of
-                    Just startTime -> pure startTime
-                    Nothing -> do
-                        let (PaTime currentTime) = PortAudio.currentTime timeInfo
-                        let startTime = round $ currentTime * 1000 - (fromIntegral $ midiDeviceNode_latency midiDeviceNode) 
-                        writeIORef (midiDeviceNode_startTime midiDeviceNode) (Just startTime)
-                        pure startTime 
-                steadyTime <- readIORef (engine_steadyTime engine)
-                let maybePortMidiEvent = toPortMidiEvent event startTime (steadyTimeToTick (engine_sampleRate engine) steadyTime)
-                whenJust maybePortMidiEvent $ \portMidiEvent -> do
-                    void $ PortMidi.writeShort (midiDeviceNode_stream midiDeviceNode) portMidiEvent
+            maybeStartTime <- readIORef (midiDeviceNode_startTime midiDeviceNode)
+            startTime <- case maybeStartTime of
+                Just startTime -> pure startTime
+                Nothing -> do
+                    let (PaTime currentTime) = PortAudio.currentTime undefined
+                    let startTime = round $ currentTime * 1000 - (fromIntegral $ midiDeviceNode_latency midiDeviceNode) 
+                    writeIORef (midiDeviceNode_startTime midiDeviceNode) (Just startTime)
+                    pure startTime 
+            steadyTime <- readIORef (engine_steadyTime engine)
+            let maybePortMidiEvent = toPortMidiEvent event startTime (steadyTimeToTick (engine_sampleRate engine) steadyTime)
+            whenJust maybePortMidiEvent $ \portMidiEvent -> do
+                void $ PortMidi.writeShort (midiDeviceNode_stream midiDeviceNode) portMidiEvent
 
         toPortMidiEvent :: Event -> Int -> Tick -> Maybe PMEvent
         toPortMidiEvent event startTime (Tick currentTick) = 
@@ -261,6 +252,13 @@ sendEvents engine timeInfo events = do
             Event_Midi midiEvent -> Just (midiEvent_data midiEvent)
             _ -> Nothing 
 
+receiveOutputs :: Engine -> Int -> IO AudioOutput
+receiveOutputs engine frameCount = do
+    let clapHost = engine_pluginHost engine
+    steadyTime <- readIORef (engine_steadyTime engine)
+    CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
+    pluginOutputs <- CLAP.processAll clapHost
+    pure $ mixOutputs pluginOutputs
 
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
@@ -294,12 +292,13 @@ playAudio engine startTick loop audioOutput = do
     maybeAudioStream <- sendM $ do 
         writeIORef (engine_steadyTime engine) (tickToSteadyTime (engine_sampleRate engine) startTick)
         readIORef (engine_audioStream engine)
+    tellEvent PlaybackEvent_Started
     whenJust maybeAudioStream $ \audioStream ->
         writeChunks audioStream audioOutput
     if loop 
         then playAudio engine startTick loop audioOutput
         else sendM $ writeIORef (engine_steadyTime engine) (-1)
-
+    tellEvent PlaybackEvent_Stopped
     where
         writeChunks stream output = do
             eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream
@@ -308,10 +307,16 @@ playAudio engine startTick loop audioOutput = do
                     let (chunk, remaining) = takeChunk availableChunkSize output
                     let actualChunkSize = size chunk
                     sendOutputs engine (fromIntegral actualChunkSize) chunk
-                    sendM $ modifyIORef' (engine_steadyTime engine) (+ fromIntegral actualChunkSize)
+                    steadyTime <- sendM $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
+                        let newSteadyTime = steadyTime + fromIntegral actualChunkSize 
+                        in (newSteadyTime, newSteadyTime)
+                    tellEvent $ PlaybackEvent_CurrentTick (steadyTimeToTick (engine_sampleRate engine) steadyTime)
                     unless (size remaining == 0) $ writeChunks stream remaining
                 Left audioPortError ->
                     throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
+
+tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
+tellEvent = tell . toTaggedJSON
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
 takeChunk chunkSize (AudioOutput left right) = 
@@ -439,6 +444,8 @@ createPluginNode engine pluginId = sendM $ do
             { pluginNode_id = pluginId
             , pluginNode_plugin = plugin
             }
+    CLAP.setPorts plugin (Data32 $ engine_inputs engine) (Data32 $ engine_outputs engine)
+    CLAP.activate plugin (engine_sampleRate engine) (engine_numberOfFrames engine)
     modifyIORef' (engine_nodes engine) $ \nodeMap ->
         Map.insert nodeId node nodeMap
     pure nodeId

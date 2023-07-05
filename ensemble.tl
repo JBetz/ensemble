@@ -128,6 +128,8 @@ playSequence startTick:Int endTick:Int loop:Bool = Ok;
 
 clearSequence = Ok;
 
+stopPlayback = Ok;
+
 getCurrentTick = Int;
 
 ping = Ok;

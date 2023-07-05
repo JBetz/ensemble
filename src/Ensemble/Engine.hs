@@ -11,6 +11,7 @@ import Clap.Interface.Events (Event (..), MidiEvent(..), MidiData(..), defaultEv
 import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginId)
 import qualified Clap.Host as CLAP
+import Control.Concurrent
 import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.Extra (whenJust)
@@ -60,6 +61,7 @@ data Engine = Engine
     , engine_outputs :: Ptr (Ptr CFloat)
     , engine_audioStream :: IORef (Maybe (Stream CFloat CFloat))
     , engine_eventBuffer :: IORef [SequencerEvent]
+    , engine_playbackThread :: IORef (Maybe ThreadId)
     }
 
 data EngineState
@@ -80,6 +82,7 @@ createEngine hostConfig = do
     outputs <- newArray [nullPtr, nullPtr]
     audioStream <- newIORef Nothing
     eventBuffer <- newIORef []
+    playbackThread <- newIORef Nothing
     pure $ Engine
         { engine_state = state
         , engine_pluginHost = pluginHost
@@ -92,6 +95,7 @@ createEngine hostConfig = do
         , engine_outputs = outputs
         , engine_audioStream = audioStream
         , engine_eventBuffer = eventBuffer
+        , engine_playbackThread = playbackThread
         }
 
 data AudioDevice = AudioDevice

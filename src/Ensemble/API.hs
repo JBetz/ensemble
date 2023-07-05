@@ -9,15 +9,19 @@ import qualified Clap.Interface.Extension.Gui as Gui
 import qualified Clap.Interface.Plugin as Clap
 import Clap.Interface.Plugin (PluginHandle)
 import qualified Clap.Library as Clap
-import Control.Monad (unless)
+import Control.Concurrent
+import Control.Monad (unless, void)
+import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
 import Control.Monad.Freer.Reader
 import Data.IORef
+import Data.Maybe
 import Data.Text (Text, unpack, pack)
 import Ensemble.Engine (AudioDevice, MidiDevice, AudioOutput)
 import qualified Ensemble.Engine as Engine
 import Ensemble.Node
-import Ensemble.Event (SequencerEvent(..))
+import Ensemble.Effects
+import Ensemble.Event (SequencerEvent(..), PlaybackEvent(..))
 import Ensemble.Schema.TH
 import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
@@ -154,9 +158,16 @@ scheduleEvent (Argument tick) (Argument event) = do
 
 playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Argument "loop" Bool -> Ensemble Ok
 playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
+    server <- ask
     sequencer <- asks server_sequencer
     engine <- asks server_engine
-    Sequencer.playSequence sequencer engine startTick maybeEndTick loop
+    void $ sendM $ do
+        maybeThreadId <- readIORef (Engine.engine_playbackThread engine)
+        unless (isJust maybeThreadId) $ do
+            threadId <- forkFinally 
+                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick maybeEndTick loop)
+                (\_ -> writeIORef (Engine.engine_playbackThread engine) Nothing)
+            writeIORef (Engine.engine_playbackThread engine) (Just threadId)
     pure Ok
 
 renderSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Ensemble AudioOutput
@@ -172,6 +183,16 @@ clearSequence :: Ensemble Ok
 clearSequence = do
     eventQueue <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
     sendM $ writeIORef eventQueue []
+    pure Ok
+
+stopPlayback :: Ensemble Ok
+stopPlayback = do
+    engine <- asks server_engine
+    sendM $ do
+        maybePlaybackThreadId <- readIORef (Engine.engine_playbackThread engine)
+        whenJust maybePlaybackThreadId killThread
+        writeIORef (Engine.engine_steadyTime engine) (-1)
+    Engine.tellEvent PlaybackEvent_Stopped
     pure Ok
 
 getCurrentTick :: Ensemble Tick

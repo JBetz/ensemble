@@ -3,6 +3,8 @@
 module Ensemble.Sequencer where
 
 import Control.Concurrent
+import Control.Exception
+import Control.DeepSeq
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
@@ -33,9 +35,10 @@ playSequence sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
-    sendM $ allocateBuffers engine (32 * 1024)
+    sendM $ allocateBuffers engine (64 * 1024)
     audioOutput <- sendM $ renderSequence sequencer engine startTick endTick
-    playAudio engine startTick loop audioOutput
+    evaluatedAudioOutput <- sendM $  evaluate $ force audioOutput
+    playAudio engine startTick loop evaluatedAudioOutput
     sendM $ freeBuffers engine
 
 playSequenceRealtime :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
@@ -80,7 +83,7 @@ renderSequence sequencer engine startTick endTick = do
                 let frameCount = floor $ fromIntegral (nextTick - currentTick) / 1000 * engine_sampleRate engine
                 sendEvents engine events
                 chunk <- receiveOutputs engine frameCount
-                remaining <- renderEvents (next:rest)
+                remaining <- renderEvents (next:rest)                
                 pure $ chunk <> remaining
             [(_lastTick,events)] -> do   
                 let frameCount = floor $ engine_sampleRate engine / 1000
@@ -99,4 +102,5 @@ getEventsBetween sequencer startTick endTick = do
 
 groupEvents :: Tick -> Tick -> [(Tick, SequencerEvent)] -> [(Tick, [SequencerEvent])]
 groupEvents startTick endTick eventList =
-    Map.toAscList $ Map.fromListWith (<>) $ (startTick,[]):(endTick,[]):((\(a, b) -> (a, [b])) <$> eventList)
+    let tickIntervals = (\tick -> (tick, [])) <$> enumFromThenTo startTick (startTick + 100) (endTick + 100)
+    in Map.toAscList $ Map.fromListWith (<>) $ tickIntervals <> ((\(a, b) -> (a, [b])) <$> eventList)

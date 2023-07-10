@@ -302,8 +302,9 @@ playAudio engine startTick loop audioOutput = do
         writeChunks audioStream audioOutput
     if loop 
         then playAudio engine startTick loop audioOutput
-        else sendM $ writeIORef (engine_steadyTime engine) (-1)
-    tellEvent PlaybackEvent_Stopped
+        else do
+            sendM $ writeIORef (engine_steadyTime engine) (-1)
+            tellEvent PlaybackEvent_Stopped
     where
         writeChunks stream output = do
             eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream
@@ -311,11 +312,14 @@ playAudio engine startTick loop audioOutput = do
                 Right availableChunkSize -> do 
                     let (chunk, remaining) = takeChunk availableChunkSize output
                     let actualChunkSize = size chunk
-                    sendOutputs engine (fromIntegral actualChunkSize) chunk
+                    sendOutputs engine stream (fromIntegral actualChunkSize) chunk
                     steadyTime <- sendM $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
                         let newSteadyTime = steadyTime + fromIntegral actualChunkSize 
                         in (newSteadyTime, newSteadyTime)
-                    tellEvent $ PlaybackEvent_CurrentTick (steadyTimeToTick (engine_sampleRate engine) steadyTime)
+                    let currentTick = steadyTimeToTick (engine_sampleRate engine) steadyTime
+                    tellEvent $ PlaybackEvent_CurrentTick currentTick
+                    -- TODO: Why is this necessary? Without it, the current tick events are extremely desychronized.
+                    sendM $ threadDelay 1
                     unless (size remaining == 0) $ writeChunks stream remaining
                 Left audioPortError ->
                     throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
@@ -325,14 +329,13 @@ tellEvent = tell . toTaggedJSON
 
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
 takeChunk chunkSize (AudioOutput left right) = 
-    let chunk = AudioOutput (take chunkSize left) (take chunkSize right)
-        remaining = AudioOutput (drop chunkSize left) (drop chunkSize right)
-    in (chunk, remaining)
+    let (chunkLeft, remainingLeft) = splitAt chunkSize left
+        (chunkRight, remainingRight) = splitAt chunkSize right
+    in (AudioOutput chunkLeft chunkRight, AudioOutput remainingLeft remainingRight)
 
-sendOutputs :: EngineEffects effs => Engine -> CULong -> AudioOutput -> Eff effs () 
-sendOutputs engine frameCount audioOutput  = do
+sendOutputs :: EngineEffects effs => Engine -> Stream CFloat CFloat -> CULong -> AudioOutput -> Eff effs () 
+sendOutputs _engine stream frameCount audioOutput  = do
     let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-    stream <- getAudioStream engine
     maybeError <- sendM $ withArray output $ \outputPtr -> do
         outputForeignPtr <- newForeignPtr_ outputPtr
         PortAudio.writeStream stream frameCount outputForeignPtr

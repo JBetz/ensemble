@@ -18,10 +18,12 @@ import Ensemble.Server
 import Ensemble.Schema.TH
 import Ensemble.Tick
 import Test.Hspec
+import System.Environment
 import System.IO
 
 main :: IO ()
 main = do
+    setEnv "FLUIDSYNTH_CLAP_DEBUG" "True"
     hSetBuffering stdout NoBuffering
     server <- createServer defaultConfig
     result <- runEnsemble server $ do
@@ -75,7 +77,7 @@ main = do
                     , noteEvent_portIndex = 0
                     , noteEvent_channel = 0
                     , noteEvent_key = key
-                    , noteEvent_velocity = 120
+                    , noteEvent_velocity = 0.5
                     }
                 })
 
@@ -87,7 +89,7 @@ main = do
                     , noteEvent_portIndex = 0
                     , noteEvent_channel = 0
                     , noteEvent_key = key
-                    , noteEvent_velocity = 0
+                    , noteEvent_velocity = 0.5
                     }
                 })
             pure ()

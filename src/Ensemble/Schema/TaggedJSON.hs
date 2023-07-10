@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Ensemble.Schema.TaggedJSON where
 
@@ -12,6 +13,12 @@ class HasTypeTag a where
 
 instance HasTypeTag Text where
     typeTag _ = "String"
+
+instance HasTypeTag Double where
+    typeTag _ = "Double"
+
+instance HasTypeTag (Maybe Double) where
+    typeTag _ = "Double"
 
 instance HasTypeTag a => HasTypeTag [a] where
     typeTag (first:_) = "vector<" <> typeTag first <> ">"

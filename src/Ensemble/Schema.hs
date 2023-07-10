@@ -49,6 +49,7 @@ makeAPI
     , 'createEmbeddedWindow
     , 'createFloatingWindow
     , 'getPluginParameters
+    , 'getPluginParameterValue
     , 'startEngine
     , 'stopEngine
     , 'createMidiDeviceNode

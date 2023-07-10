@@ -8,6 +8,7 @@ import Clap.Library (PluginInfo (..))
 import qualified Clap.Interface.Extension.Gui as Gui
 import Clap.Interface.Extension.Params (ParameterInfo(..))
 import qualified Clap.Interface.Extension.Params as Params
+import Clap.Interface.Id (ClapId (..))
 import qualified Clap.Library as Clap
 import Control.Concurrent
 import Control.Monad (unless, void)
@@ -151,6 +152,20 @@ getPluginParameters  (Argument nodeId) = do
                     count <- Params.count pluginParamsHandle pluginHandle
                     parameterInfos <- traverse (Params.getInfo pluginParamsHandle pluginHandle) [0 .. count - 1]
                     pure $ catMaybes parameterInfos
+                Nothing -> Engine.throwApiError "Plugin does not support params extension"
+        Just _ -> Engine.throwApiError "Invalid node type"
+        Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
+
+getPluginParameterValue :: Argument "nodeId" NodeId -> Argument "parameterId" Int -> Ensemble (Maybe Double)
+getPluginParameterValue  (Argument nodeId) (Argument parameterId) = do
+    engine <- asks server_engine
+    maybeNode <- sendM $ Engine.lookupNode engine nodeId
+    case maybeNode of
+        Just (Node_Plugin pluginNode) -> do 
+            let plugin = pluginNode_plugin pluginNode
+            let pluginHandle = Clap.plugin_handle plugin
+            case Clap.pluginExtensions_params (Clap.plugin_extensions plugin) of
+                Just pluginParamsHandle -> sendM $ Params.getValue pluginParamsHandle pluginHandle (ClapId parameterId)
                 Nothing -> Engine.throwApiError "Plugin does not support params extension"
         Just _ -> Engine.throwApiError "Invalid node type"
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"

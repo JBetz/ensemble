@@ -6,8 +6,6 @@ import Clap.Host (PluginId (..))
 import qualified Clap.Host as Clap
 import Clap.Library (PluginInfo (..))
 import qualified Clap.Interface.Extension.Gui as Gui
-import qualified Clap.Interface.Plugin as Clap
-import Clap.Interface.Plugin (PluginHandle)
 import qualified Clap.Library as Clap
 import Control.Concurrent
 import Control.Monad (unless, void)
@@ -85,10 +83,10 @@ createEmbeddedWindow (Argument nodeId) (Argument parentWindow) (Argument scale) 
     engine <- asks server_engine
     maybeNode <- sendM $ Engine.lookupNode engine nodeId
     case maybeNode of
-        Just (Node_Plugin pluginNode) -> do 
-            let pluginHandle = Clap.plugin_handle (pluginNode_plugin pluginNode)
-            maybePluginGuiHandle <- sendM $ getGuiExtension pluginHandle
-            case maybePluginGuiHandle of
+        Just (Node_Plugin pluginNode) -> do
+            let plugin = pluginNode_plugin pluginNode
+            let pluginHandle = Clap.plugin_handle plugin
+            case Clap.pluginExtensions_gui (Clap.plugin_extensions plugin) of
                 Just pluginGuiHandle -> do
                     createResult <- sendM $ Gui.createEmbedded pluginGuiHandle pluginHandle Gui.Win32
                     unless createResult $ Engine.throwApiError "Error creating plugin GUI"    
@@ -113,12 +111,6 @@ createEmbeddedWindow (Argument nodeId) (Argument parentWindow) (Argument scale) 
                 Nothing -> Engine.throwApiError "Plugin does not support GUI extension"
         Just _ -> Engine.throwApiError "Invalid node type"
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
-
-    where
-        getGuiExtension :: PluginHandle -> IO (Maybe Gui.PluginGuiHandle)
-        getGuiExtension plugin = do
-            maybePtr <- Clap.getPluginExtension plugin "clap.gui"
-            pure $ castPtr <$> maybePtr
     
 createFloatingWindow :: Argument "nodeId" NodeId -> Argument "transientWindow" Int -> Argument "title" Text -> Ensemble Ok
 createFloatingWindow (Argument nodeId) (Argument transientWindow) (Argument title) = do
@@ -126,9 +118,9 @@ createFloatingWindow (Argument nodeId) (Argument transientWindow) (Argument titl
     maybeNode <- sendM $ Engine.lookupNode engine nodeId
     case maybeNode of
         Just (Node_Plugin pluginNode) -> do 
-            let pluginHandle = Clap.plugin_handle (pluginNode_plugin pluginNode)
-            maybePluginGuiHandle <- sendM $ getGuiExtension pluginHandle
-            case maybePluginGuiHandle of
+            let plugin = pluginNode_plugin pluginNode
+            let pluginHandle = Clap.plugin_handle plugin
+            case Clap.pluginExtensions_gui (Clap.plugin_extensions plugin) of
                 Just pluginGuiHandle -> do 
                     createResult <- sendM $ Gui.createFloating pluginGuiHandle pluginHandle
                     unless createResult $ Engine.throwApiError "Error creating plugin GUI"
@@ -142,12 +134,6 @@ createFloatingWindow (Argument nodeId) (Argument transientWindow) (Argument titl
                 Nothing -> Engine.throwApiError "Plugin does not support GUI extension"
         Just _ -> Engine.throwApiError "Invalid node type"
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
-
-    where
-        getGuiExtension :: PluginHandle -> IO (Maybe Gui.PluginGuiHandle)
-        getGuiExtension plugin = do
-            maybePtr <- Clap.getPluginExtension plugin "clap.gui"
-            pure $ castPtr <$> maybePtr
 
 -- Sequencer
 scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok

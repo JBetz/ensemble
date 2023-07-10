@@ -6,6 +6,8 @@ import Clap.Host (PluginId (..))
 import qualified Clap.Host as Clap
 import Clap.Library (PluginInfo (..))
 import qualified Clap.Interface.Extension.Gui as Gui
+import Clap.Interface.Extension.Params (ParameterInfo(..))
+import qualified Clap.Interface.Extension.Params as Params
 import qualified Clap.Library as Clap
 import Control.Concurrent
 import Control.Monad (unless, void)
@@ -132,6 +134,24 @@ createFloatingWindow (Argument nodeId) (Argument transientWindow) (Argument titl
                     unless showResult $ Engine.throwApiError "Error showing plugin GUI"
                     pure Ok
                 Nothing -> Engine.throwApiError "Plugin does not support GUI extension"
+        Just _ -> Engine.throwApiError "Invalid node type"
+        Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
+
+
+getPluginParameters :: Argument "nodeId" NodeId -> Ensemble [ParameterInfo]
+getPluginParameters  (Argument nodeId) = do
+    engine <- asks server_engine
+    maybeNode <- sendM $ Engine.lookupNode engine nodeId
+    case maybeNode of
+        Just (Node_Plugin pluginNode) -> do 
+            let plugin = pluginNode_plugin pluginNode
+            let pluginHandle = Clap.plugin_handle plugin
+            case Clap.pluginExtensions_params (Clap.plugin_extensions plugin) of
+                Just pluginParamsHandle -> sendM $ do 
+                    count <- Params.count pluginParamsHandle pluginHandle
+                    parameterInfos <- traverse (Params.getInfo pluginParamsHandle pluginHandle) [0 .. count - 1]
+                    pure $ catMaybes parameterInfos
+                Nothing -> Engine.throwApiError "Plugin does not support params extension"
         Just _ -> Engine.throwApiError "Invalid node type"
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
 

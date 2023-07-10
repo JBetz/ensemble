@@ -7,6 +7,7 @@ import Prelude hiding (FilePath)
 
 import qualified Clap.Host as Clap
 import qualified Clap.Interface.Events as Clap
+import qualified Clap.Interface.Extension.Params as Clap
 import qualified Clap.Interface.Plugin as Clap
 import qualified Clap.Interface.Version as Clap
 import qualified Clap.Library as Clap
@@ -25,6 +26,7 @@ makeAPI
     , ''AudioDevice
     , ''AudioOutput
     , ''MidiDevice
+    , ''Clap.ParameterInfo
     , ''Clap.PluginId
     , ''Clap.ClapVersion
     , ''Clap.PluginDescriptor
@@ -46,6 +48,7 @@ makeAPI
     , 'scanForPlugins
     , 'createEmbeddedWindow
     , 'createFloatingWindow
+    , 'getPluginParameters
     , 'startEngine
     , 'stopEngine
     , 'createMidiDeviceNode

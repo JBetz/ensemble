@@ -9,6 +9,7 @@ import qualified Clap.Host as Clap
 import qualified Clap.Interface.Id as Clap
 import qualified Clap.Interface.Events as Clap
 import qualified Clap.Interface.Plugin as Clap
+import qualified Clap.Interface.Extension.Params as Clap
 import qualified Clap.Interface.Version as Clap
 import qualified Clap.Library as Clap
 import Data.Text (pack)
@@ -51,6 +52,8 @@ deriveJSONs
     , ''Clap.NoteKillEvent
     , ''Clap.NoteExpression
     , ''Clap.NoteExpressionEvent
+    , ''Clap.ParameterFlag
+    , ''Clap.ParameterInfo
     , ''Clap.ParamValueEvent
     , ''Clap.ParamModEvent
     , ''Clap.ParamGestureEvent

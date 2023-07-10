@@ -168,6 +168,7 @@ start engine = startAudio >> startMidi
                     Right stream -> do
                         maybeError <- do
                             sendM $ writeIORef (engine_audioStream engine) (Just stream)
+                            sendM $ allocateBuffers engine (64 * 1024)
                             setState engine StateRunning
                             sendM $ PortAudio.startStream stream                                
                         whenJust maybeError $ \startError ->
@@ -263,7 +264,7 @@ receiveOutputs engine frameCount = do
     CLAP.processBeginAll clapHost (fromIntegral frameCount) steadyTime
     pluginOutputs <- CLAP.processAll clapHost
     pure $ mixOutputs pluginOutputs
-
+    
 data AudioOutput = AudioOutput
     { audioOutput_left :: [CFloat] 
     , audioOutput_right :: [CFloat] 
@@ -450,8 +451,7 @@ createPluginNode engine pluginId = sendM $ do
             }
     CLAP.setPorts plugin (Data32 $ engine_inputs engine) (Data32 $ engine_outputs engine)
     CLAP.activate plugin (engine_sampleRate engine) (engine_numberOfFrames engine)
-    modifyIORef' (engine_nodes engine) $ \nodeMap ->
-        Map.insert nodeId node nodeMap
+    modifyIORef' (engine_nodes engine) $ Map.insert nodeId node
     pure nodeId
 
 -- unloadPlugin :: Engine -> PluginId -> IO ()

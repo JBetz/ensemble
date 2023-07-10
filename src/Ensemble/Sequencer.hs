@@ -35,11 +35,9 @@ playSequence sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
-    sendM $ allocateBuffers engine (64 * 1024)
     audioOutput <- sendM $ renderSequence sequencer engine startTick endTick
     evaluatedAudioOutput <- sendM $  evaluate $ force audioOutput
     playAudio engine startTick loop evaluatedAudioOutput
-    sendM $ freeBuffers engine
 
 playSequenceRealtime :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
 playSequenceRealtime sequencer engine startTick maybeEndTick _loop = do

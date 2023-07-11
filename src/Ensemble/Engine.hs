@@ -9,7 +9,7 @@ module Ensemble.Engine where
 import Clap.Interface.AudioBuffer (BufferData (..))
 import Clap.Interface.Events (Event (..), MidiEvent(..), MidiData(..), defaultEventConfig)
 import Clap.Interface.Host (HostConfig)
-import Clap.Host (PluginHost (..), PluginId)
+import Clap.Host (PluginHost (..), PluginLocation)
 import qualified Clap.Host as CLAP
 import Control.Concurrent
 import Control.DeepSeq (NFData)
@@ -438,9 +438,9 @@ lookupNode engine nodeId = do
     nodes <- readIORef $ engine_nodes engine
     pure $ Map.lookup nodeId nodes
 
-createPluginNode :: EngineEffects effs => Engine -> PluginId -> Eff effs NodeId
-createPluginNode engine pluginId = sendM $ do
-    plugin <- CLAP.load (engine_pluginHost engine) pluginId
+createPluginNode :: EngineEffects effs => Engine -> PluginLocation -> Eff effs NodeId
+createPluginNode engine pluginLocation = sendM $ do
+    (pluginId, plugin) <- CLAP.load (engine_pluginHost engine) pluginLocation
     nodeId <- createNodeId engine
     let node = Node_Plugin $ PluginNode
             { pluginNode_id = pluginId

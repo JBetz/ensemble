@@ -160,7 +160,7 @@ start engine = startAudio >> startMidi
                     2 -- Number of output channels
                     (engine_sampleRate engine) -- Sample rate
                     (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
-                    Nothing -- Callback
+                    (Just $ audioCallback engine) -- Callback
                     Nothing -- Callback on completion
                 case eitherStream of
                     Left portAudioError -> 
@@ -306,24 +306,18 @@ playAudio engine startTick loop audioOutput = do
             sendM $ writeIORef (engine_steadyTime engine) (-1)
             tellEvent PlaybackEvent_Stopped
     where
+        frameCount = fromIntegral $ engine_numberOfFrames engine
         writeChunks stream output = do
-            eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream
-            case eitherAvailableChunkSize of
-                Right availableChunkSize -> do 
-                    let (chunk, remaining) = takeChunk availableChunkSize output
-                    let actualChunkSize = size chunk
-                    sendOutputs engine stream (fromIntegral actualChunkSize) chunk
-                    steadyTime <- sendM $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
-                        let newSteadyTime = steadyTime + fromIntegral actualChunkSize 
-                        in (newSteadyTime, newSteadyTime)
-                    let currentTick = steadyTimeToTick (engine_sampleRate engine) steadyTime
-                    tellEvent $ PlaybackEvent_CurrentTick currentTick
-                    -- TODO: Why is this necessary? Without it, the current tick events are extremely desychronized.
-                    sendM $ threadDelay 1
-                    unless (size remaining == 0) $ writeChunks stream remaining
-                Left audioPortError ->
-                    throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
-
+            let (chunk, remaining) = takeChunk frameCount output
+            let actualChunkSize = size chunk
+            sendOutputs engine stream (fromIntegral actualChunkSize) chunk
+            steadyTime <- sendM $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
+                let newSteadyTime = steadyTime + fromIntegral actualChunkSize 
+                in (newSteadyTime, newSteadyTime)
+            let currentTick = steadyTimeToTick (engine_sampleRate engine) steadyTime
+            tellEvent $ PlaybackEvent_CurrentTick currentTick
+            unless (size remaining == 0) $ writeChunks stream remaining
+    
 tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
 tellEvent = tell . toTaggedJSON
 

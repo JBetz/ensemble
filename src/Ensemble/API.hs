@@ -2,7 +2,6 @@
 module Ensemble.API where
 
 import qualified Clap as Clap
-import Clap.Host (PluginId (..))
 import qualified Clap.Host as Clap
 import Clap.Library (PluginInfo (..))
 import qualified Clap.Interface.Extension.Gui as Gui
@@ -74,7 +73,7 @@ scanForPlugins (Argument filePaths) =
 createPluginNode :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble NodeId
 createPluginNode (Argument filePath) (Argument pluginIndex) = do
     engine <- asks server_engine
-    Engine.createPluginNode engine $ PluginId (unpack filePath) pluginIndex
+    Engine.createPluginNode engine $ Clap.PluginLocation (unpack filePath) pluginIndex
 
 data Size = Size
     { size_width :: Int
@@ -186,7 +185,7 @@ playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
         maybeThreadId <- readIORef (Engine.engine_playbackThread engine)
         unless (isJust maybeThreadId) $ do
             threadId <- forkFinally 
-                (void $ runEnsemble server $ Sequencer.playSequence sequencer engine startTick maybeEndTick loop)
+                (void $ runEnsemble server $ Sequencer.playSequenceRealtime sequencer engine startTick maybeEndTick loop)
                 (\_ -> writeIORef (Engine.engine_playbackThread engine) Nothing)
             writeIORef (Engine.engine_playbackThread engine) (Just threadId)
     pure Ok

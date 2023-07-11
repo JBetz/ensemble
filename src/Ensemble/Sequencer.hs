@@ -30,34 +30,37 @@ createSequencer = do
     eventQueue <- newIORef mempty
     pure $ Sequencer { sequencer_eventQueue = eventQueue }
  
-playSequence :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
-playSequence sequencer engine startTick maybeEndTick loop = do
+playSequenceOffline :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
+playSequenceOffline sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
     audioOutput <- sendM $ renderSequence sequencer engine startTick endTick
-    evaluatedAudioOutput <- sendM $  evaluate $ force audioOutput
+    evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
     playAudio engine startTick loop evaluatedAudioOutput
 
 playSequenceRealtime :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
-playSequenceRealtime sequencer engine startTick maybeEndTick _loop = do
+playSequenceRealtime sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> sendM $ getEndTick sequencer
     events <- sendM $ getEventsBetween sequencer startTick endTick
     sendM $ writeIORef (engine_steadyTime engine) 0
     tellEvent PlaybackEvent_Started
-    runSequence $ sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events
+    let sortedEvents = sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events 
+    runSequence sortedEvents
     tellEvent PlaybackEvent_Stopped
     sendM $ writeIORef (engine_steadyTime engine) (-1)
     where 
-        runSequence [] = pure () 
+        runSequence [] = if loop 
+            then playSequenceRealtime sequencer engine startTick maybeEndTick loop 
+            else pure () 
         runSequence events = do 
             currentTick <- sendM $ getCurrentTick engine
             let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
             sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
             tellEvent $ PlaybackEvent_CurrentTick currentTick
-            sendM $ threadDelay 1000
+            sendM $ threadDelay 10
             runSequence $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick

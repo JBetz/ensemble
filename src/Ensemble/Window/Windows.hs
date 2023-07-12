@@ -52,7 +52,7 @@ messagePump = Win32.allocaMessage $ \msg ->
             result :: Either SomeException LONG <- try $ Win32.c_PeekMessage msg (Win32.maybePtr Nothing) 0 0 1
             case result of
                 Right code -> if
-                    | code == 0 -> threadDelay $ 1000 * 100
+                    | code == 0 -> threadDelay $ 1000 * 10
                     | code > 0 -> do
                         () <$ Win32.translateMessage msg
                         () <$ Win32.dispatchMessage msg

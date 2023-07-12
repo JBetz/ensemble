@@ -10,6 +10,7 @@ import qualified Clap.Interface.Extension.Params as Params
 import Clap.Interface.Id (ClapId (..))
 import qualified Clap.Library as Clap
 import Control.Concurrent
+import Control.Exception
 import Control.Monad (unless, void)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
@@ -77,10 +78,17 @@ createPluginNode (Argument filePath) (Argument pluginIndex) = do
 
 data Size = Size
     { size_width :: Int
-    , size_height :: Int 
+    , size_height :: Int
     } deriving (Show)
 
-createEmbeddedWindow :: Argument "nodeId" NodeId -> Argument "parentWindow" Int -> Argument "scale" Double -> Argument "size" Size -> Ensemble Size
+data WindowInfo = WindowInfo
+    { windowInfo_parentHandle :: Int
+    , windowInfo_handle :: Int
+    , windowInfo_width :: Int
+    , windowInfo_height :: Int 
+    } deriving (Show)
+
+createEmbeddedWindow :: Argument "nodeId" NodeId -> Argument "parentWindow" Int -> Argument "scale" Double -> Argument "size" Size -> Ensemble WindowInfo
 createEmbeddedWindow (Argument nodeId) (Argument parentWindow) (Argument scale) (Argument size) = do
     engine <- asks server_engine
     maybeNode <- sendM $ Engine.lookupNode engine nodeId
@@ -109,7 +117,12 @@ createEmbeddedWindow (Argument nodeId) (Argument parentWindow) (Argument scale) 
                     unless setParentResult $ Engine.throwApiError "Error setting parent window of plugin GUI"
                     showResult <- sendM $ Gui.show pluginGuiHandle pluginHandle
                     unless showResult $ Engine.throwApiError "Error showing plugin GUI"
-                    pure actualSize
+                    pure $ WindowInfo
+                        { windowInfo_parentHandle = parentWindow
+                        , windowInfo_handle = fromIntegral $ ptrToIntPtr windowHandle
+                        , windowInfo_width = size_width actualSize
+                        , windowInfo_height = size_height actualSize
+                        }
                 Nothing -> Engine.throwApiError "Plugin does not support GUI extension"
         Just _ -> Engine.throwApiError "Invalid node type"
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
@@ -228,5 +241,6 @@ echo (Argument string) = pure string
 
 deriveJSONs 
     [ ''Ok
-    , ''Size 
+    , ''Size
+    , ''WindowInfo
     ]

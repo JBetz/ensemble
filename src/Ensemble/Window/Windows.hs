@@ -31,7 +31,7 @@ createParentWindow _maybeParent name width height = do
         , Nothing
         , className
         )
-    let windowClosure = \_ _ _ _ -> pure 0
+    let windowClosure = \window message wParam lParam -> Win32.defWindowProc (Just window) message wParam lParam
     Win32.createWindowEx
         Win32.wS_EX_TOPMOST     -- extended style 
         className               -- window class name

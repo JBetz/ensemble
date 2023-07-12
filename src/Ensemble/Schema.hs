@@ -47,6 +47,7 @@ makeAPI
     , 'getMidiDevices
     , 'getPluginLocations
     , 'scanForPlugins
+    , 'openPluginGUI
     , 'createEmbeddedWindow
     , 'createFloatingWindow
     , 'getPluginParameters

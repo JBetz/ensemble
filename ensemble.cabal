@@ -40,7 +40,8 @@ library
                       Ensemble.Server,
                       Ensemble.Tick,
                       Ensemble.Type,
-                      Ensemble.Util
+                      Ensemble.Util,
+                      Ensemble.Window
     build-depends:    base,
                       aeson,
                       bytestring,
@@ -58,6 +59,13 @@ library
                       template-haskell,
                       text,
                       th-abstraction
+    if os(windows)
+        other-modules: Ensemble.Window.Windows
+        build-depends: Win32
+        cpp-options:   -DWINDOWS
+    else
+        other-modules: Ensemble.Window.POSIX
+        build-depends: unix
     extra-libraries:  portaudio
     hs-source-dirs:   src
     

@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Ensemble.API where
 
@@ -10,7 +11,6 @@ import qualified Clap.Interface.Extension.Params as Params
 import Clap.Interface.Id (ClapId (..))
 import qualified Clap.Library as Clap
 import Control.Concurrent
-import Control.Exception
 import Control.Monad (unless, void)
 import Control.Monad.Extra (whenJust)
 import Control.Monad.Freer
@@ -28,6 +28,7 @@ import qualified Ensemble.Sequencer as Sequencer
 import Ensemble.Server
 import Ensemble.Tick
 import Ensemble.Type
+import Ensemble.Window
 import Foreign.Ptr
 
 data Ok = Ok
@@ -87,6 +88,49 @@ data WindowInfo = WindowInfo
     , windowInfo_width :: Int
     , windowInfo_height :: Int 
     } deriving (Show)
+
+openPluginGUI :: Argument "nodeId" NodeId -> Argument "name" Text -> Argument "parentWindow" (Maybe Int) -> Argument "scale" Double -> Argument "size" Size -> Ensemble Size
+openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Argument scale) (Argument size) = do
+    engine <- asks server_engine
+    maybeNode <- sendM $ Engine.lookupNode engine nodeId
+    case maybeNode of
+        Just (Node_Plugin pluginNode) -> do
+            let plugin = pluginNode_plugin pluginNode
+            let pluginHandle = Clap.plugin_handle plugin
+            case Clap.pluginExtensions_gui (Clap.plugin_extensions plugin) of
+                Just pluginGuiHandle -> do
+                    createResult <- sendM $ Gui.createEmbedded pluginGuiHandle pluginHandle Gui.Win32
+                    unless createResult $ Engine.throwApiError "Error creating plugin GUI"    
+                    _setScaleResult <- sendM $ Gui.setScale pluginGuiHandle pluginHandle scale
+                    canResize <- sendM $ Gui.canResize pluginGuiHandle pluginHandle
+                    actualSize <- if canResize 
+                        then do
+                            setSizeResult <- sendM $ Gui.setSize pluginGuiHandle pluginHandle (size_width size) (size_height size)
+                            unless setSizeResult $ Engine.throwApiError "Error setting size of plugin GUI"
+                            pure size
+                        else do
+                            maybeSize <- sendM $ Gui.getSize pluginGuiHandle pluginHandle
+                            case maybeSize of
+                                Just (width, height) -> pure $ Size width height
+                                Nothing -> Engine.throwApiError "Error setting size of plugin GUI"
+                    let maybeParentWindowPtr = intPtrToPtr . IntPtr <$> maybeParentWindow
+                    guiParentWindow <- sendM $ createParentWindow maybeParentWindowPtr (unpack name) (size_width size) (size_height size)
+                    sendM $ showWindow guiParentWindow
+                    guiWindowHandle <- sendM $ Gui.createWindow Gui.Win32 guiParentWindow
+                    setParentResult <- sendM $ Gui.setParent pluginGuiHandle pluginHandle guiWindowHandle
+                    unless setParentResult $ Engine.throwApiError "Error setting parent window of plugin GUI"
+                    showResult <- sendM $ Gui.show pluginGuiHandle pluginHandle
+                    unless showResult $ Engine.throwApiError "Error showing plugin GUI"
+                    pluginGuiThreadIdIORef <- asks server_pluginGuiThreadId
+                    pluginGuiThreadId <- sendM $ readIORef pluginGuiThreadIdIORef
+                    unless (isJust pluginGuiThreadId) $ do
+                        newPluginGuiThreadId <- sendM $ forkIO messagePump
+                        sendM $ writeIORef pluginGuiThreadIdIORef $ Just newPluginGuiThreadId
+                    pure actualSize
+                Nothing -> Engine.throwApiError "Plugin does not support GUI extension"
+        Just _ -> Engine.throwApiError "Invalid node type"
+        Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
+
 
 createEmbeddedWindow :: Argument "nodeId" NodeId -> Argument "parentWindow" Int -> Argument "scale" Double -> Argument "size" Size -> Ensemble WindowInfo
 createEmbeddedWindow (Argument nodeId) (Argument parentWindow) (Argument scale) (Argument size) = do

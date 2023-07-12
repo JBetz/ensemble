@@ -4,6 +4,8 @@ ok = Ok;
 
 size width:Int height:Int = Size;
 
+windowInfo parentHandle:Int handle:Int width:Int height:Int = WindowInfo;
+
 apiError message:String = ApiError;
 
 audioDevice index:Int name:String = AudioDevice;
@@ -12,7 +14,9 @@ audioOutput left:vector<Float> right:vector<Float> = AudioOutput;
 
 midiDevice index:Int interface:String name:String input:Bool output:Bool opened:Bool = MidiDevice;
 
-pluginId filePath:String index:Int = PluginId;
+parameterInfo index:Int id:Int flags:vector<ParameterFlag> cookie:Void name:String module:String minimumValue:Double maximumValue:Double defaultValue:Double = ParameterInfo;
+
+pluginId id:Int = PluginId;
 
 clapVersion major:Word32 minor:Word32 revision:Word32 = ClapVersion;
 
@@ -108,9 +112,13 @@ getPluginLocations = vector<String>;
 
 scanForPlugins filePaths:vector<String> = vector<PluginInfo>;
 
-createEmbeddedWindow nodeId:Int parentWindow:Int scale:Double size:Size = Size;
+createEmbeddedWindow nodeId:Int parentWindow:Int scale:Double size:Size = WindowInfo;
 
 createFloatingWindow nodeId:Int transientWindow:Int title:String = Ok;
+
+getPluginParameters nodeId:Int = vector<ParameterInfo>;
+
+getPluginParameterValue nodeId:Int parameterId:Int = Double;
 
 startEngine = Ok;
 

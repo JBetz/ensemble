@@ -22,6 +22,7 @@ makeAPI
     -- types
     [ ''Ok
     , ''Size
+    , ''WindowInfo
     , ''ApiError
     , ''AudioDevice
     , ''AudioOutput

@@ -1,13 +1,14 @@
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Ensemble.Window.Windows where
 
 import Control.Concurrent
 import Control.Exception
-import Control.Monad (when)
 import Foreign.Ptr
 import qualified Graphics.Win32 as Win32
 import System.Win32.DLL (getModuleHandle)
+import System.Win32.Types (LONG)
 
 showWindow :: Win32.HWND -> IO ()
 showWindow window = do 
@@ -48,10 +49,16 @@ createParentWindow _maybeParent name width height = do
 messagePump :: IO ()
 messagePump = Win32.allocaMessage $ \msg ->
     let pump = do
-            r :: Either SomeException () <- try $ Win32.peekMessage msg Nothing 0 0 1
-            when (either (const False) (const True)  r) $ do
-                () <$ Win32.translateMessage msg
-                () <$ Win32.dispatchMessage msg
-                threadDelay $ 1000 * 100
-                pump
+            result :: Either SomeException LONG <- try $ Win32.c_PeekMessage msg (Win32.maybePtr Nothing) 0 0 1
+            case result of
+                Right code -> if
+                    | code == 0 -> threadDelay $ 1000 * 100
+                    | code > 0 -> do
+                        () <$ Win32.translateMessage msg
+                        () <$ Win32.dispatchMessage msg
+                    | otherwise -> 
+                        print $ "Invalid peek message response: " <> show code 
+                Left exception -> 
+                    print exception
+            pump    
     in pump

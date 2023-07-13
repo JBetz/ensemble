@@ -160,7 +160,7 @@ start engine = startAudio >> startMidi
                     2 -- Number of output channels
                     (engine_sampleRate engine) -- Sample rate
                     (Just $ fromIntegral $ engine_numberOfFrames engine) -- Frames per buffer
-                    (Just $ audioCallback engine) -- Callback
+                    Nothing -- Callback
                     Nothing -- Callback on completion
                 case eitherStream of
                     Left portAudioError -> 
@@ -214,7 +214,7 @@ generateOutputs engine frameCount = do
 
 sendEventNow :: Engine -> SequencerEvent -> IO ()
 sendEventNow engine event =
-    atomicModifyIORef' (engine_eventBuffer engine) $ \eventBuffer -> (event:eventBuffer, ())
+    sendEvents engine [event]
 
 sendEvents :: Engine -> [SequencerEvent] -> IO ()
 sendEvents engine events = do

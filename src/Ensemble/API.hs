@@ -186,7 +186,7 @@ playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
         maybeThreadId <- readIORef (Engine.engine_playbackThread engine)
         unless (isJust maybeThreadId) $ do
             threadId <- forkFinally 
-                (void $ runEnsemble server $ Sequencer.playSequenceRealtime sequencer engine startTick maybeEndTick loop)
+                (void $ runEnsemble server $ Sequencer.playSequenceOffline sequencer engine startTick maybeEndTick loop)
                 (\_ -> writeIORef (Engine.engine_playbackThread engine) Nothing)
             writeIORef (Engine.engine_playbackThread engine) (Just threadId)
     pure Ok

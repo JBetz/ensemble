@@ -48,8 +48,6 @@ makeAPI
     , 'getPluginLocations
     , 'scanForPlugins
     , 'openPluginGUI
-    , 'createEmbeddedWindow
-    , 'createFloatingWindow
     , 'getPluginParameters
     , 'getPluginParameterValue
     , 'startEngine

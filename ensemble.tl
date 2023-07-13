@@ -114,10 +114,6 @@ scanForPlugins filePaths:vector<String> = vector<PluginInfo>;
 
 openPluginGUI nodeId:Int name:String parentWindow:Int scale:Double size:Size = Size;
 
-createEmbeddedWindow nodeId:Int parentWindow:Int scale:Double size:Size = WindowInfo;
-
-createFloatingWindow nodeId:Int transientWindow:Int title:String = Ok;
-
 getPluginParameters nodeId:Int = vector<ParameterInfo>;
 
 getPluginParameterValue nodeId:Int parameterId:Int = Double;

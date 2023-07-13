@@ -5,6 +5,7 @@ module Ensemble.Sequencer where
 import Control.Concurrent
 import Control.Exception
 import Control.DeepSeq
+import Control.Monad (when)
 import Control.Monad.Freer
 import Control.Monad.Freer.Error
 import Control.Monad.Freer.Writer
@@ -48,20 +49,23 @@ playSequenceRealtime sequencer engine startTick maybeEndTick loop = do
     sendM $ writeIORef (engine_steadyTime engine) 0
     tellEvent PlaybackEvent_Started
     let sortedEvents = sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events 
-    runSequence sortedEvents
+    runSequence endTick sortedEvents
     tellEvent PlaybackEvent_Stopped
     sendM $ writeIORef (engine_steadyTime engine) (-1)
     where 
-        runSequence [] = if loop 
-            then playSequenceRealtime sequencer engine startTick maybeEndTick loop 
-            else pure () 
-        runSequence events = do 
+        runSequence endTick [] = do
+            currentTick <- sendM $ getCurrentTick engine
+            when (currentTick < endTick) $ 
+                sendM $ threadDelay $ (tick_value endTick - tick_value currentTick) * 1000
+            when loop $  
+                playSequenceRealtime sequencer engine startTick maybeEndTick loop 
+        runSequence endTick events = do 
             currentTick <- sendM $ getCurrentTick engine
             let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
             sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
             tellEvent $ PlaybackEvent_CurrentTick currentTick
             sendM $ threadDelay 10
-            runSequence $ drop (length activeEvents) events
+            runSequence endTick $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick
 getEndTick sequencer = do

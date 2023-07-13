@@ -303,12 +303,10 @@ playAudio engine startTick loop audioOutput = do
         readIORef (engine_audioStream engine)
     tellEvent PlaybackEvent_Started
     whenJust maybeAudioStream $ \audioStream ->
-        writeChunks audioStream audioOutput
-    if loop 
-        then playAudio engine startTick loop audioOutput
-        else do
-            sendM $ writeIORef (engine_steadyTime engine) (-1)
-            tellEvent PlaybackEvent_Stopped
+        let play = writeChunks audioStream audioOutput
+        in if loop then forever play else play
+    sendM $ writeIORef (engine_steadyTime engine) (-1)
+    tellEvent PlaybackEvent_Stopped
     where
         frameCount = fromIntegral $ engine_numberOfFrames engine
         writeChunks stream output = do

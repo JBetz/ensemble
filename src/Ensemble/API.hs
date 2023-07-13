@@ -89,8 +89,8 @@ data WindowInfo = WindowInfo
     , windowInfo_height :: Int 
     } deriving (Show)
 
-openPluginGUI :: Argument "nodeId" NodeId -> Argument "name" Text -> Argument "parentWindow" (Maybe Int) -> Argument "scale" Double -> Argument "size" Size -> Ensemble Size
-openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Argument scale) (Argument size) = do
+openPluginGUI :: Argument "nodeId" NodeId -> Argument "name" Text -> Argument "parentWindow" (Maybe Int) -> Argument "scale" Double -> Argument "preferredSize" (Maybe Size) -> Ensemble Size
+openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Argument scale) (Argument maybePreferredSize) = do
     engine <- asks server_engine
     maybeNode <- sendM $ Engine.lookupNode engine nodeId
     case maybeNode of
@@ -103,18 +103,20 @@ openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Ar
                     unless createResult $ Engine.throwApiError "Error creating plugin GUI"    
                     _setScaleResult <- sendM $ Gui.setScale pluginGuiHandle pluginHandle scale
                     canResize <- sendM $ Gui.canResize pluginGuiHandle pluginHandle
-                    actualSize <- if canResize 
-                        then do
-                            setSizeResult <- sendM $ Gui.setClosestUsableSize pluginGuiHandle pluginHandle (size_width size) (size_height size)
-                            unless setSizeResult $ Engine.throwApiError "Error setting size of plugin GUI"
-                            pure size
-                        else do
-                            maybeSize <- sendM $ Gui.getSize pluginGuiHandle pluginHandle
-                            case maybeSize of
-                                Just (width, height) -> pure $ Size width height
-                                Nothing -> Engine.throwApiError "Error setting size of plugin GUI"
+                    actualSize <- 
+                        case (canResize, maybePreferredSize) of 
+                            (True, Just preferredSize) -> do 
+                                setSizeResult <- sendM $ Gui.setClosestUsableSize pluginGuiHandle pluginHandle (size_width preferredSize) (size_height preferredSize)
+                                case setSizeResult of 
+                                    Just (actualWidth, actualHeight) -> pure $ Size actualWidth actualHeight
+                                    Nothing -> Engine.throwApiError "Error setting size of plugin GUI"
+                            _ -> do
+                                maybeSize <- sendM $ Gui.getSize pluginGuiHandle pluginHandle
+                                case maybeSize of
+                                    Just (width, height) -> pure $ Size width height
+                                    Nothing -> Engine.throwApiError "Error setting size of plugin GUI"
                     let maybeParentWindowPtr = intPtrToPtr . IntPtr <$> maybeParentWindow
-                    guiParentWindow <- sendM $ createParentWindow maybeParentWindowPtr (unpack name) (size_width size) (size_height size)
+                    guiParentWindow <- sendM $ createParentWindow maybeParentWindowPtr (unpack name) (size_width actualSize) (size_height actualSize)
                     sendM $ showWindow guiParentWindow
                     guiWindowHandle <- sendM $ Gui.createWindow Gui.Win32 guiParentWindow
                     setParentResult <- sendM $ Gui.setParent pluginGuiHandle pluginHandle guiWindowHandle

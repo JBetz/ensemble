@@ -112,7 +112,7 @@ getPluginLocations = vector<String>;
 
 scanForPlugins filePaths:vector<String> = vector<PluginInfo>;
 
-openPluginGUI nodeId:Int name:String parentWindow:Int scale:Double size:Size = Size;
+openPluginGUI nodeId:Int name:String parentWindow:Int scale:Double preferredSize:Size = Size;
 
 getPluginParameters nodeId:Int = vector<ParameterInfo>;
 

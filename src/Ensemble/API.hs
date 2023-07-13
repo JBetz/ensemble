@@ -165,6 +165,12 @@ getPluginParameterValue  (Argument nodeId) (Argument parameterId) = do
         Nothing -> Engine.throwApiError $ "Node " <> show (nodeId_id nodeId) <> " not found"
 
 -- Sequencer
+sendEvent :: Argument "sequencerEvent" SequencerEvent -> Ensemble Ok
+sendEvent (Argument event) = do
+    engine <- asks server_engine
+    sendM $ Engine.sendEventNow engine event
+    pure Ok
+
 scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok
 scheduleEvent (Argument tick) (Argument event) = do
     sequencer <- asks server_sequencer

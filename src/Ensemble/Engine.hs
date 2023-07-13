@@ -212,6 +212,10 @@ generateOutputs engine frameCount = do
     sendEvents engine events
     receiveOutputs engine frameCount
 
+sendEventNow :: Engine -> SequencerEvent -> IO ()
+sendEventNow engine event =
+    atomicModifyIORef' (engine_eventBuffer engine) $ \eventBuffer -> (event:eventBuffer, ())
+
 sendEvents :: Engine -> [SequencerEvent] -> IO ()
 sendEvents engine events = do
     let clapHost = engine_pluginHost engine

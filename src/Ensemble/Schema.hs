@@ -20,46 +20,47 @@ import Ensemble.Type
 
 makeAPI
     -- types
-    [ ''Ok
-    , ''Size
-    , ''WindowInfo
-    , ''ApiError
+    [ ''ApiError
     , ''AudioDevice
     , ''AudioOutput
-    , ''MidiDevice
-    , ''Clap.ParameterInfo
-    , ''Clap.PluginId
     , ''Clap.ClapVersion
-    , ''Clap.PluginDescriptor
-    , ''Clap.PluginInfo
+    , ''Clap.Event
+    , ''Clap.EventConfig
     , ''Clap.EventFlag
-    , ''Clap.NoteExpression
-    , ''Clap.TransportFlag
+    , ''Clap.ParameterInfo
+    , ''Clap.PluginDescriptor
+    , ''Clap.PluginId
+    , ''Clap.PluginInfo
     , ''Clap.MidiData
     , ''Clap.Midi2Data
-    , ''Clap.EventConfig
-    , ''Clap.Event
+    , ''Clap.NoteExpression
+    , ''Clap.TransportFlag
+    , ''MidiDevice
+    , ''Ok 
     , ''PlaybackEvent
     , ''SequencerEvent
+    , ''Size
+    , ''WindowInfo
     ]
     -- functions
-    [ 'getAudioDevices
-    , 'getMidiDevices
-    , 'getPluginLocations
-    , 'scanForPlugins
-    , 'openPluginGUI
-    , 'getPluginParameters
-    , 'getPluginParameterValue
-    , 'startEngine
-    , 'stopEngine
+    [ 'clearSequence
     , 'createMidiDeviceNode
     , 'createPluginNode
-    , 'deleteNode
-    , 'scheduleEvent
-    , 'playSequence
-    , 'clearSequence
-    , 'stopPlayback
-    , 'getCurrentTick
-    , 'ping
+    , 'deleteNode    
     , 'echo
+    , 'getAudioDevices
+    , 'getCurrentTick
+    , 'getMidiDevices
+    , 'getPluginLocations
+    , 'getPluginParameters
+    , 'getPluginParameterValue
+    , 'openPluginGUI
+    , 'ping
+    , 'playSequence
+    , 'scanForPlugins
+    , 'sendEvent
+    , 'scheduleEvent
+    , 'startEngine
+    , 'stopEngine
+    , 'stopPlayback
     ]

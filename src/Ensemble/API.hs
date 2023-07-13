@@ -105,7 +105,7 @@ openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Ar
                     canResize <- sendM $ Gui.canResize pluginGuiHandle pluginHandle
                     actualSize <- if canResize 
                         then do
-                            setSizeResult <- sendM $ Gui.setSize pluginGuiHandle pluginHandle (size_width size) (size_height size)
+                            setSizeResult <- sendM $ Gui.setClosestUsableSize pluginGuiHandle pluginHandle (size_width size) (size_height size)
                             unless setSizeResult $ Engine.throwApiError "Error setting size of plugin GUI"
                             pure size
                         else do

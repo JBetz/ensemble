@@ -5,10 +5,12 @@ module Ensemble.Window.Windows where
 
 import Control.Concurrent
 import Control.Exception
+import Data.Bits ((.|.))
 import Foreign.Ptr
 import qualified Graphics.Win32 as Win32
 import System.Win32.DLL (getModuleHandle)
 import System.Win32.Types (LONG)
+import qualified System.Win32.Info.Computer as Win32
 
 showWindow :: Win32.HWND -> IO ()
 showWindow window = do 
@@ -16,27 +18,29 @@ showWindow window = do
     Win32.updateWindow window
 
 createParentWindow :: Maybe (Ptr ()) -> String -> Int -> Int -> IO (Ptr ())
-createParentWindow _maybeParent name width height = do
+createParentWindow _maybeParent name clientWidth clientHeight = do
     let className = Win32.mkClassName $ "Plugin GUI - " <> name
-    icon         <- Win32.loadIcon   Nothing Win32.iDI_APPLICATION
-    cursor       <- Win32.loadCursor Nothing Win32.iDC_ARROW
-    bgBrush      <- Win32.createSolidBrush (Win32.rgb 0 0 255)
     mainInstance <- getModuleHandle Nothing
     _ <- Win32.registerClass
         ( Win32.cS_VREDRAW + Win32.cS_HREDRAW
         , mainInstance
-        , Just icon
-        , Just cursor
-        , Just bgBrush
+        , Nothing
+        , Nothing
+        , Nothing
         , Nothing
         , className
         )
     let windowClosure = \window message wParam lParam -> Win32.defWindowProc (Just window) message wParam lParam
+    let windowStyle = Win32.wS_OVERLAPPED .|. Win32.wS_SYSMENU
+    sizeXFrame <- Win32.getSystemMetrics 32     -- SM_CXSIZEFRAME
+    let width = clientWidth + sizeXFrame 
+    sizeYFrame <- Win32.getSystemMetrics 33     -- SM_CYSIZEFRAME
+    let height = clientHeight + sizeYFrame
     Win32.createWindowEx
         Win32.wS_EX_TOPMOST     -- extended style 
         className               -- window class name
         name                    -- window name
-        Win32.wS_OVERLAPPED     -- style
+        windowStyle             -- style
         Nothing                 -- left position
         Nothing                 -- top position 
         (Just width)            -- width

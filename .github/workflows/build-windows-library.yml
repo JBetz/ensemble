@@ -1,4 +1,4 @@
-name: Build Windows library (64bit)
+name: Build Windows library
 
 on: 
   workflow_dispatch:

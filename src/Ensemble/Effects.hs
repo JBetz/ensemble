@@ -24,7 +24,6 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runMessageWriter $ 
                     Just filePath -> sendM $ appendFile filePath message
                     Nothing -> case interface config of
                         Interface_Http -> sendM $ putStrLn message
-                        Interface_Pipes -> pure ()
                         Interface_WebSocket -> pure ()
                         Interface_Library -> pure ()
         

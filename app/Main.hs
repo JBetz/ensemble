@@ -29,15 +29,10 @@ main = do
     config <- getRecord "Ensemble Audio Engine"
     server <- createServer config
     case interface config of
-        Interface_Pipes -> runPipesInterface server
         Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)
         Interface_WebSocket -> runWebSocketInterface server (fromMaybe 3000 $ port config)
         Interface_Library -> error "Can't use library as an executable"
   where              
-    runPipesInterface server = do
-        handleOutgoingMessages server
-        forever $ BS.getLine >>= handleIncomingMessage server
-    
     runHttpInterface server port' = do
         handleOutgoingMessages server
         scotty port' $ do

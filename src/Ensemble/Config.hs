@@ -6,14 +6,12 @@ import Options.Generic
 import Text.Read
 
 data Interface 
-    = Interface_Pipes
-    | Interface_Http
+    = Interface_Http
     | Interface_WebSocket
     | Interface_Library
     deriving (Generic)
 
 instance Show Interface where
-    show Interface_Pipes = "pipes"
     show Interface_Http = "http"
     show Interface_WebSocket = "web-socket"
     show Interface_Library = "library"
@@ -31,7 +29,6 @@ instance Read Interface where
           EOF -> error $ "Invalid interface argument: " <> show lexeme
         where
             readString string = case toLower <$> string of       
-                "pipes" -> Interface_Pipes
                 "http" -> Interface_Http
                 "web-socket" -> Interface_WebSocket
                 "websocket" -> Interface_WebSocket

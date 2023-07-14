@@ -26,6 +26,7 @@ runEnsemble server action = runM $ runError $ runLogWriter $ runMessageWriter $ 
                         Interface_Http -> sendM $ putStrLn message
                         Interface_Pipes -> pure ()
                         Interface_WebSocket -> pure ()
+                        Interface_Library -> pure ()
         
         runMessageWriter :: LastMember IO effs => Eff (Writer (KeyMap Value) : effs) result -> Eff effs result
         runMessageWriter = interpret $ \case

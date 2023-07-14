@@ -9,12 +9,14 @@ data Interface
     = Interface_Pipes
     | Interface_Http
     | Interface_WebSocket
+    | Interface_Library
     deriving (Generic)
 
 instance Show Interface where
     show Interface_Pipes = "pipes"
     show Interface_Http = "http"
     show Interface_WebSocket = "web-socket"
+    show Interface_Library = "library"
 
 instance Read Interface where
     readPrec = do
@@ -34,6 +36,7 @@ instance Read Interface where
                 "web-socket" -> Interface_WebSocket
                 "websocket" -> Interface_WebSocket
                 "ws" -> Interface_WebSocket
+                "library" -> Interface_Library
                 other -> error $ "Invalid interface argument: " <> show other
 
 instance ParseRecord Interface

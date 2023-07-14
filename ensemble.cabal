@@ -21,27 +21,8 @@ common base
                         StandaloneDeriving,
                         TypeApplications,
                         TypeOperators
-                        
-library
-    import:           base
-    exposed-modules:  Ensemble,
-                      Ensemble.API,
-                      Ensemble.Config,
-                      Ensemble.Effects,
-                      Ensemble.Engine,
-                      Ensemble.Error,
-                      Ensemble.Event,
-                      Ensemble.Handler,
-                      Ensemble.Node,
-                      Ensemble.Schema,
-                      Ensemble.Schema.TaggedJSON,
-                      Ensemble.Schema.TH,
-                      Ensemble.Sequencer,
-                      Ensemble.Server,
-                      Ensemble.Tick,
-                      Ensemble.Type,
-                      Ensemble.Util,
-                      Ensemble.Window
+
+common library-dependencies
     build-depends:    base,
                       aeson,
                       bytestring,
@@ -58,6 +39,29 @@ library
                       template-haskell,
                       text,
                       th-abstraction
+                        
+library
+    import:           base
+    import:           library-dependencies
+    exposed-modules:  Ensemble,
+                      Ensemble.API,
+                      Ensemble.Config,
+                      Ensemble.Effects,
+                      Ensemble.Engine,
+                      Ensemble.Error,
+                      Ensemble.Event,
+                      Ensemble.Handler,
+                      Ensemble.Library,
+                      Ensemble.Node,
+                      Ensemble.Schema,
+                      Ensemble.Schema.TaggedJSON,
+                      Ensemble.Schema.TH,
+                      Ensemble.Sequencer,
+                      Ensemble.Server,
+                      Ensemble.Tick,
+                      Ensemble.Type,
+                      Ensemble.Util,
+                      Ensemble.Window
     if os(windows)
         other-modules: Ensemble.Window.Windows
         build-depends: Win32
@@ -67,8 +71,52 @@ library
         build-depends: unix
     extra-libraries:  portaudio
     hs-source-dirs:   src
+
+foreign-library ensemble
+    import:           library-dependencies
+    type:             native-shared
+    options:          standalone
+    other-modules:    Ensemble.API,
+                      Ensemble.Config,
+                      Ensemble.Effects,
+                      Ensemble.Engine,
+                      Ensemble.Error,
+                      Ensemble.Event,
+                      Ensemble.Handler,
+                      Ensemble.Library,
+                      Ensemble.Node,
+                      Ensemble.Schema,
+                      Ensemble.Schema.TaggedJSON,
+                      Ensemble.Schema.TH,
+                      Ensemble.Sequencer,
+                      Ensemble.Server,
+                      Ensemble.Tick,
+                      Ensemble.Type,
+                      Ensemble.Util,
+                      Ensemble.Window
+    mod-def-file:     Ensemble.def
+    if os(Windows)
+        options: standalone
+        other-modules: Ensemble.Window.Windows
+        build-depends: Win32
+        cpp-options:   -DWINDOWS
+    else
+        other-modules: Ensemble.Window.POSIX
+        build-depends: unix
+    extra-libraries:  portaudio
+    hs-source-dirs:   src
+    default-language: Haskell2010
+    default-extensions: ConstraintKinds,
+                        DataKinds,
+                        DeriveGeneric,
+                        FlexibleContexts,
+                        GADTs,
+                        LambdaCase,
+                        StandaloneDeriving,
+                        TypeApplications,
+                        TypeOperators
     
-executable ensemble
+executable ensemble-exe
     import:           base
     main-is:          Main.hs
     build-depends:    base,

@@ -1,4 +1,4 @@
-name: Build Windows library
+name: Build Windows library (32-bit)
 
 on: 
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
       with:
         name: jbetz
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix-build -A projectCross.mingwW64.hsPkgs.ensemble.components.flibs.libensemble
+    - run: nix-build -A projectCross.mingwW32.hsPkgs.ensemble.components.library
     - run: echo "UPLOAD_PATH=$(readlink -f result)" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v3
       with:

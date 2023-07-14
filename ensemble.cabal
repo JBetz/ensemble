@@ -55,7 +55,6 @@ library
                       portaudio,
                       PortMidi,
                       stm,
-                      string-class,
                       template-haskell,
                       text,
                       th-abstraction
@@ -80,7 +79,6 @@ executable ensemble
                       http-types,
                       optparse-generic,
                       scotty,
-                      string-class,
                       text,
                       wai,
                       wai-websockets,

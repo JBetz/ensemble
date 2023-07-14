@@ -8,9 +8,9 @@ import Control.Monad
 import Control.Monad.Extra
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.IORef
 import Data.Maybe
-import Data.String.Class (fromLazyByteString)
 import Ensemble.Config
 import Ensemble.Handler
 import Ensemble.Server
@@ -85,4 +85,4 @@ main = do
     handleOutgoingMessages server = 
         void $ forkIO $ forever $ do
             outgoingMessage <- readChan $ server_messageChannel server
-            putStrLn $ fromLazyByteString (A.encode outgoingMessage)
+            putStrLn $ LC8.unpack (A.encode outgoingMessage)

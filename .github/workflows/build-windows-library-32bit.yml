@@ -23,7 +23,7 @@ jobs:
       with:
         name: jbetz
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: nix-build -A projectCross.mingw32.hsPkgs.ensemble.components.library
+    - run: nix-build -A projectCross.mingw32.hsPkgs.ensemble.components.foreignlibs.libensemble
     - run: echo "UPLOAD_PATH=$(readlink -f result)" >> $GITHUB_ENV
     - uses: actions/upload-artifact@v3
       with:

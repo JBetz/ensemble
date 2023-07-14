@@ -1,4 +1,4 @@
-name: Build Windows library
+name: Build Windows library (32bit)
 
 on: 
   workflow_dispatch:
@@ -28,10 +28,4 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: ensemble-windows-library-32bit
-        path: ${{ env.UPLOAD_PATH }}
-    - run: nix-build -A projectCross.mingwW64.hsPkgs.ensemble.components.library
-    - run: echo "UPLOAD_PATH=$(readlink -f result)" >> $GITHUB_ENV
-    - uses: actions/upload-artifact@v3
-      with:
-        name: ensemble-windows-library-64bit
         path: ${{ env.UPLOAD_PATH }}

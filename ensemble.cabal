@@ -94,9 +94,9 @@ foreign-library libensemble
                       Ensemble.Type,
                       Ensemble.Util,
                       Ensemble.Window
-    mod-def-file:     Ensemble.def
     if os(Windows)
         options: standalone
+        mod-def-file:  Ensemble.def
         other-modules: Ensemble.Window.Windows
         build-depends: Win32
         cpp-options:   -DWINDOWS

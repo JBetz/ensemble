@@ -72,7 +72,7 @@ library
     extra-libraries:  portaudio
     hs-source-dirs:   src
 
-foreign-library ensemble
+foreign-library libensemble
     import:           library-dependencies
     type:             native-shared
     options:          standalone
@@ -116,7 +116,7 @@ foreign-library ensemble
                         TypeApplications,
                         TypeOperators
     
-executable ensemble-exe
+executable ensemble
     import:           base
     main-is:          Main.hs
     build-depends:    base,

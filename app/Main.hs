@@ -7,7 +7,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.Extra
 import qualified Data.Aeson as A
-import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.Char8 as LC8
 import Data.IORef
 import Data.Maybe

@@ -75,7 +75,6 @@ library
 foreign-library libensemble
     import:           library-dependencies
     type:             native-shared
-    options:          standalone
     other-modules:    Ensemble.API,
                       Ensemble.Config,
                       Ensemble.Effects,
@@ -95,7 +94,7 @@ foreign-library libensemble
                       Ensemble.Util,
                       Ensemble.Window
     if os(Windows)
-        options: standalone
+        options:       standalone
         mod-def-file:  Ensemble.def
         other-modules: Ensemble.Window.Windows
         build-depends: Win32

@@ -32,36 +32,12 @@ Short term goals are to support MIDI sequencing of CLAP instruments, with both o
 
 See [ensemble.tl](./ensemble.tl) for a [Type Language](https://core.telegram.org/mtproto/TL) specification of the API.
 
-There are three ways to interface with an ensemble server, via stdin and stdout pipes, a WebSocket, or HTTP.
-
-<b>For pipes:</b> 
-```bash 
-./ensemble --interface pipes
-```
-
-Messages are sent by writing JSON to stdin, and responses are returned as JSON via stdout. All calls are asynchronous, so messages need to be tagged using the `@extra` field in order to route them back to their senders.
-
-Example:
-
-```bash
-$ ./ensemble --interface pipes
-{ "@type": "getAudioDevices", "@extra": 855818240 }
-{ "@type":"AudioDevices", "@extra": 855818240, "audioDevices": [{"name": "Microsoft Sound Mapper - Input", "index": 0}, { "name": "Speakers (Realtek (R) Audio)","index": 1}]}
-```
-
-<b>For WebSocket:</b>
+<b>To run a WebSocket server:</b>
 ```bash
 ./ensemble --interface websocket --port 3000
 ```
 
 The WebSocket endpoint will be available at `localhost:<port>`, and the same rules for message tagging apply.
-
-<b>For HTTP:</b> 
-```bash
-./ensemble --interface http --port 3000
-```
-
-Messages are sent via POST requests to `localhost:<port>/send` with JSON in request body, and responses are returned synchronously as JSON in response body.
 
 ## Platforms
 

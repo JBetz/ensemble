@@ -5,66 +5,54 @@ module Ensemble.Sequencer where
 import Control.Concurrent
 import Control.Exception
 import Control.DeepSeq
-import Control.Monad (when)
-import Control.Monad.Freer
-import Control.Monad.Freer.Error
-import Control.Monad.Freer.Writer
-import Data.Aeson
-import Data.Aeson.KeyMap (KeyMap)
+import Control.Monad.Reader
 import Data.IORef
 import Data.List (sortBy)
 import qualified Data.Map as Map
 import Ensemble.Engine
-import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Tick
-import GHC.Stack
 
 data Sequencer = Sequencer
     { sequencer_eventQueue :: IORef [(Tick, SequencerEvent)]
     }
-
-type SequencerEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createSequencer :: IO Sequencer
 createSequencer = do
     eventQueue <- newIORef mempty
     pure $ Sequencer { sequencer_eventQueue = eventQueue }
  
-playSequenceOffline :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
+playSequenceOffline :: Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> IO ()
 playSequenceOffline sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
-        Nothing -> sendM $ getEndTick sequencer
-    audioOutput <- sendM $ renderSequence sequencer engine startTick endTick
-    evaluatedAudioOutput <- sendM $ evaluate $ force audioOutput
+        Nothing -> liftIO $ getEndTick sequencer
+    audioOutput <- liftIO $ renderSequence sequencer engine startTick endTick
+    evaluatedAudioOutput <- liftIO $ evaluate $ force audioOutput
     playAudio engine startTick loop evaluatedAudioOutput
 
-playSequenceRealtime :: SequencerEffects effs => Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> Eff effs ()
+playSequenceRealtime :: Sequencer -> Engine -> Tick -> Maybe Tick -> Bool -> IO ()
 playSequenceRealtime sequencer engine startTick maybeEndTick loop = do
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
-        Nothing -> sendM $ getEndTick sequencer
-    events <- sendM $ getEventsBetween sequencer startTick endTick
-    sendM $ writeIORef (engine_steadyTime engine) 0
-    tellEvent PlaybackEvent_Started
+        Nothing -> liftIO $ getEndTick sequencer
+    events <- liftIO $ getEventsBetween sequencer startTick endTick
+    liftIO $ writeIORef (engine_steadyTime engine) 0
     let sortedEvents = sortBy (\(tickA, _) (tickB, _) -> compare tickA tickB) events 
     runSequence endTick sortedEvents
-    tellEvent PlaybackEvent_Stopped
-    sendM $ writeIORef (engine_steadyTime engine) (-1)
+    liftIO $ writeIORef (engine_steadyTime engine) (-1)
     where 
         runSequence endTick [] = do
-            currentTick <- sendM $ getCurrentTick engine
+            currentTick <- liftIO $ getCurrentTick engine
             when (currentTick < endTick) $ 
-                sendM $ threadDelay $ (tick_value endTick - tick_value currentTick) * 1000
+                liftIO $ threadDelay $ (tick_value endTick - tick_value currentTick) * 1000
             when loop $  
                 playSequenceRealtime sequencer engine startTick maybeEndTick loop 
         runSequence endTick events = do 
-            currentTick <- sendM $ getCurrentTick engine
+            currentTick <- liftIO $ getCurrentTick engine
             let activeEvents = takeWhile (\(tick, _) -> tick <= currentTick) events
-            sendM $ modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
-            tellEvent $ PlaybackEvent_CurrentTick currentTick
-            sendM $ threadDelay 10
+            modifyIORef' (engine_eventBuffer engine) (<> fmap snd activeEvents)
+            threadDelay 10
             runSequence endTick $ drop (length activeEvents) events
 
 getEndTick :: Sequencer -> IO Tick

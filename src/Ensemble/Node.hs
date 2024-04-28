@@ -15,7 +15,7 @@ newtype DeviceId = DeviceId { deviceId_id :: Int }
 
 data Node 
     = Node_MidiDevice MidiDeviceNode
-    | Node_Plugin PluginNode 
+    | Node_Plugin PluginNode
 
 data MidiDeviceNode = MidiDeviceNode
     { midiDeviceNode_deviceId :: DeviceId

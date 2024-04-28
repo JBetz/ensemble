@@ -8,9 +8,8 @@ module Ensemble.Schema.TH where
 
 import Prelude hiding (break)
 
-import Control.Monad (join)
-import Control.Monad.Freer
-import Control.Monad.Freer.Error
+import Control.Exception
+import Control.Monad.Reader
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import Data.Aeson.KeyMap (KeyMap)
@@ -277,7 +276,7 @@ makeHandleMessage functionNames = do
     cases <- traverse (makeCase objectName) functionNames
     let failPattern = 
             let otherName = mkName "other" 
-                body = AppE (VarE 'throwError) (AppE (ConE 'ApiError) (multiAppE (VarE 'mappend) [LitE $ StringL "Unknown function name: ", AppE (VarE 'unpack) (VarE otherName)])) 
+                body = AppE (VarE 'throw) (AppE (ConE 'ApiError) (multiAppE (VarE 'mappend) [LitE $ StringL "Unknown function name: ", AppE (VarE 'unpack) (VarE otherName)])) 
             in Match (VarP otherName) (NormalB body) []
     let body = NormalB $ CaseE (VarE messageTypeName) (cases <> [failPattern])
     let signature = SigD functionName $ AppT (AppT ArrowT (ConT ''Text)) (AppT (AppT ArrowT (AppT (ConT ''KeyMap) (ConT ''A.Value))) (AppT (ConT $ mkName "Ensemble") (AppT (ConT ''KeyMap) (ConT ''A.Value))))
@@ -307,15 +306,15 @@ makeCase objectName functionName = do
             pure $ Match (LitP $ StringL $ nameBase functionName) body []
         _ -> error $ "Invalid function: " <> show functionName
 
-lookupField :: (A.FromJSON a, Member (Error ApiError) effs) => A.Key -> KeyMap A.Value -> Eff effs a
+lookupField :: (A.FromJSON a, Monad m) => A.Key -> KeyMap A.Value -> m a
 lookupField key object = 
     case KeyMap.lookup key object of
         Just value -> 
             case A.fromJSON value of
                 A.Success a -> pure a
-                A.Error parseError -> throwError $ ApiError $ "Parse error on '" <> show key <> "': "  <> parseError
+                A.Error parseError -> throw $ ApiError $ "Parse error on '" <> show key <> "': "  <> parseError
         Nothing -> 
-            throwError $ ApiError $ "Missing argument: " <> show key
+            throw $ ApiError $ "Missing argument: " <> show key
 
 toSubclassName :: Name -> String
 toSubclassName = uncapitalise . filter (/= '_') . nameBase

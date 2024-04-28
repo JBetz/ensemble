@@ -20,26 +20,15 @@ import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.WebSockets as WS
 import Options.Generic
 import System.IO
-import Web.Scotty
 
 main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
     config <- getRecord "Ensemble Audio Engine"
     server <- createServer config
-    case interface config of
-        Interface_Http -> runHttpInterface server (fromMaybe 3000 $ port config)
-        Interface_WebSocket -> runWebSocketInterface server (fromMaybe 3000 $ port config)
-        Interface_Library -> error "Can't use library as an executable"
+    runWebSocketInterface server (fromMaybe 3000 $ port config)
+  
   where              
-    runHttpInterface server port' = do
-        handleOutgoingMessages server
-        scotty port' $ do
-            post "/send" $ do
-                incomingMessage <- jsonData
-                outgoingMessage <- liftAndCatchIO $ receiveMessage server incomingMessage
-                json outgoingMessage
-
     runWebSocketInterface server port' = do
         let warpSettings = Warp.setPort port' Warp.defaultSettings
         let websocketApp pendingConnection = do

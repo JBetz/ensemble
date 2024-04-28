@@ -12,14 +12,11 @@ import Clap.Interface.Host (HostConfig)
 import Clap.Host (PluginHost (..), PluginLocation)
 import qualified Clap.Host as CLAP
 import Control.Concurrent
+import Control.Exception
 import Control.DeepSeq (NFData)
 import Control.Monad
 import Control.Monad.Extra (whenJust)
-import Control.Monad.Freer
-import Control.Monad.Freer.Error
-import Control.Monad.Freer.Writer
-import Data.Aeson (Value(..), ToJSON)
-import Data.Aeson.KeyMap (KeyMap)
+import Control.Monad.Reader
 import Data.Foldable (for_)
 import Data.IORef
 import Data.Int
@@ -32,7 +29,6 @@ import Data.Traversable (for)
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Node
-import Ensemble.Schema.TaggedJSON
 import Ensemble.Schema.TH
 import Ensemble.Tick
 import Foreign.C.Types
@@ -40,8 +36,6 @@ import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr
 import Foreign.Ptr
-import GHC.Exts (IsList (..))
-import GHC.Stack
 import qualified Sound.PortAudio as PortAudio
 import qualified Sound.PortAudio.Base as PortAudio
 import Sound.PortAudio (Stream, StreamResult, StreamCallbackFlag)
@@ -68,8 +62,6 @@ data EngineState
     = StateStopped
     | StateRunning
     | StateStopping
-
-type EngineEffects effs = (Members '[Writer (KeyMap Value), Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack)
 
 createEngine :: HostConfig -> IO Engine
 createEngine hostConfig = do
@@ -112,9 +104,9 @@ data MidiDevice = MidiDevice
     , midiDevice_opened :: Bool 
     } deriving (Show)
 
-getAudioDevices :: EngineEffects effs => Eff effs [AudioDevice]
+getAudioDevices :: IO [AudioDevice]
 getAudioDevices = do
-    eitherResult <- sendM $ PortAudio.withPortAudio $ do
+    eitherResult <- PortAudio.withPortAudio $ do
         count <- PortAudio.getNumDevices
         let indices = fromIntegral <$> [0 .. count]
         devices <- for indices $ \index -> do
@@ -130,8 +122,8 @@ getAudioDevices = do
         Right devices -> pure devices
         Left portAudioError -> throwApiError $ "Error getting audio devices: " <> show portAudioError
 
-getMidiDevices :: EngineEffects effs => Eff effs [MidiDevice]
-getMidiDevices = sendM $ do
+getMidiDevices :: IO [MidiDevice]
+getMidiDevices = do
     deviceCount <- PortMidi.countDevices
     for [0 .. deviceCount - 1] $ \index -> do 
         deviceInfo <- PortMidi.getDeviceInfo index
@@ -146,16 +138,16 @@ getMidiDevices = sendM $ do
             , midiDevice_opened = PortMidi.opened deviceInfo
             }
 
-start :: EngineEffects effs => Engine -> Eff effs ()
+start :: Engine -> IO ()
 start engine = startAudio >> startMidi
     where
         startAudio = do
-            maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
+            maybeAudioStream <- liftIO $ readIORef (engine_audioStream engine)
             when (isNothing maybeAudioStream) $ do    
-                initializeResult <- sendM PortAudio.initialize
+                initializeResult <- liftIO PortAudio.initialize
                 whenJust initializeResult $ \initializeError ->
                     throwApiError $ "Error when initializing audio driver: " <> show initializeError
-                eitherStream <- sendM $ PortAudio.openDefaultStream 
+                eitherStream <- liftIO $ PortAudio.openDefaultStream 
                     0 -- Number of input channels 
                     2 -- Number of output channels
                     (engine_sampleRate engine) -- Sample rate
@@ -167,19 +159,19 @@ start engine = startAudio >> startMidi
                         throwApiError $ "Error when opening audio stream: " <> show portAudioError
                     Right stream -> do
                         maybeError <- do
-                            sendM $ writeIORef (engine_audioStream engine) (Just stream)
-                            sendM $ allocateBuffers engine (64 * 1024)
+                            liftIO $ writeIORef (engine_audioStream engine) (Just stream)
+                            liftIO $ allocateBuffers engine (64 * 1024)
                             setState engine StateRunning
-                            sendM $ PortAudio.startStream stream                                
+                            liftIO $ PortAudio.startStream stream                                
                         whenJust maybeError $ \startError ->
                             throwApiError $ "Error when starting audio stream: " <> show startError
 
         startMidi = do 
-            initializeResult <- sendM PortMidi.initialize
+            initializeResult <- liftIO PortMidi.initialize
             case initializeResult of
                 Right _success -> pure ()
                 Left portMidiError -> do
-                    errorText <- sendM $ PortMidi.getErrorText portMidiError
+                    errorText <- liftIO $ PortMidi.getErrorText portMidiError
                     throwApiError $ "Error when initializing PortMidi: " <> errorText
 
 audioCallback :: Engine -> PaStreamCallbackTimeInfo -> [StreamCallbackFlag] -> CULong -> Ptr CFloat -> Ptr CFloat -> IO StreamResult
@@ -223,12 +215,12 @@ sendEvents engine events = do
         maybeNode <- lookupNode engine nodeId
         whenJust maybeNode $ \case
             Node_MidiDevice midiDeviceNode -> 
-                sendMidiDevice midiDeviceNode event
+                liftIOidiDevice midiDeviceNode event
             Node_Plugin pluginNode ->
                 CLAP.processEvent clapHost (pluginNode_id pluginNode) (fromMaybe defaultEventConfig eventConfig) event
     where
-        sendMidiDevice :: MidiDeviceNode -> Event -> IO ()
-        sendMidiDevice midiDeviceNode event = do
+        liftIOidiDevice :: MidiDeviceNode -> Event -> IO ()
+        liftIOidiDevice midiDeviceNode event = do
             maybeStartTime <- readIORef (midiDeviceNode_startTime midiDeviceNode)
             startTime <- case maybeStartTime of
                 Just startTime -> pure startTime
@@ -296,51 +288,44 @@ mixOutputs pluginOutputs = AudioOutput
     , audioOutput_right = foldl1 (zipWith (+)) (CLAP.pluginOutput_rightChannel <$> pluginOutputs)
     }
 
-playAudio :: EngineEffects effs => Engine -> Tick -> Bool -> AudioOutput -> Eff effs ()
+playAudio :: Engine -> Tick -> Bool -> AudioOutput -> IO ()
 playAudio engine startTick loop audioOutput = do
-    sendM $ writeIORef (engine_steadyTime engine) 0
-    maybeAudioStream <- sendM $ do 
+    liftIO $ writeIORef (engine_steadyTime engine) 0
+    maybeAudioStream <- liftIO $ do 
         writeIORef (engine_steadyTime engine) (tickToSteadyTime (engine_sampleRate engine) startTick)
         readIORef (engine_audioStream engine)
-    tellEvent PlaybackEvent_Started
     whenJust maybeAudioStream $ \audioStream ->
         let play = do
                 writeChunks audioStream audioOutput
-                sendM $ writeIORef (engine_steadyTime engine) (-1)
+                liftIO $ writeIORef (engine_steadyTime engine) (-1)
         in if loop then forever play else play
-    tellEvent PlaybackEvent_Stopped
     where
         writeChunks stream output = do
-            eitherAvailableChunkSize <- sendM $ PortAudio.writeAvailable stream
+            eitherAvailableChunkSize <- liftIO $ PortAudio.writeAvailable stream
             case eitherAvailableChunkSize of
                 Right availableChunkSize -> do 
                     let (chunk, remaining) = takeChunk availableChunkSize output
                     let actualChunkSize = size chunk
                     sendOutputs engine stream (fromIntegral actualChunkSize) chunk
-                    steadyTime <- sendM $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
+                    _steadyTime <- liftIO $ atomicModifyIORef' (engine_steadyTime engine) $ \steadyTime ->
                         let newSteadyTime = steadyTime + fromIntegral actualChunkSize 
                         in (newSteadyTime, newSteadyTime)
-                    let currentTick = steadyTimeToTick (engine_sampleRate engine) steadyTime
-                    tellEvent $ PlaybackEvent_CurrentTick currentTick
                     -- TODO: Why is this necessary? Without it, the current tick events are extremely desychronized.
-                    sendM $ threadDelay 1
+                    liftIO $ threadDelay 1
                     unless (size remaining == 0) $ writeChunks stream remaining
                 Left audioPortError ->
                     throwApiError $ "Error getting available frames of audio stream: " <> show audioPortError
     
-tellEvent :: Member (Writer (KeyMap Value)) effs => (HasTypeTag a, ToJSON a) => a -> Eff effs ()
-tellEvent = tell . toTaggedJSON
-
 takeChunk :: Int -> AudioOutput -> (AudioOutput, AudioOutput)
 takeChunk chunkSize (AudioOutput left right) = 
     let (chunkLeft, remainingLeft) = splitAt chunkSize left
         (chunkRight, remainingRight) = splitAt chunkSize right
     in (AudioOutput chunkLeft chunkRight, AudioOutput remainingLeft remainingRight)
 
-sendOutputs :: EngineEffects effs => Engine -> Stream CFloat CFloat -> CULong -> AudioOutput -> Eff effs () 
+sendOutputs :: Engine -> Stream CFloat CFloat -> CULong -> AudioOutput -> IO () 
 sendOutputs _engine stream frameCount audioOutput  = do
     let output = interleave (audioOutput_left audioOutput) (audioOutput_right audioOutput)
-    maybeError <- sendM $ withArray output $ \outputPtr -> do
+    maybeError <- liftIO $ withArray output $ \outputPtr -> do
         outputForeignPtr <- newForeignPtr_ outputPtr
         PortAudio.writeStream stream frameCount outputForeignPtr
     whenJust maybeError $ \writeError -> 
@@ -351,12 +336,12 @@ getCurrentTick engine = do
     steadyTime <- readIORef (engine_steadyTime engine)
     pure $ steadyTimeToTick (engine_sampleRate engine) steadyTime
 
-stop :: EngineEffects effs => Engine -> Eff effs ()
+stop :: Engine -> IO ()
 stop engine = do
-    maybeStream <- sendM $ readIORef (engine_audioStream engine)
+    maybeStream <- liftIO $ readIORef (engine_audioStream engine)
     case maybeStream of
         Just stream -> do
-            maybeError <- sendM $ do
+            maybeError <- liftIO $ do
                 CLAP.deactivateAll (engine_pluginHost engine)
                 void $ PortAudio.stopStream stream
                 void $ PortAudio.closeStream stream
@@ -366,19 +351,19 @@ stop engine = do
                 Just stopError ->
                     throwApiError $ "Error when stopping audio stream: " <> show stopError
                 Nothing -> 
-                    sendM $ writeIORef (engine_audioStream engine) Nothing
+                    liftIO $ writeIORef (engine_audioStream engine) Nothing
             setState engine StateStopped
         Nothing -> pure ()
-    terminateResult <- sendM PortMidi.terminate
+    terminateResult <- liftIO PortMidi.terminate
     case terminateResult of
         Right _success -> pure ()
         Left portMidiError -> do
-            errorText <- sendM $ PortMidi.getErrorText portMidiError
+            errorText <- liftIO $ PortMidi.getErrorText portMidiError
             throwApiError $ "Error when terminating PortMidi: " <> errorText
 
-createMidiDeviceNode :: EngineEffects effs => Engine -> Int -> Eff effs NodeId
+createMidiDeviceNode :: Engine -> Int -> IO NodeId
 createMidiDeviceNode engine deviceId = do
-    nodes <- sendM $ readIORef (engine_nodes engine)
+    nodes <- liftIO $ readIORef (engine_nodes engine)
     let existingNode = find (\(_, node) -> case node of
             Node_MidiDevice midiDeviceNode -> 
                 let (DeviceId existingDeviceId) = midiDeviceNode_deviceId midiDeviceNode
@@ -388,48 +373,45 @@ createMidiDeviceNode engine deviceId = do
     case existingNode of
         Just (nodeId, _) -> pure nodeId
         Nothing -> do 
-            deviceInfo <- sendM $ PortMidi.getDeviceInfo deviceId 
+            deviceInfo <- liftIO $ PortMidi.getDeviceInfo deviceId 
             if PortMidi.output deviceInfo 
                 then do
-                    stream <- getAudioStream engine
+                    _stream <- getAudioStream engine
                     streamInfo <- getAudioStreamInfo engine
                     let (PaTime (CDouble streamOutputLatency)) = PortAudio.outputLatency streamInfo 
                     let streamLatency = streamOutputLatency * 1000
                         sampleLatency  = fromIntegral (engine_numberOfFrames engine * 1000 * 2) / engine_sampleRate engine
                         latency = round $ maximum [streamLatency, sampleLatency, 10]
-                    openOutputResult <- sendM $ PortMidi.openOutputWithCustomTiming deviceId latency  
-                        (do
-                            Right (PaTime streamTime) <- PortAudio.getStreamTime stream
-                            pure $ round $ streamTime * 1000)
+                    openOutputResult <- liftIO $ PortMidi.openOutput deviceId latency  
                     case openOutputResult of
                         Right outputStream -> do 
-                            startTime <- sendM $ newIORef Nothing
+                            startTime <- liftIO $ newIORef Nothing
                             let node = Node_MidiDevice $ MidiDeviceNode
                                         { midiDeviceNode_deviceId = DeviceId deviceId
                                         , midiDeviceNode_latency = latency
                                         , midiDeviceNode_startTime = startTime
                                         , midiDeviceNode_stream = outputStream
                                         }
-                            nodeId <- sendM $ createNodeId engine
-                            sendM $ modifyIORef' (engine_nodes engine) $ \nodeMap ->
+                            nodeId <- liftIO $ createNodeId engine
+                            liftIO $ modifyIORef' (engine_nodes engine) $ \nodeMap ->
                                 Map.insert nodeId node nodeMap
                             pure nodeId
                         Left portMidiError -> do
-                            errorText <- sendM $ PortMidi.getErrorText portMidiError
+                            errorText <- liftIO $ PortMidi.getErrorText portMidiError
                             throwApiError $ "Error when initializing PortMidi: " <> errorText
                 else throwApiError $ PortMidi.name deviceInfo <> " is not an output device"
 
-getAudioStream :: EngineEffects effs => Engine -> Eff effs (Stream CFloat CFloat)
+getAudioStream :: Engine -> IO (Stream CFloat CFloat)
 getAudioStream engine = do
-    maybeAudioStream <- sendM $ readIORef (engine_audioStream engine)
+    maybeAudioStream <- liftIO $ readIORef (engine_audioStream engine)
     case maybeAudioStream of
         Just audioStream -> pure audioStream
         Nothing -> throwApiError $ "Audio Stream not available"
 
-getAudioStreamInfo :: EngineEffects effs => Engine -> Eff effs PaStreamInfo
+getAudioStreamInfo :: Engine -> IO PaStreamInfo
 getAudioStreamInfo engine = do
     audioStream <- getAudioStream engine
-    eitherStreamInfo <- sendM $ PortAudio.getStreamInfo audioStream
+    eitherStreamInfo <- liftIO $ PortAudio.getStreamInfo audioStream
     case eitherStreamInfo of
         Right streamInfo -> pure streamInfo
         Left portAudioError -> do
@@ -448,8 +430,8 @@ lookupNode engine nodeId = do
     nodes <- readIORef $ engine_nodes engine
     pure $ Map.lookup nodeId nodes
 
-createPluginNode :: EngineEffects effs => Engine -> PluginLocation -> Eff effs NodeId
-createPluginNode engine pluginLocation = sendM $ do
+createPluginNode :: Engine -> PluginLocation -> IO NodeId
+createPluginNode engine pluginLocation = liftIO $ do
     (pluginId, plugin) <- CLAP.load (engine_pluginHost engine) pluginLocation
     nodeId <- createNodeId engine
     let node = Node_Plugin $ PluginNode
@@ -490,18 +472,17 @@ freeBuffers engine = do
     pokeArray (engine_inputs engine) [nullPtr, nullPtr]
     pokeArray (engine_outputs engine) [nullPtr, nullPtr]
 
-setState :: EngineEffects effs => Engine -> EngineState -> Eff effs ()
-setState engine = sendM . writeIORef (engine_state engine)
+setState :: Engine -> EngineState -> IO ()
+setState engine = liftIO . writeIORef (engine_state engine)
 
 interleave :: [a] -> [a] -> [a]
 interleave [] _ = []
 interleave _ [] = []
 interleave xs ys = concat (transpose [xs, ys])
 
-throwApiError :: (Members '[Writer String, Error ApiError] effs, LastMember IO effs, HasCallStack) => String -> Eff effs a
-throwApiError message = do
-    tell $ message <> "\n" <> prettyCallStack (fromList $ init $ toList callStack) 
-    throwError $ ApiError { apiError_message = message }
+throwApiError :: String -> a
+throwApiError message =
+    throw $ ApiError { apiError_message = message }
 
 deriveJSONs
     [ ''AudioDevice

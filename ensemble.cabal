@@ -30,8 +30,8 @@ common library-dependencies
                       containers,
                       deepseq,
                       extra,
-                      freer-simple,
                       hashable,
+                      mtl,
                       optparse-generic,
                       portaudio,
                       PortMidi,
@@ -51,7 +51,6 @@ library
                       Ensemble.Error,
                       Ensemble.Event,
                       Ensemble.Handler,
-                      Ensemble.Library,
                       Ensemble.Node,
                       Ensemble.Schema,
                       Ensemble.Schema.TaggedJSON,
@@ -69,51 +68,7 @@ library
     else
         other-modules: Ensemble.Window.POSIX
         build-depends: unix
-    extra-libraries:  portaudio
     hs-source-dirs:   src
-
-foreign-library libensemble
-    import:           library-dependencies
-    type:             native-shared
-    other-modules:    Ensemble.API,
-                      Ensemble.Config,
-                      Ensemble.Effects,
-                      Ensemble.Engine,
-                      Ensemble.Error,
-                      Ensemble.Event,
-                      Ensemble.Handler,
-                      Ensemble.Library,
-                      Ensemble.Node,
-                      Ensemble.Schema,
-                      Ensemble.Schema.TaggedJSON,
-                      Ensemble.Schema.TH,
-                      Ensemble.Sequencer,
-                      Ensemble.Server,
-                      Ensemble.Tick,
-                      Ensemble.Type,
-                      Ensemble.Util,
-                      Ensemble.Window
-    if os(Windows)
-        options:       standalone
-        mod-def-file:  Ensemble.def
-        other-modules: Ensemble.Window.Windows
-        build-depends: Win32
-        cpp-options:   -DWINDOWS
-    else
-        other-modules: Ensemble.Window.POSIX
-        build-depends: unix
-    extra-libraries:  portaudio
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    default-extensions: ConstraintKinds,
-                        DataKinds,
-                        DeriveGeneric,
-                        FlexibleContexts,
-                        GADTs,
-                        LambdaCase,
-                        StandaloneDeriving,
-                        TypeApplications,
-                        TypeOperators
     
 executable ensemble
     import:           base
@@ -125,7 +80,6 @@ executable ensemble
                       extra,
                       http-types,
                       optparse-generic,
-                      scotty,
                       text,
                       wai,
                       wai-websockets,
@@ -141,7 +95,6 @@ executable generate-schema
                       ensemble
     hs-source-dirs:   app
 
-
 test-suite ensemble-test
     import:           base
     type:             exitcode-stdio-1.0
@@ -149,6 +102,6 @@ test-suite ensemble-test
     main-is:          Main.hs
     build-depends:    base,
                       clap,
-                      freer-simple,
                       ensemble,
-                      hspec
+                      hspec,
+                      mtl

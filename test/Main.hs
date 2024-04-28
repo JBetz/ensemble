@@ -7,8 +7,7 @@ import Clap.Interface.Events
 import Clap.Interface.Extension.Params
 import Clap.Interface.Id
 import Control.Concurrent
-import Control.Monad.Freer
-import Data.Either
+import Control.Monad.Reader
 import Data.Traversable
 import Ensemble.API
 import Ensemble.Config
@@ -28,19 +27,19 @@ main = do
     server <- createServer defaultConfig
     result <- runEnsemble server $ do
 
-        sendM $ putStrLn "startEngine"
+        liftIO $ putStrLn "startEngine"
         Ok <- startEngine
 
         paths <- getPluginLocations
         _ <- scanForPlugins (Argument paths)
         
-        sendM $ putStrLn "createPluginNode"
-        nodeId <- createPluginNode (Argument "C:\\Program Files\\Common Files\\CLAP\\FluidSynth.clap\\FluidSynth.clap") (Argument 0)
+        liftIO $ putStrLn "createPluginNode"
+        nodeId <- createPluginNode (Argument "/home/joe/ensemble/plugins/FluidSynth.clap") (Argument 0)
         
-        sendM $ putStrLn "getPluginParameters"
+        liftIO $ putStrLn "getPluginParameters"
         parameters <- getPluginParameters (Argument nodeId)
 
-        sendM $ putStrLn "getPluginParameterValue"
+        liftIO $ putStrLn "getPluginParameterValue"
         _ <- for parameters $ \parameter ->
             getPluginParameterValue (Argument nodeId) (Argument $ clapId_id $ parameterInfo_id parameter)
 
@@ -51,21 +50,21 @@ main = do
         playNote nodeId 77 (Tick 2001) 200
         playNote nodeId 79 (Tick 2501) 200
         
-        sendM $ putStrLn "playSequence"
+        liftIO $ putStrLn "playSequence"
         Ok <- playSequence (Argument $ Tick 1) (Argument Nothing) (Argument False)
 
-        sendM $ threadDelay (5 * 1000 * 1000)
+        liftIO $ threadDelay (5 * 1000 * 1000)
 
-        sendM $ putStrLn "clearSequence"
+        liftIO $ putStrLn "clearSequence"
         Ok <- clearSequence
         
-        sendM $ putStrLn "stopEngine"
+        liftIO $ putStrLn "stopEngine"
         Ok <- stopEngine
         pure ()
 
     hspec $ describe "result" $ 
         it "should not have an error" $ 
-            result `shouldSatisfy` isRight
+            result `shouldSatisfy` (== ())
 
     where
         playNote nodeId key startTick duration = do

@@ -226,7 +226,7 @@ sendEvents engine events = do
                 Just startTime -> pure startTime
                 Nothing -> do
                     let (PaTime currentTime) = PortAudio.currentTime undefined
-                    let startTime = round $ currentTime * 1000 - (fromIntegral $ midiDeviceNode_latency midiDeviceNode) 
+                    let startTime = round $ currentTime * 1000 - fromIntegral (midiDeviceNode_latency midiDeviceNode) 
                     writeIORef (midiDeviceNode_startTime midiDeviceNode) (Just startTime)
                     pure startTime 
             steadyTime <- readIORef (engine_steadyTime engine)
@@ -406,7 +406,7 @@ getAudioStream engine = do
     maybeAudioStream <- liftIO $ readIORef (engine_audioStream engine)
     case maybeAudioStream of
         Just audioStream -> pure audioStream
-        Nothing -> throwApiError $ "Audio Stream not available"
+        Nothing -> throwApiError "Audio Stream not available"
 
 getAudioStreamInfo :: Engine -> IO PaStreamInfo
 getAudioStreamInfo engine = do

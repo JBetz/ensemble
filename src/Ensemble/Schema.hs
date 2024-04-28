@@ -16,7 +16,7 @@ import Ensemble.Engine (AudioDevice(..), AudioOutput(..), MidiDevice(..))
 import Ensemble.Error
 import Ensemble.Event
 import Ensemble.Schema.TH
-import Ensemble.Type
+import Ensemble.Env
 
 makeAPI
     -- types

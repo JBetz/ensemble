@@ -46,8 +46,8 @@ library
     exposed-modules:  Ensemble,
                       Ensemble.API,
                       Ensemble.Config,
-                      Ensemble.Effects,
                       Ensemble.Engine,
+                      Ensemble.Env,
                       Ensemble.Error,
                       Ensemble.Event,
                       Ensemble.Handler,
@@ -56,9 +56,7 @@ library
                       Ensemble.Schema.TaggedJSON,
                       Ensemble.Schema.TH,
                       Ensemble.Sequencer,
-                      Ensemble.Server,
                       Ensemble.Tick,
-                      Ensemble.Type,
                       Ensemble.Util,
                       Ensemble.Window
     if os(windows)

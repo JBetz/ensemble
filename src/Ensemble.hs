@@ -1,7 +1,7 @@
 module Ensemble 
   ( module Ensemble.API
-  , module Ensemble.Server
+  , module Ensemble.Env
   ) where
 
 import Ensemble.API
-import Ensemble.Server
+import Ensemble.Env

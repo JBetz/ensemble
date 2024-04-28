@@ -13,7 +13,7 @@ import Ensemble.API
 import Ensemble.Config
 import Ensemble.Effects
 import Ensemble.Event
-import Ensemble.Server
+import Ensemble.Env
 import Ensemble.Schema.TH
 import Ensemble.Tick
 import Test.Hspec
@@ -24,8 +24,8 @@ main :: IO ()
 main = do
     setEnv "FLUIDSYNTH_CLAP_DEBUG" "True"
     hSetBuffering stdout NoBuffering
-    server <- createServer defaultConfig
-    result <- runEnsemble server $ do
+    env <- createEnv defaultConfig
+    result <- runEnsemble env $ do
 
         liftIO $ putStrLn "startEngine"
         Ok <- startEngine

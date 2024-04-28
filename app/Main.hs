@@ -12,7 +12,7 @@ import Data.IORef
 import Data.Maybe
 import Ensemble.Config
 import Ensemble.Handler
-import Ensemble.Server
+import Ensemble.Env
 import Network.HTTP.Types (status400)
 import Network.Wai (responseLBS)
 import qualified Network.Wai.Handler.WebSockets as WaiWs
@@ -25,16 +25,16 @@ main :: IO ()
 main = do
     hSetBuffering stdout NoBuffering
     config <- getRecord "Ensemble Audio Engine"
-    server <- createServer config
-    runWebSocketInterface server (fromMaybe 3000 $ port config)
+    env <- createEnv config
+    runWebSocketInterface env (fromMaybe 3000 $ port config)
   
   where              
-    runWebSocketInterface server port' = do
+    runWebSocketInterface env port' = do
         let warpSettings = Warp.setPort port' Warp.defaultSettings
         let websocketApp pendingConnection = do
                 connection <- WS.acceptRequest pendingConnection
                 sendThread <- forkIO $ forever $ do
-                    outgoingMessage <- readChan $ server_messageChannel server
+                    outgoingMessage <- readChan $ env_messageChannel env
                     WS.sendTextData connection (A.encode outgoingMessage)
                 isOpen <- newIORef True 
                 whileM $ do
@@ -53,20 +53,20 @@ main = do
                         WS.UnicodeException message -> do
                             putStrLn $ "UNICODE EXCEPTION: " <> message
                             pure Nothing
-                    whenJust incomingMessage $ handleIncomingMessage server
+                    whenJust incomingMessage $ handleIncomingMessage env
                     readIORef isOpen
         let backupApp _ respond = respond $ responseLBS status400 [] "Not a WebSocket request"
         Warp.runSettings warpSettings $ WaiWs.websocketsOr WS.defaultConnectionOptions websocketApp backupApp
 
-    handleIncomingMessage server message = 
+    handleIncomingMessage env message = 
         case A.eitherDecodeStrict message of
             Right incomingMessage -> do
-                outgoingMessage <- receiveMessage server incomingMessage
-                writeChan (server_messageChannel server) outgoingMessage
+                outgoingMessage <- receiveMessage env incomingMessage
+                writeChan (env_messageChannel env) outgoingMessage
             Left parseError -> 
                 hPutStrLn stderr $ "Parse error: " <> parseError
 
-    handleOutgoingMessages server = 
+    handleOutgoingMessages env = 
         void $ forkIO $ forever $ do
-            outgoingMessage <- readChan $ server_messageChannel server
+            outgoingMessage <- readChan $ env_messageChannel env
             putStrLn $ LC8.unpack (A.encode outgoingMessage)

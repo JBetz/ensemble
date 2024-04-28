@@ -22,9 +22,8 @@ import Ensemble.Node
 import Ensemble.Event (SequencerEvent(..))
 import Ensemble.Schema.TH
 import qualified Ensemble.Sequencer as Sequencer
-import Ensemble.Server
+import Ensemble.Env
 import Ensemble.Tick
-import Ensemble.Type
 import Ensemble.Window
 import Foreign.Ptr
 
@@ -39,24 +38,24 @@ getMidiDevices = liftIO Engine.getMidiDevices
 
 startEngine :: Ensemble Ok
 startEngine = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.start engine
     pure Ok
 
 stopEngine :: Ensemble Ok
 stopEngine = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.stop engine
     pure Ok
 
 createMidiDeviceNode :: Argument "deviceId" Int -> Ensemble NodeId
 createMidiDeviceNode (Argument deviceId) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.createMidiDeviceNode engine deviceId
 
 deleteNode :: Argument "nodeId" NodeId -> Ensemble Ok
 deleteNode (Argument nodeId) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.deleteNode engine nodeId
     pure Ok 
 
@@ -71,7 +70,7 @@ scanForPlugins (Argument filePaths) =
     
 createPluginNode :: Argument "filePath" Text -> Argument "pluginIndex" Int -> Ensemble NodeId
 createPluginNode (Argument filePath) (Argument pluginIndex) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.createPluginNode engine $ Clap.PluginLocation (unpack filePath) pluginIndex
 
 data Size = Size
@@ -88,7 +87,7 @@ data WindowInfo = WindowInfo
 
 openPluginGUI :: Argument "nodeId" NodeId -> Argument "name" Text -> Argument "parentWindow" (Maybe Int) -> Argument "scale" Double -> Argument "preferredSize" (Maybe Size) -> Ensemble Size
 openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Argument scale) (Argument maybePreferredSize) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     maybeNode <- liftIO $ Engine.lookupNode engine nodeId
     case maybeNode of
         Just (Node_Plugin pluginNode) -> do
@@ -120,7 +119,7 @@ openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Ar
                     unless setParentResult $ Engine.throwApiError "Error setting parent window of plugin GUI"
                     showResult <- liftIO $ Gui.show pluginGuiHandle pluginHandle
                     unless showResult $ Engine.throwApiError "Error showing plugin GUI"
-                    pluginGuiThreadIdIORef <- asks server_pluginGuiThreadId
+                    pluginGuiThreadIdIORef <- asks env_pluginGuiThreadId
                     pluginGuiThreadId <- liftIO $ readIORef pluginGuiThreadIdIORef
                     unless (isJust pluginGuiThreadId) $ do
                         newPluginGuiThreadId <- liftIO $ forkIO messagePump
@@ -132,7 +131,7 @@ openPluginGUI (Argument nodeId) (Argument name) (Argument maybeParentWindow) (Ar
 
 getPluginParameters :: Argument "nodeId" NodeId -> Ensemble [ParameterInfo]
 getPluginParameters  (Argument nodeId) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     maybeNode <- liftIO $ Engine.lookupNode engine nodeId
     case maybeNode of
         Just (Node_Plugin pluginNode) -> do 
@@ -149,7 +148,7 @@ getPluginParameters  (Argument nodeId) = do
 
 getPluginParameterValue :: Argument "nodeId" NodeId -> Argument "parameterId" Int -> Ensemble (Maybe Double)
 getPluginParameterValue  (Argument nodeId) (Argument parameterId) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     maybeNode <- liftIO $ Engine.lookupNode engine nodeId
     case maybeNode of
         Just (Node_Plugin pluginNode) -> do 
@@ -164,20 +163,20 @@ getPluginParameterValue  (Argument nodeId) (Argument parameterId) = do
 -- Sequencer
 sendEvent :: Argument "sequencerEvent" SequencerEvent -> Ensemble Ok
 sendEvent (Argument event) = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.sendEventNow engine event
     pure Ok
 
 scheduleEvent :: Argument "tick" Tick -> Argument "sequencerEvent" SequencerEvent -> Ensemble Ok
 scheduleEvent (Argument tick) (Argument event) = do
-    sequencer <- asks server_sequencer
+    sequencer <- asks env_sequencer
     liftIO $ Sequencer.sendAt sequencer tick event
     pure Ok
 
 playSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Argument "loop" Bool -> Ensemble Ok
 playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
-    sequencer <- asks server_sequencer
-    engine <- asks server_engine
+    sequencer <- asks env_sequencer
+    engine <- asks env_engine
     void $ liftIO $ do
         maybeThreadId <- readIORef (Engine.engine_playbackThread engine)
         unless (isJust maybeThreadId) $ do
@@ -189,8 +188,8 @@ playSequence (Argument startTick) (Argument maybeEndTick) (Argument loop) = do
 
 renderSequence :: Argument "startTick" Tick -> Argument "endTick" (Maybe Tick) -> Ensemble AudioOutput
 renderSequence (Argument startTick) (Argument maybeEndTick) = do
-    sequencer <- asks server_sequencer
-    engine <- asks server_engine
+    sequencer <- asks env_sequencer
+    engine <- asks env_engine
     endTick <- case maybeEndTick of
         Just endTick -> pure endTick
         Nothing -> liftIO $ Sequencer.getEndTick sequencer
@@ -198,13 +197,13 @@ renderSequence (Argument startTick) (Argument maybeEndTick) = do
     
 clearSequence :: Ensemble Ok
 clearSequence = do
-    eventQueue <- asks (Sequencer.sequencer_eventQueue . server_sequencer)
+    eventQueue <- asks (Sequencer.sequencer_eventQueue . env_sequencer)
     liftIO $ writeIORef eventQueue []
     pure Ok
 
 stopPlayback :: Ensemble Ok
 stopPlayback = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ do
         maybePlaybackThreadId <- readIORef (Engine.engine_playbackThread engine)
         whenJust maybePlaybackThreadId killThread
@@ -213,7 +212,7 @@ stopPlayback = do
 
 getCurrentTick :: Ensemble Tick
 getCurrentTick = do
-    engine <- asks server_engine
+    engine <- asks env_engine
     liftIO $ Engine.getCurrentTick engine
 
 ping :: Ensemble Ok

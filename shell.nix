@@ -17,4 +17,7 @@ in
       pkgs.haskellPackages.hlint
       pkgs.cabal2nix
     ];
+    shellHook = ''
+      export LD_LIBRARY_PATH="${pkgs.fluidsynth}/lib"
+    '';
   }

@@ -15,6 +15,7 @@ in
       pkgs.haskellPackages.ghc
       pkgs.haskellPackages.hoogle
       pkgs.haskellPackages.hlint
+      pkgs.haskellPackages.ormolu
       pkgs.cabal2nix
     ];
     shellHook = ''

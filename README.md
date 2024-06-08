@@ -37,7 +37,13 @@ See [ensemble.tl](./ensemble.tl) for a [Type Language](https://core.telegram.org
 ./ensemble --interface websocket --port 3000
 ```
 
-The WebSocket endpoint will be available at `localhost:<port>`, and the same rules for message tagging apply.
+The WebSocket endpoint will be available at `localhost:<port>`. Note that all calls are asynchronous, so messages need to be tagged using the `@extra` field in order to route them back to their senders.
+
+Example request and response payloads:
+```json
+{ "@type": "getAudioDevices", "@extra": 855818240 }
+{ "@type":"AudioDevices", "@extra": 855818240, "audioDevices": [ { "name": "Microsoft Sound Mapper - Input", "index": 0}, { "name": "Speakers (Realtek (R) Audio)","index": 1 } ] }
+```
 
 ## Platforms
 
